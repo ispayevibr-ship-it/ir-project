@@ -24,6 +24,12 @@ const MARK_LABEL=/^([А-ЯЁA-Z]{1,3}|[А-ЯЁA-Z][а-яё]{1,2})(\d{1,4})(?:[-.
 // Sheet references ("КМ1-21", "КМД-3"), sheet sizes and the like are not shipping marks.
 // Column bases ("Бк1") are drawn at the column and are not members of the scheme. A radius («R400», the Latin R) is a size.
 const NOT_MARK=/^(?:М\d|Л\d|ПК|КМД?\d|КЖ\d|АР\d|Бк\d|R\d{2,4}$)/u,BASE_LABEL=/^Бк\d{1,2}$/u;
+// A mark with a hyphen of КМ «Рс-1», «Сг-10», «Св-3», «Ф-1» (written «Рс -1» too) is a mark like «Рс1»; the hyphen stays
+// in its name (the marks list has it so). Not on a sheet of АР: there «Пс-12», «Пк-3», «Д-2», «ОК-4» are panels and
+// openings its own reader takes (allowed there, they became members of a scheme). Codes of documents and gates, doors, windows «В-6», «Д-2» of the АР
+// shown on a plan of КМ are no marks.
+const MARK_HYPHEN=/^([А-ЯЁ]{1,3}|[А-ЯЁ][а-яё]{1,2})\s*-\s*(\d{1,3}(?:\.\d{1,2})?[а-я]?)$/u,HYPHEN_DOC=/^(?:АР|КМД?|КЖ|ТХ|ОВ|ВК|ЭМ|ЭО|ГП|АС|КР|ПЗ|ИР|СП|СН|ТУ|В|Д|ОК|П|Пс|Пк|ВтА)$/u;
+const arSheetOf=texts=>texts.some(t=>{const s=String(t.str||"").trim();return/-АР\d?$/u.test(s)||/^(?:Пс|Пк|ОК|ВтА)\s*-\s*\d/u.test(s)});
 // "А1", "А20" are marks in sets that use this letter for their elements: many different such labels on the sheet.
 // Alone, "А3" is a sheet format; А240…А1000 are rebar classes.
 const REBAR=/^А(?:240|300|400|500|600|800|1000)[СC]?$/u;
@@ -1091,6 +1097,8 @@ function nameUnder(t,texts){
 
 function extractScheme({segments=[],texts=[],glyphs=[],page=1,kinds=DEFAULT_KINDS}={}){
  const aMarks=aMarksOn(texts),markIndex=markIndexOf(texts);
+ const hyMarks=!arSheetOf(texts),core=m=>{if(!hyMarks)return m;const h=MARK_HYPHEN.exec(m);return h&&!HYPHEN_DOC.test(h[1])?h[1]+h[2]:m};
+ const hyName=m=>{if(!hyMarks)return m;const h=MARK_HYPHEN.exec(m);return h&&!HYPHEN_DOC.test(h[1])?h[1]+"-"+h[2]:m};
  // The height of the sizes of the sheet (four and five digits are sizes).
  const dimSize=median(texts.filter(t=>/^\d{4,5}$/.test(String(t.str).trim())).map(t=>Number(t.size)||0));
  segments=segments.filter(s=>s&&Number.isFinite(s.a?.x)&&Number.isFinite(s.b?.y)&&dist(s.a,s.b)>0.05);
@@ -1333,7 +1341,7 @@ function extractScheme({segments=[],texts=[],glyphs=[],page=1,kinds=DEFAULT_KIND
   const further=new Map();
   const labels=split.flatMap(t=>{
    const str=String(t.str||"").trim().replace(/\s+/gu,"");
-   if(usedTexts.has(t)||Math.abs(Number(t.angle)||0)>=5||!MARK_LABEL.test(str)&&!(markIndex&&/^\d{1,3}(?:\.\d{1,2})?$/u.test(str)))return[t];
+   if(usedTexts.has(t)||Math.abs(Number(t.angle)||0)>=5||!MARK_LABEL.test(core(str))&&!(markIndex&&/^\d{1,3}(?:\.\d{1,2})?$/u.test(str)))return[t];
    const more=leaderTarget(t,segments,index,axisSegs,lines).more||[];
    return[t,...more.map(m=>{const c={...t};further.set(c,m);return c})]
   });
@@ -1364,7 +1372,7 @@ function extractScheme({segments=[],texts=[],glyphs=[],page=1,kinds=DEFAULT_KIND
   const slantMarks=new Set();{
    const n=new Map(),all=new Map(),key=t=>String(t.str||"").trim().replace(/\s+/gu,"");
    for(const t of labels){
-    if(!MARK_LABEL.test(key(t)))continue;
+    if(!MARK_LABEL.test(core(key(t))))continue;
     all.set(key(t),(all.get(key(t))||0)+1);
     const sn=slantedNear(t,segments,lines,namedSegs);if(!sn.length)continue;
     const par=parallelNear(t,segments,lines,namedSegs);if(par!==null&&par<=sn[0].off)continue;
@@ -1374,7 +1382,7 @@ function extractScheme({segments=[],texts=[],glyphs=[],page=1,kinds=DEFAULT_KIND
   }
   for(const t of labels){
    // "К 1" is written with a space on some sheets.
-   let mark=String(t.str||"").trim().replace(/^([А-ЯЁA-Z]{1,3}|[А-ЯЁA-Z][а-яё]{1,2})\s+(\d)/u,"$1$2"),byIndex=false;
+   let mark=hyName(String(t.str||"").trim().replace(/^([А-ЯЁA-Z]{1,3}|[А-ЯЁA-Z][а-яё]{1,2})\s+(\d)/u,"$1$2")),byIndex=false;
    // A bare number is a mark of the index of the notes when it stands on a shelf with a slanted leader (a dimension
    // stands on its dimension line, a level on its sign).
    // So is one whose leader ends at a post drawn as a small square, written larger or smaller than the sizes (their
@@ -1415,16 +1423,16 @@ function extractScheme({segments=[],texts=[],glyphs=[],page=1,kinds=DEFAULT_KIND
      sheet_point_pt:{x:Math.round(target.x*10)/10,y:Math.round(target.y*10)/10}});
     continue
    }
-   if(usedTexts.has(t)||!MARK_LABEL.test(mark)||notMark(mark,aMarks))continue;
+   if(usedTexts.has(t)||!MARK_LABEL.test(core(mark))||notMark(core(mark),aMarks))continue;
    const box=textBox(t);
    if(box.cx<bbox.x0-40||box.cx>bbox.x1+40||box.cy<bbox.y0-40||box.cy>bbox.y1+40)continue;
    let target=targetOf(t);
    const under=nameUnder(t,local);
-   let ruledKind=markKind(mark,kinds);
+   let ruledKind=markKind(core(mark),kinds);
    // «Ф» is a truss in ГОСТ 26047, a post on many КМД sets and on some the index of every mark (Ф1…Ф145 of 355-10:
    // columns, beams, struts, bracing alike). On a scheme of beams or bracing its letter tells nothing: the marks there
    // are members, placed by their lines.
-   if(ruledKind==="column"&&kinds===DEFAULT_KINDS&&markCode(mark)?.loose&&(titleKind==="beam"||titleKind==="brace"))ruledKind="beam";
+   if(ruledKind==="column"&&kinds===DEFAULT_KINDS&&markCode(core(mark))?.loose&&(titleKind==="beam"||titleKind==="brace"))ruledKind="beam";
    // The index the notes give every mark («ФП» of 355-10 internal structures, «Т» of 355-11) is the project's own: its
    // letters are not a kind of ГОСТ 26047 (ФП is no truss there). The scheme's title decides, else the drawing.
    const indexed=Boolean(markIndex)&&kinds===DEFAULT_KINDS&&mark.startsWith(markIndex)&&/^\d/u.test(mark.slice(markIndex.length));
@@ -1469,7 +1477,7 @@ function extractScheme({segments=[],texts=[],glyphs=[],page=1,kinds=DEFAULT_KIND
    }
    // A frame column mark written beside its column without a leader: the nearest crossing of grid lines (within
    // about two text heights of the label), not the label itself. Wind posts stand between axes and are left alone.
-   if(!target.leader&&!symbol&&ruledKind==="column"&&markCode(mark)?.group==="columns"&&titleKind!=="beam"){
+   if(!target.leader&&!symbol&&ruledKind==="column"&&markCode(core(mark))?.group==="columns"&&titleKind!=="beam"){
     const c=textBox(t),reach=Math.max(30,t.size*4);let best=null;
     for(const x of linesX.filter(l=>l.name))for(const y of linesY.filter(l=>l.name)){
      const d=Math.hypot(x.pt-c.cx,y.pt-c.cy);if(d<=reach&&(!best||d<best.d))best={d,x:x.pt,y:y.pt}
@@ -1483,7 +1491,7 @@ function extractScheme({segments=[],texts=[],glyphs=[],page=1,kinds=DEFAULT_KIND
     if(Math.abs(a-90)<5)lx=nearestLine(linesX,c.x,reach);else if(a<5)ly=nearestLine(linesY,c.y,reach)}
    // A frame column whose leader ends short of its symbol (the label stands just past the row, by an outer axis
    // А or М drawn 500 off): the named grid crossing next to it, not the outer line or a dimension tick.
-   if((!lx||!ly||!lx.name||!ly.name)&&!symbol&&ruledKind==="column"&&markCode(mark)?.group==="columns"&&titleKind!=="beam"){
+   if((!lx||!ly||!lx.name||!ly.name)&&!symbol&&ruledKind==="column"&&markCode(core(mark))?.group==="columns"&&titleKind!=="beam"){
     const reach=Math.max(30,t.size*4);let best=null;
     for(const x of linesX.filter(l=>l.name))for(const y of linesY.filter(l=>l.name)){
      const d=Math.hypot(x.pt-target.x,y.pt-target.y);if(d<=reach&&(!best||d<best.d))best={d,x,y}
@@ -1494,7 +1502,7 @@ function extractScheme({segments=[],texts=[],glyphs=[],page=1,kinds=DEFAULT_KIND
    }
    // A column symbol drawn centred on a named axis (both flanges of a branch pair at equal distances from it), with
    // the leader ending at its outer edge: the column is on that axis, whatever dimension happens to fit the edge.
-   if(ruledKind==="column"&&markCode(mark)?.group==="columns"&&titleKind!=="beam"){
+   if(ruledKind==="column"&&markCode(core(mark))?.group==="columns"&&titleKind!=="beam"){
     // Offsets from the line of the strokes of the symbol around the leader's end: strokes along the line by their
     // position, strokes across it by their ends (an I drawn across a lettered axis: its flanges end at equal distances).
     const reach=Math.max(snap,14),box=q=>Math.max(q.a.x,q.b.x)>target.x-reach&&Math.min(q.a.x,q.b.x)<target.x+reach&&Math.max(q.a.y,q.b.y)>target.y-reach&&Math.min(q.a.y,q.b.y)<target.y+reach;

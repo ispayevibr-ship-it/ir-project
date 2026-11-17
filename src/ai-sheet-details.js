@@ -21,7 +21,7 @@ const LAYER=/^-\s*\d{1,4}\s*мм\s*\.?$/u,ANGLE=/^\d{1,3}\s?°$/u;
 const SIZE=/^(?:[~≈]\s?\d{1,4}(?:[,.]\d)?|[хx×]\s?\d{1,4}|t\s?=\s?\d+(?:[,.]\d+)?\s?мм\.?|[∅Ø]\s?\d+(?:[,.]\d+)?(?:\s?[хx×]\s?\d+)?|i\s?=\s?\d+(?:[,.]\d+)?\s?%)$/u;
 const REF_TO=/^(?:см\s*\.?\s*)?(?:КМД?|АР|ТХ|КЖ|АС|ОВ|ВК|ЭМ)\s?\d*\s?-\s?\d{1,3}(?:\s*(?:\.\s?\.\s?\.|…|,|-)\s*\d{1,3})*\s*\.?$/iu;
 const DIM=/^[~≈]?\d{2,6}(?:[,.]\d)?\*?$/u;
-const MARK=/^[А-ЯЁA-Z][А-ЯЁа-яёA-Za-z]{0,4}[-\s]?\d{1,3}(?:[.\-]\d{1,2})?[а-яa-z]?$/u;
+const MARK=/^[А-ЯЁA-Z][А-ЯЁа-яёA-Za-z]{0,4}(?:\s?-\s?|\s)?\d{1,3}(?:[.\-]\d{1,2})?[а-яa-z]?$/u;
 const AXIS=/^(?:[А-ЯЁ]\d?|\d{1,2}[а-я]?|0\d{1,2}(?:\/\d)?)$/u;
 const PLATE=/^[-–—−]\s?\d{1,2}(?:[,.]\d)?\s*[xх×*]\s*\d{2,4}(?:\s*[xх×*]\s*\d{2,5})?/u;
 const PROFILE=/(?:^|\s)(L\s?\d{2,3}\s*[xх×]\s*\d{1,3}(?:\s*[xх×]\s*\d{1,2})?|∟\s?\d{2,3}\s*[xх×]\s*\d{1,2}|\[\s?\d{1,2}[ПУПа-я]*|I\s?\d{2}[А-ЯБКШ]\d?|\d{2}[БКШ]\d|□\s?\d{2,3}\s*[xх×]\s*\d{1,2}(?:[,.]\d)?|гн\.?\s?\[?\s?\d{2,3}\s*[xх×]\s*\d{2,3}\s*[xх×]\s*\d|Тр\.?\s?\S+|Ø\s?\d{1,3}(?:\s*[xх×]\s*\d{1,2}(?:[,.]\d)?)?)/u;
@@ -178,7 +178,22 @@ function viewsOf(items,segments,W=0,H=0){
  const stamp=t=>W>0&&H>0&&(t.c.x>W-540&&t.c.y>H-170||t.c.x<70);
  // (КМ, КМД: a node is titled by its number in a circle, a section by «13-13», «Б-Б» — written larger than the rest)
  const hs=items.map(t=>t.h).sort((a,b)=>a-b),med=hs[Math.floor(hs.length/2)]||8;
+ // (a node's circle divided by a line across, its number over the line and the sheet under it — КМ2 л.13 ИР-71535 «28 / 10»,
+ // written as high as the sizes: the title of the node though no larger)
+ const shortSegs=new Map();for(const sg of segments||[]){if(Math.hypot(sg.a.x-sg.b.x,sg.a.y-sg.b.y)>12)continue;const k=Math.round(sg.a.x/40)+","+Math.round(sg.a.y/40);if(!shortSegs.has(k))shortSegs.set(k,[]);shortSegs.get(k).push(sg)}
+ const hzSegs=(segments||[]).filter(sg=>Math.abs(sg.a.y-sg.b.y)<.3&&Math.abs(sg.a.x-sg.b.x)>=8&&Math.abs(sg.a.x-sg.b.x)<=90);
+ const ringOver=t=>{const h=t.h;
+  for(const d of hzSegs){const y=d.a.y,x0=Math.min(d.a.x,d.b.x),x1=Math.max(d.a.x,d.b.x),r=(x1-x0)/2,cx=(x0+x1)/2;
+   if(y<t.c.y||y>t.c.y+h*1.2||Math.abs(cx-t.c.x)>h*.8||r<h*.6||r>h*2.5)continue;
+   let n=0;for(let gx=Math.round((cx-r)/40)-1;gx<=Math.round((cx+r)/40)+1;gx++)for(let gy=Math.round((y-r)/40)-1;gy<=Math.round((y+r)/40)+1;gy++)
+    for(const sg of shortSegs.get(gx+","+gy)||[])if([sg.a,sg.b].every(p=>Math.abs(Math.hypot(p.x-cx,p.y-y)-r)<=1.5))n++;
+   // (a callout of a node on a plan — its leader leaves the circle — is no title: КМ2 л.11 «22 / 12» on the plan)
+   if(n<12)continue;
+   const out=(segments||[]).some(sg=>{const da=Math.hypot(sg.a.x-cx,sg.a.y-y),db=Math.hypot(sg.b.x-cx,sg.b.y-y);return Math.abs(Math.min(da,db)-r)<=2&&Math.max(da,db)>r+4});
+   if(!out)return true}
+  return false};
  const named=t=>{if(TITLE.test(t.str)&&t.str.length<=90&&!/^(Схема|План|Узел|Разрез)\s*$/iu.test(t.str)&&!/^поз\.?\s*$/iu.test(t.str))return t.str;
+  if(!t.vert&&/^\d{1,3}[а-я]?$/u.test(t.str)&&ringOver(t))return"Узел "+t.str;
   if(t.h<med*1.4||t.vert)return null;
   if(/^\d{1,3}[а-я]?$/u.test(t.str))return"Узел "+t.str;
   if(/^(?:\d{1,2}[а-я]?\s*-\s*\d{1,2}[а-я]?|[А-ЯЁ]\s*-\s*[А-ЯЁ])$/u.test(t.str))return"Разрез "+t.str.replace(/\s+/gu,"");

@@ -578,16 +578,30 @@ function extractElevations({segments=[],texts=[]}={},page=1){
  const counts=new Map();for(const t of texts){const s=String(t.str).trim();if(/^[А-ЯЁ][а-яё]{1,2}$/u.test(s)&&!NOT_WORD_MARK.test(s))counts.set(s,(counts.get(s)||0)+1)}
  const wordMarks=new Set([...counts].filter(([,n])=>n>=3).map(([s])=>s));
  const titles=elevationTitles(texts);if(!titles.length)return[];
- const rows=bubbleRows(texts,segments);if(!rows.length)return[];
+ // (two bubbles make a row only when they are the ends the title names — «в осях Б-А по оси 8» of КМ2 л.14 ИР-71535)
+ const rows=bubbleRows(texts,segments,2);if(!rows.length)return[];
+ const spanOf=t=>{const m=/в\s+осях\s+([0-9А-ЯЁA-Z]{1,3})\s*[-–]\s*([0-9А-ЯЁA-Z]{1,3})/iu.exec(t.str);return m?[m[1],m[2]].map(n=>cyrAxis(n.toUpperCase())):null};
+ // (views side by side under titles on one line — eleven girt elevations on КМ2 л.14 ИР-71535 — share their rows of
+ //  bubbles at one height: each view takes the part of the row between the middles to the titles beside it)
+ const sideOf=title=>{const sib=titles.filter(o=>Math.abs(o.y-title.y)<=40).sort((a,b)=>a.x-b.x),k=sib.indexOf(title);
+  return{lo:k>0?(sib[k-1].x+title.x)/2:-Infinity,hi:k<sib.length-1?(sib[k+1].x+title.x)/2:Infinity}};
  const lines=buildLineIndex(segments),schemes=[];
  const horiz=segments.filter(s=>Math.abs(s.a.y-s.b.y)<=.3&&Math.abs(s.a.x-s.b.x)>=3).map(s=>({y:s.a.y,x0:Math.min(s.a.x,s.b.x),x1:Math.max(s.a.x,s.b.x)}));
  for(const title of titles){
-  const row=rows.filter(r=>r.y>title.y&&r.y-title.y<1300&&title.x>=r.x0-300&&title.x<=r.x1+300).sort((a,b)=>a.y-b.y)[0];
+  const side=sideOf(title),span=spanOf(title);
+  const part=r=>{const items=r.items.filter(t=>t.x>=side.lo&&t.x<=side.hi);if(!items.length)return null;
+   const ok=items.length>=3||items.length===2&&span&&items.every(t=>span.includes(t.str))&&items[0].str!==items[1].str;
+   return ok?{...r,items,x0:Math.min(...items.map(t=>t.x)),x1:Math.max(...items.map(t=>t.x)),whole:r}:null};
+  const row=rows.filter(r=>r.y>title.y&&r.y-title.y<1300).map(part).filter(r=>r&&title.x>=r.x0-300&&title.x<=r.x1+300||r&&r.x0>=side.lo&&r.x1<=side.hi&&side.hi<Infinity).sort((a,b)=>a.y-b.y)[0];
   if(!row)continue;
-  const region=texts.filter(t=>{const b=textBox(t);return ownerBelow(rows,b.cx,b.cy)===row&&b.cy>title.y});
-  const levels=region.filter(t=>Math.abs(t.angle||0)<10).map(t=>({mm:levelOf(t.str),y:t.y,x:t.x,w:t.width||0,s:t.size})).filter(l=>l.mm!==null);
-  placeLevels(levels,horiz,segments);
-  const f=fit(levels);if(!f)continue;
+  const region=texts.filter(t=>{const b=textBox(t);return ownerBelow(rows,b.cx,b.cy)===row.whole&&b.cy>title.y&&b.cx>=side.lo&&b.cx<=side.hi});
+  const levelsIn=list=>{const l=list.filter(t=>Math.abs(t.angle||0)<10).map(t=>({mm:levelOf(t.str),y:t.y,x:t.x,w:t.width||0,s:t.size})).filter(l=>l.mm!==null);placeLevels(l,horiz,segments);return l};
+  let levels=levelsIn(region),f=fit(levels);
+  // (the levels written past the middle to the next view, by the side of the row — ось Н of КМ2 л.14, its levels at the
+  //  right beside the view «по оси 09»)
+  if(!f){const wide=texts.filter(t=>{const b=textBox(t);return b.cy>title.y&&b.cy<row.y&&b.cx>=row.x0-260&&b.cx<=row.x1+260});
+   levels=levelsIn(wide);f=fit(levels);for(const t of wide)if(!region.includes(t)&&levelOf(t.str)!==null)region.push(t)}
+  if(!f)continue;
   const scale=Math.abs(f.b),values=[...new Set(levels.map(l=>l.mm))];
   const toZ=y=>{const v=f.a+f.b*y,near=values.reduce((p,c)=>Math.abs(c-v)<Math.abs(p-v)?c:p);return Math.abs(near-v)<=SNAP?near:Math.round(v/ROUND)*ROUND};
   // Axis positions: bubble centres, spans corrected to the dimensions written under them.
@@ -677,7 +691,7 @@ function extractElevations({segments=[],texts=[]}={},page=1){
   }
   if(!placements.length)continue;
   const names=axes.map(a=>a.name),spans=axes.slice(1).map((a,i)=>a.mm-axes[i].mm),byX=numbered(title.name);
-  schemes.push({kind:"elevation",title:title.str,bbox:{x0:row.x0-260,x1:row.x1+260,y0:title.y,y1:row.y},scaleMmPerPt:Math.round(scale*1000)/1000,
+  schemes.push({kind:"elevation",title:title.str,bbox:{x0:Math.max(row.x0-260,side.lo),x1:Math.min(row.x1+260,side.hi),y0:title.y,y1:row.y},scaleMmPerPt:Math.round(scale*1000)/1000,
    axesX:byX?[title.name]:names,axesY:byX?names:[title.name],spansX:byX?[]:spans,spansY:byX?spans:[],
    sizeX:byX?0:axes[axes.length-1].mm,sizeY:byX?axes[axes.length-1].mm:0,placements,warnings:[]})
  }
