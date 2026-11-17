@@ -614,8 +614,10 @@ function growLine(seed,segments,lines,skip){
  const piece=i=>{
   const s=segments[i],l=dist(s.a,s.b);if(l<1)return null;
   const v={x:(s.b.x-s.a.x)/l,y:(s.b.y-s.a.y)/l};
-  if(Math.abs(cross(u,v))>.02||Math.abs(cross(u,{x:s.a.x-a0.x,y:s.a.y-a0.y}))>.8)return null;
   const t1=(s.a.x-a0.x)*u.x+(s.a.y-a0.y)*u.y,t2=(s.b.x-a0.x)*u.x+(s.b.y-a0.y)*u.y;
+  // (a line of dashes followed from a dash 8 pt long: its direction is known to a degree or so — far along, the line
+  //  is a point or more off it; КМ2 л.7, the diagonals of Сг-9 stopped half-way)
+  if(Math.abs(cross(u,v))>.02||Math.abs(cross(u,{x:s.a.x-a0.x,y:s.a.y-a0.y}))>Math.max(.8,dash&&len<30?Math.max(Math.abs(t1),Math.abs(t2))*.012:0))return null;
   return{l,lo:Math.min(t1,t2),hi:Math.max(t1,t2)}
  };
  // A member drawn dash-dot (struts and bracing on a scheme): a short dash, and another of about its length at most
@@ -693,6 +695,28 @@ function growLine(seed,segments,lines,skip){
  };
  for(let n=0;n<4&&slanted&&!dash;n++){
   const b=overCross(1),a=overCross(-1);if(b===null&&a===null)break;
+  if(b!==null)tB=b;if(a!==null)tA=a;grow()
+ }
+ // The same for a cross drawn dashed (КМ2 л.7: Сг-9 by the purlins — the dash of the other diagonal takes the middle,
+ // a gap of about two dashes): a dash of the same length beyond, and a slanted dash of the other diagonal across the gap.
+ const dashCross=dir=>{
+  const t0=dir>0?tB:tA;let best=null;
+  for(const i of lines.near(at(t0+dir*dash),dash+4)){
+   if(skip.has(i))continue;const p=piece(i);if(!p||Math.abs(p.l-len)>len*.5)continue;
+   const gap=dir>0?p.lo-t0:t0-p.hi;if(gap<=dash||gap>dash*2.8)continue;
+   const far=dir>0?p.hi:p.lo;if(best===null||gap<best.gap)best={far,gap}
+  }
+  if(!best)return null;
+  const g0=dir>0?t0:t0-best.gap,P=at(g0);
+  const hit=lines.near(at(g0+best.gap/2),best.gap/2+len).some(i=>{
+   if(skip.has(i))return false;const s=segments[i],l=dist(s.a,s.b);if(l<3)return false;
+   const v={x:(s.b.x-s.a.x)/l,y:(s.b.y-s.a.y)/l};if(Math.abs(v.x)<.17||Math.abs(v.y)<.17||Math.abs(cross(u,v))<.34)return false;
+   const den=cross(u,v),w={x:s.a.x-P.x,y:s.a.y-P.y},k=cross(w,v)/den,m=cross(w,u)/den;
+   return k>=best.gap*.2&&k<=best.gap*.8&&m>=-.5&&m<=l+.5});
+  return hit?best.far:null
+ };
+ for(let n=0;n<4&&slanted&&dash;n++){
+  const b=dashCross(1),a=dashCross(-1);if(b===null&&a===null)break;
   if(b!==null)tB=b;if(a!==null)tA=a;grow()
  }
  return{a:at(tA),b:at(tB)}
@@ -795,7 +819,8 @@ function memberLine(t,target,segments,lines,skip,slant=false){
  {
   for(const i of lines.near(f.c,f.w/2+f.h*2.2)){
    if(skip.has(i))continue;
-   const s=segments[i],l=dist(s.a,s.b);if(l<10)continue;
+   // (a dash of a dashed member is short: КМ2 л.7, «Сг-10» along its diagonal of dashes 8.5 pt long)
+   const s=segments[i],l=dist(s.a,s.b);if(l<10&&!(l>=5&&dashOf(i,segments,lines)))continue;
    const v={x:(s.b.x-s.a.x)/l,y:(s.b.y-s.a.y)/l};
    if(Math.abs(cross(v,f.dir))>.07)continue;
    const w={x:f.c.x-s.a.x,y:f.c.y-s.a.y},along=w.x*v.x+w.y*v.y,off=Math.abs(cross(v,w));
@@ -1120,7 +1145,27 @@ function nameUnder(t,texts){
  return u?"Ограждение":null
 }
 
+// A mark written in two pieces, its letters and «-9» after them on one baseline (КМ2 л.7 ИР-71535: «Сг» «-9» along the
+// diagonals of the cross, three of the six labels): one label.
+function joinSplitMarks(texts){
+ const out=texts.slice(),gone=new Set();
+ for(const a of texts){
+  if(gone.has(a)||!/^[А-ЯЁ][а-яё]{0,3}$/u.test(String(a.str||"").trim()))continue;
+  const fa=textFrame(a),h=fa.h;
+  for(const b of texts){
+   if(b===a||gone.has(b)||!/^-\s?\d{1,3}$/.test(String(b.str||"").trim()))continue;
+   if(Math.abs((Number(a.angle)||0)-(Number(b.angle)||0))>3||Math.abs((Number(b.size)||0)-h)>h*.15)continue;
+   const w={x:b.x-a.x,y:b.y-a.y},al=w.x*fa.dir.x+w.y*fa.dir.y,off=Math.abs(w.x*fa.dir.y-w.y*fa.dir.x);
+   if(al<fa.w-h*.2||al>fa.w+h*.9||off>h*.35)continue;
+   gone.add(a);gone.add(b);
+   out[out.indexOf(a)]={...a,str:String(a.str).trim()+String(b.str).trim().replace(/\s+/g,""),width:al+(Number(b.width)||0)};
+   out.splice(out.indexOf(b),1);break
+  }
+ }
+ return out
+}
 function extractScheme({segments=[],texts=[],glyphs=[],page=1,kinds=DEFAULT_KINDS}={}){
+ texts=joinSplitMarks(texts);
  const aMarks=aMarksOn(texts),markIndex=markIndexOf(texts);
  const hyMarks=!arSheetOf(texts),core=m=>{if(!hyMarks)return m;const h=MARK_HYPHEN.exec(m);return h&&!HYPHEN_DOC.test(h[1])?h[1]+h[2]:m};
  const hyName=m=>{if(!hyMarks)return m;const h=MARK_HYPHEN.exec(m);return h&&!HYPHEN_DOC.test(h[1])?h[1]+"-"+h[2]:m};
@@ -1625,7 +1670,9 @@ function extractScheme({segments=[],texts=[],glyphs=[],page=1,kinds=DEFAULT_KIND
   // A mark found a bay long elsewhere on the scheme is as long here: a label alone on a line through several bays names
   // the bay it stands in.
   const shortest=new Map();
-  for(const p of placements){const n=Math.hypot((p.x2_mm??p.x_mm)-p.x_mm,(p.y2_mm??p.y_mm)-p.y_mm);if(n>0&&!(shortest.get(p.mark)<=n))shortest.set(p.mark,n)}
+  // (a label with no leader and no line of its own, its piece by the grid lines next to it, is not a measure: one «П1» beside the purlins of
+  //  КМ2 л.7 ИР-71535 between the axis К/1 and the truss cut all of them from truss to truss down to that piece)
+  for(const p of placements){if(drawn.has(p)&&!tips.has(p)&&!bare.has(p)&&!drawn.get(p).cut)continue;const n=Math.hypot((p.x2_mm??p.x_mm)-p.x_mm,(p.y2_mm??p.y_mm)-p.y_mm);if(n>0&&!(shortest.get(p.mark)<=n))shortest.set(p.mark,n)}
   for(const [p,d] of drawn){
    const L=!d.cut&&lineOf(d);if(!L||L.cuts.length<3)continue;
    if(!(shortest.get(p.mark)<Math.hypot(p.x2_mm-p.x_mm,p.y2_mm-p.y_mm)*0.6))continue;
@@ -1858,4 +1905,4 @@ function titleFor(titles,bbox){
  return best?.str||"Схема без названия"
 }
 
-module.exports={extractScheme,fixReadSizes,leaderTarget,buildIndex,findBubble,markIndexOf,axisFromBubble,dimensionScale,dimensionsOf,flightsOf,climbOf,levelMarksNear,nodeBoxes,titleLevels,columnSymbol,textBox,textFrame,memberLine,buildLineIndex,DEFAULT_KINDS,KIND_NAMES,notMark,aMarksOn};
+module.exports={extractScheme,joinSplitMarks,fixReadSizes,leaderTarget,buildIndex,findBubble,markIndexOf,axisFromBubble,dimensionScale,dimensionsOf,flightsOf,climbOf,levelMarksNear,nodeBoxes,titleLevels,columnSymbol,textBox,textFrame,memberLine,buildLineIndex,DEFAULT_KINDS,KIND_NAMES,notMark,aMarksOn};

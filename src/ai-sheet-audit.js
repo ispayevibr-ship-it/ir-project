@@ -15,7 +15,7 @@
  * Нераспознанные надписи (ни один вид не подошёл) перечисляются: ни один символ листа не пропадает молча.
  * Только чтение: сверка ничего не меняет в найденном.
  */
-const {textBox,textFrame,leaderTarget,buildIndex,buildLineIndex,dimensionsOf,markIndexOf,notMark,aMarksOn,findBubble}=require("./ai-scheme-extract");
+const {textBox,textFrame,leaderTarget,buildIndex,buildLineIndex,dimensionsOf,markIndexOf,notMark,aMarksOn,findBubble,joinSplitMarks}=require("./ai-scheme-extract");
 
 const MARK=/^([А-ЯЁA-Z]{1,3}|[А-ЯЁA-Z][а-яё]{1,2})\s?(\d{1,4})(?:[-.]\d{1,3})?[а-я]?$/u;
 const AXIS=/^(?:[А-ЯЁA-Z]{0,2}\d{1,3}[а-яa-z]?|[А-ЯЁA-Z]{1,2})(?:\/\d{1,2})?$/u;
@@ -70,7 +70,7 @@ function numbersIn(obj,out=new Set(),depth=0){
 }
 
 function auditSheet(geometry,page){
- const texts=(geometry?.texts||[]).filter(t=>String(t?.str||"").trim());
+ const texts=joinSplitMarks((geometry?.texts||[]).filter(t=>String(t?.str||"").trim()));
  const segments=(geometry?.segments||[]).filter(s=>s&&Number.isFinite(s.a?.x)&&Number.isFinite(s.b?.y)&&near(s.a,s.b)>0.05);
  const schemes=(page?.schemes||[]).filter(s=>!s.error&&s.bbox);
  const aMarks=aMarksOn(texts),markIndex=markIndexOf(texts);

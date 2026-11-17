@@ -716,24 +716,44 @@ function extractElevations({segments=[],texts=[]}={},page=1){
     if(vertical&&Math.abs(a.z-b.z)<300||!vertical&&Math.abs(a.u-b.u)<200&&Math.abs(a.z-b.z)<200)continue;
     if(!found.some(f=>f.line.a.x===line.a.x&&f.line.a.y===line.a.y&&f.line.b.x===line.b.x&&f.line.b.y===line.b.y))found.push({line,a,b,vertical,flat})
    }
-   // A girt under a gentle slope (1:10 or so) with its label over it, level: the line under the label, cut to the bay of
-   // the label (Ро, Ро1 of the sloped tops of the walls on КМ2 л.14 ИР-71535 — too steep to be read along the label, too
-   // flat for a brace).
-   if(!found.length&&!post&&!postMark(str)&&!/^[а-я]$/u.test(mark)&&!led&&Math.abs(Number(t.angle)||0)<5){
-    const fr=textFrame(t),h=Number(t.size)||8;let best=null;
-    for(const i of lines.near(fr.c,fr.w/2+h*2.2)){if(skip.has(i))continue;const q=segments[i],l=Math.hypot(q.b.x-q.a.x,q.b.y-q.a.y);if(l<h*4)continue;
-     const v={x:(q.b.x-q.a.x)/l,y:(q.b.y-q.a.y)/l},sl=Math.abs(v.y);if(sl<.06||sl>.34)continue;
-     const w={x:fr.c.x-q.a.x,y:fr.c.y-q.a.y},al=w.x*v.x+w.y*v.y,off=v.x*w.y-v.y*w.x;
-     if(al<0||al>l)continue;const below=(v.x>0?off:-off)<0;if(!below||Math.abs(off)>h*1.7)continue;
-     if(!best||Math.abs(off)<best.off)best={off:Math.abs(off),q}}
-    if(best){const q=best.q,[p0,p1]=q.a.x<=q.b.x?[q.a,q.b]:[q.b,q.a],yAt=x=>p0.y+(p1.y-p0.y)*(x-p0.x)/((p1.x-p0.x)||1);
+   // A girt under a gentle slope (1:10 or so) with its label over it, level: the line under the label (Ро, Ро1 of the
+   // sloped tops of the walls on КМ2 л.14 ИР-71535 — too steep to be read along the label, too flat for a brace).
+   // The member is drawn thick: the thin line over it (the edge of the panel) and the thin lines between are not it — the
+   // nearest thick line under the label is its top, as of the level girts. A line taken along the label that is thin, or
+   // a level one farther down than a thick sloped one, gives way to it (Рст of «по оси Ж», Ро1 of «по оси Г»).
+   // One label on its line names the whole line; the labels of several girts on one line — each its bay.
+   if(!post&&!postMark(str)&&!/^[а-я]$/u.test(mark)&&!led&&Math.abs(Number(t.angle)||0)<5&&found.length<=1&&!(found[0]&&found[0].vertical)){
+    const fr=textFrame(t),h=Number(t.size)||8,cand=[];
+    const offOf=(q,pt)=>{const l=Math.hypot(q.b.x-q.a.x,q.b.y-q.a.y)||1,v={x:(q.b.x-q.a.x)/l,y:(q.b.y-q.a.y)/l},w={x:pt.x-q.a.x,y:pt.y-q.a.y},al=w.x*v.x+w.y*v.y;return{al,l,off:(v.x>0?1:-1)*(v.x*w.y-v.y*w.x),sl:Math.abs(v.y)}};
+    for(const i of lines.near(fr.c,fr.w/2+h*2.6)){if(skip.has(i))continue;const q=segments[i];const o=offOf(q,fr.c);if(o.l<h*4||o.sl>.34)continue;
+     if(o.al<0||o.al>o.l||o.off>=0||-o.off>h*2.2)continue;cand.push({off:-o.off,q,w:Number(q.w)||0,sl:o.sl})}
+    const wMax=Math.max(0,...cand.map(c=>c.w));let best=null;
+    for(const c of cand)if(!(c.w<wMax*.8)&&(!best||c.off<best.off))best=c;
+    // (the level marks at the ends of a sloped girt name its line: «+4,786» and «+4,170» of Ро «по оси 8» — the lower of
+    //  its two thick pairs; a thick line the marks of its ends agree with goes first)
+    if(best&&best.sl>=.06){const marks=region.map(o=>({o,m:/^[+-−]?\s?(\d{1,2}),(\d{3})$/u.exec(String(o.str).trim())})).filter(x=>x.m).map(({o,m})=>({x:textFrame(o).c.x,y:Number(o.y),mm:(/^[-−]/u.test(String(o.str).trim())?-1:1)*(Number(m[1])*1000+Number(m[2]))}));
+     const agree=c=>{let n=0;for(const e of [c.q.a,c.q.b])if(marks.some(k=>Math.abs(k.x-e.x)<=h*9&&Math.abs(k.y-e.y)<=h*1.5&&Math.abs(toZ(e.y)-k.mm)<=60))n++;return n};
+     let top=agree(best);for(const c of cand)if(!(c.w<wMax*.8)&&c.sl>=.06&&c.off<=h*2.2){const n=agree(c);if(n>top){top=n;best=c}}}
+    let use=false;
+    if(best&&wMax>0){
+     if(!found.length)use=best.sl>=.06&&best.off<=h*1.7;
+     else{const fl=found[0].line,o=offOf({a:fl.a,b:fl.b},fr.c),yl=fl.a.y+(fl.b.y-fl.a.y)*(fr.c.x-fl.a.x)/((fl.b.x-fl.a.x)||1);
+      // (the width of the line along the label: of the strokes on it under the label)
+      let wl=0;for(const i of lines.near({x:fr.c.x,y:yl},2)){const q=segments[i],r=offOf(q,{x:fr.c.x,y:yl});if(r.al>=-.5&&r.al<=r.l+.5&&Math.abs(r.off)<.4&&Math.abs(offOf(q,fl.a).off)<.6)wl=Math.max(wl,Number(q.w)||0)}
+      // (a thin line over the label — the outline of the panels over the girt, not it)
+      if(wl<wMax*.8&&(o.off>0||best.sl>=.06))use=true;
+      else if(found[0].flat&&best.sl>=.06&&best.off<Math.abs(o.off)-.4)use=true}}
+    if(use){const q=best.q,[p0,p1]=q.a.x<=q.b.x?[q.a,q.b]:[q.b,q.a],yAt=x=>p0.y+(p1.y-p0.y)*(x-p0.x)/((p1.x-p0.x)||1);
      const c=along(fr.c.x),lowAxis=axes.filter(x=>x.mm<=c).at(-1),highAxis=axes.find(x=>x.mm>c);
      const xOf=mm=>{let lo=p0.x,hi=p1.x;for(let k=0;k<40;k++){const m=(lo+hi)/2;if((raw(m)-mm)*(raw(p1.x)-raw(p0.x))<0)lo=m;else hi=m}return(lo+hi)/2};
      let x0=p0.x,x1=p1.x;
-     if(lowAxis){const xa=xOf(lowAxis.mm);if(xa>x0&&xa<x1)(raw(p1.x)>raw(p0.x)?(x0=xa):(x1=xa))}
-     if(highAxis){const xb=xOf(highAxis.mm);if(xb>x0&&xb<x1)(raw(p1.x)>raw(p0.x)?(x1=xb):(x0=xb))}
-     const line={a:{x:x0,y:yAt(x0)},b:{x:x1,y:yAt(x1)}},a={u:along(line.a.x),z:toZ(line.a.y)},b={u:along(line.b.x),z:toZ(line.b.y)};
-     if(Math.abs(a.u-b.u)>=200&&[a.z,b.z].every(z=>z>=lo&&z<=hi)&&!(Math.min(a.u,b.u)>axes[axes.length-1].mm+1500||Math.max(a.u,b.u)<axes[0].mm-1500))found.push({line,a,b,vertical:false,flat:false})}
+     const shared=best.sl<.003||region.some(o=>o!==t&&String(o.str).trim()===str&&Math.abs(Number(o.angle)||0)<5&&(()=>{const c2=textFrame(o).c,r=offOf(q,c2);return r.al>=0&&r.al<=r.l&&r.off<0&&-r.off<=h*2.2})());
+     if(shared){
+      if(lowAxis){const xa=xOf(lowAxis.mm);if(xa>x0&&xa<x1)(raw(p1.x)>raw(p0.x)?(x0=xa):(x1=xa))}
+      if(highAxis){const xb=xOf(highAxis.mm);if(xb>x0&&xb<x1)(raw(p1.x)>raw(p0.x)?(x1=xb):(x0=xb))}}
+     const flat=Math.abs(yAt(x0)-yAt(x1))<1.5,line={a:{x:x0,y:flat?yAt(fr.c.x):yAt(x0)},b:{x:x1,y:flat?yAt(fr.c.x):yAt(x1)}},a={u:along(line.a.x),z:toZ(line.a.y)},b={u:along(line.b.x),z:toZ(line.b.y)};
+     if(fixed)for(const e of [a,b])if(e.z<f.floor&&e.z>f.floor-400)e.z=f.floor;
+     if(Math.abs(a.u-b.u)>=200&&[a.z,b.z].every(z=>z>=lo&&z<=Math.max(hi,fixed?hi:toZ(title.y)))&&!(Math.min(a.u,b.u)>axes[axes.length-1].mm+1500||Math.max(a.u,b.u)<axes[0].mm-1500)){found.length=0;found.push({line,a,b,vertical:false,flat})}}
    }
    const at=u=>numbered(title.name)?{x:0,y:u}:{x:u,y:0};
    const base={mark,page,sheet_point_pt:{x:Math.round(t.x),y:Math.round(t.y)},axis_x:numbered(title.name)?title.name:"",axis_y:numbered(title.name)?"":title.name,confidence:"medium"};
