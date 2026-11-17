@@ -1094,7 +1094,27 @@ let loose=0;
  // panels over it end at 36230 (beyond, the step wall and the lower roof): 38 mm and its reveal in the air — the
  // engineer, 13.11.2026: «откос вообще стоит где попало» —: no further than the panels over its head, up to 100 mm;
  // the panel at its other end gets its hole.
+ // The opening the columns of panels leave beside it, of its width (40 mm either way), up to 150 mm off — the layout
+ // draws the opening it is mounted in, the facade is drawn looser: ИР-71535 АР ч.1 л.16 row О10, the doors Д-3 at
+ // 34280, 38293, 49300 and the gates В-2, В-3, ОК-4 over В-3 70…115 mm along the wall from the openings of the layout
+ // АР ч.2 л.4, л.14 — a slit of 70…100 mm from the floor to the head on one side, the door in the panel on the other
+ // (the engineer, 17.11.2026 export, «дожми до 0»): moved into that opening — to its middle, a gate of 4000 in 4030
+ // with 15 mm a side under its reveals —, before the rest.
+ const intoGap=(numbered,a,b,z,H,list)=>{
+  const c=(a+b)/2,w=b-a;let L=-Infinity,R=Infinity;
+  for(const p of list){if(p.layout.cut||p.layout.top)continue;const p0=numbered?p.x_mm:p.y_mm,p1=numbered?p.x2_mm:p.y2_mm,lo=Math.min(p0,p1),hi=Math.max(p0,p1);
+   const oz=Math.min(z+H,p.z0_mm+p.diameter_mm)-Math.max(z,p.z0_mm);if(oz<Math.min(H/2,300))continue;
+   if((lo+hi)/2<c){if(hi<c)L=Math.max(L,hi)}else if(lo>c)R=Math.min(R,lo)}
+  if(!isFinite(L)||!isFinite(R)||Math.abs(R-L-w)>40)return 0;
+  const u=R-L>=w?(L+R)/2-c:(Math.abs(L-a)<=Math.abs(R-b)?L-a:R-b);
+  return Math.abs(u)>5&&Math.abs(u)<=150?Math.round(u):0
+ };
  const seatBlock=(numbered,a,b,z,H,list,floor=false)=>{
+  const g=intoGap(numbered,a,b,z,H,list);
+  if(g){const r=seatBlock1(numbered,a+g,b+g,z,H,list,floor);return{a:r.a,b:r.b,z:r.z,moved:[g+(r.moved?r.moved[0]:0),r.moved?r.moved[1]:0]}}
+  return seatBlock1(numbered,a,b,z,H,list,floor)
+ };
+ const seatBlock1=(numbered,a,b,z,H,list,floor=false)=>{
   const res=seatBlock0(numbered,a,b,z,H,list,floor);if(floor)return res;
   const head=list.filter(p=>!p.layout.cut).map(p=>{const p0=numbered?p.x_mm:p.y_mm,p1=numbered?p.x2_mm:p.y2_mm;return{lo:Math.min(p0,p1),hi:Math.max(p0,p1),z0:p.z0_mm}})
    .filter(q=>Math.abs(q.z0-(res.z+H))<=60&&Math.min(res.b,q.hi)-Math.max(res.a,q.lo)>1);
