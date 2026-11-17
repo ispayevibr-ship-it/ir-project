@@ -587,7 +587,31 @@ function extractElevations({segments=[],texts=[]}={},page=1){
   return{lo:k>0?(sib[k-1].x+title.x)/2:-Infinity,hi:k<sib.length-1?(sib[k+1].x+title.x)/2:Infinity}};
  const lines=buildLineIndex(segments),schemes=[];
  const horiz=segments.filter(s=>Math.abs(s.a.y-s.b.y)<=.3&&Math.abs(s.a.x-s.b.x)>=3).map(s=>({y:s.a.y,x0:Math.min(s.a.x,s.b.x),x1:Math.max(s.a.x,s.b.x)}));
- for(const title of titles){
+ // A view without a single level mark (КМ2 л.14 ИР-71535 «по оси А»: only the chain 2180 / 830 / 1100 from the floor)
+ // is read after the others: the scale of its bubbles over the dimensions under them, the floor its posts stand on at the
+ // level most of the views beside it start from.
+ const queue=titles.map(title=>({title})),floors=[],scales=[];
+ // Labels of the elevation: shipping marks, word marks, «Ст1» / «Ст 1» of the posts (a steel grade is never written
+ // alone on a member), and one lowercase letter — «а» of the short posts — when the sheet writes it on members often.
+ const lowerCount=new Map();for(const t of texts){const s=String(t.str).trim();if(/^[а-я]$/u.test(s))lowerCount.set(s,(lowerCount.get(s)||0)+1)}
+ const postMark=s=>/^Ст\s?\d{1,2}$/u.test(s)?s.replace(/\s+/g,""):null;
+ const floorFit=(title,row,region)=>{
+  if(!floors.length)return null;
+  const mid=a=>{const b=[...a].sort((x,y)=>x-y);return b[b.length>>1]};
+  const vote=new Map();for(const v of floors)vote.set(v,(vote.get(v)||0)+1);
+  const floor=[...vote].sort((a,b)=>b[1]-a[1]||a[0]-b[0])[0][0];
+  const pts=row.items.map(t=>t.x+(t.width||0)/2).sort((a,b)=>a-b),guess=mid(scales);
+  const dims=region.filter(t=>Math.abs(t.angle||0)<10&&/^\d{3,5}$/.test(String(t.str).trim())).map(t=>Number(t.str));
+  const got=[];for(let i=1;i<pts.length;i++){const d=pts[i]-pts[i-1],m=dims.filter(v=>Math.abs(v-d*guess)<=d*guess*.06);if(m.length)got.push(m[0]/d)}
+  const scale=got.length?mid(got):guess,x0=pts[0]-20,x1=pts[pts.length-1]+20;
+  // the floor: the long line under the view where most of its posts end
+  let best=null;
+  for(const h of horiz){if(h.y<=title.y||h.y>=row.y||h.x1-h.x0<(x1-x0)*.5||h.x1<x0||h.x0>x1)continue;
+   const n=segments.filter(v=>Math.abs(v.a.x-v.b.x)<=.3&&v.a.x>=x0&&v.a.x<=x1&&Math.abs(v.a.y-v.b.y)>=15&&Math.abs(Math.max(v.a.y,v.b.y)-h.y)<=1.5).length;
+   if(n>=3&&(!best||n>best.n||n===best.n&&h.y>best.y))best={y:h.y,n}}
+  return best?{a:floor+scale*best.y,b:-scale,floor,y:best.y}:null};
+ for(let qi=0;qi<queue.length;qi++){
+  const {title,fixed}=queue[qi];
   const side=sideOf(title),span=spanOf(title);
   const part=r=>{const items=r.items.filter(t=>t.x>=side.lo&&t.x<=side.hi);if(!items.length)return null;
    const ok=items.length>=3||items.length===2&&span&&items.every(t=>span.includes(t.str))&&items[0].str!==items[1].str;
@@ -601,7 +625,9 @@ function extractElevations({segments=[],texts=[]}={},page=1){
   //  right beside the view «по оси 09»)
   if(!f){const wide=texts.filter(t=>{const b=textBox(t);return b.cy>title.y&&b.cy<row.y&&b.cx>=row.x0-260&&b.cx<=row.x1+260});
    levels=levelsIn(wide);f=fit(levels);for(const t of wide)if(!region.includes(t)&&levelOf(t.str)!==null)region.push(t)}
-  if(!f)continue;
+  if(!f&&!fixed){queue.push({title,fixed:true});continue}
+  if(!f){f=floorFit(title,row,region);if(!f)continue;levels=[{mm:f.floor,y:f.y}]}
+  else{floors.push(Math.min(...levels.map(l=>l.mm)));scales.push(Math.abs(f.b))}
   const scale=Math.abs(f.b),values=[...new Set(levels.map(l=>l.mm))];
   const toZ=y=>{const v=f.a+f.b*y,near=values.reduce((p,c)=>Math.abs(c-v)<Math.abs(p-v)?c:p);return Math.abs(near-v)<=SNAP?near:Math.round(v/ROUND)*ROUND};
   // Axis positions: bubble centres, spans corrected to the dimensions written under them.
@@ -642,17 +668,36 @@ function extractElevations({segments=[],texts=[]}={},page=1){
    const axis=vertical.filter(([s])=>Math.abs(s.a.x-b.pt)<=3&&Math.max(s.a.y,s.b.y)>=row.y-size*2.5&&Math.max(s.a.y,s.b.y)<=row.y+2).sort(([p],[q])=>Math.abs(p.a.x-b.pt)-Math.abs(q.a.x-b.pt))[0];
    for(const [s,i] of vertical)if(axis?Math.abs(s.a.x-axis[0].a.x)<=.3:Math.abs(b.pt-s.a.x)<1.2)skip.add(i)
   }
-  const lo=Math.min(...values)-1000,hi=Math.max(...values)+1500,placements=[],index=buildIndex(segments);
+  const lo=Math.min(...values)-1000,hi=fixed?f.a+f.b*title.y:Math.max(...values)+1500,placements=[],index=buildIndex(segments);
   for(const t of region){
-   const mark=String(t.str).trim();if(!(MARK.test(mark)||wordMarks.has(mark))||skipMark(mark,aMarks)||axisNames.has(cyrAxis(mark)))continue;
+   const str=String(t.str).trim(),mark=postMark(str)||str;
+   if(!postMark(str)&&!(/^[а-я]$/u.test(mark)&&lowerCount.get(mark)>=5)&&(!(MARK.test(mark)||wordMarks.has(mark))||skipMark(mark,aMarks)||axisNames.has(cyrAxis(mark))))continue;
    // A label on a shelf with a slanted leader names the member at the leader's end — at each end, when it has several
    // (ГПЭС М1.19, ось А: «К21» on the post of axis 2, «К3» on both rails of a window). Others lie along their member.
    // A leader is one line: a slanted line with another along it a few points off is an edge of a brace drawn behind the
    // member the label stands on (ГПЭС М1.18, ось 1: «К100» on its crossbar between two posts, the brace behind it).
    const tg=Math.abs(Number(t.angle)||0)<5?leaderTarget(t,segments,index,skip,lines):null;
    const led=tg&&tg.leader&&tg.diagonal&&tg.shelf&&!edgeOf(tg.segment,segments,lines),found=[];
-   for(const target of led?[tg,...(tg.more||[]).filter(m=>!edgeOf(m.segment,segments,lines)).map(m=>({...tg,...m}))]:[{leader:false}]){
-    const line0=memberLine(t,target,segments,lines,skip);if(!line0)continue;
+   // A post's label without a leader stands beside its post, not along a girt: «Ст 1», «а» of КМ2 л.14 ИР-71535 —
+   // the nearest upright line at the height of the label.
+   const post=!led&&(postMark(str)||/^[а-я]$/u.test(mark))?(()=>{const f=textFrame(t),h=Number(t.size)||8;let best=null;
+    // (a dimension line beside the post, drawn thinner, is not it — «2500» by «Ст 1» of the door in «по оси А»)
+    const cand=[];for(const i of lines.near(f.c,f.w/2+h*2.5)){if(skip.has(i))continue;const q=segments[i];if(Math.abs(q.a.x-q.b.x)>.3)continue;
+     const y0=Math.min(q.a.y,q.b.y),y1=Math.max(q.a.y,q.b.y);if(y1-y0<h*.7||f.c.y<y0-h*.3||f.c.y>y1+h*.3)continue;
+     // (a column running through the whole view is not the short post beside it — «а» of «по оси Ж»)
+     if(y1-y0>(row.y-title.y)*.6)continue;
+     const gap=Math.max(0,Math.abs(q.a.x-f.c.x)-f.w/2);if(gap<=h*2.5)cand.push({gap,i,x:q.a.x,y0,y1,w:Number(q.w)||0})}
+    const wMax=Math.max(0,...cand.map(c=>c.w));
+    for(const c of cand)if(!(c.w<wMax*.8)&&(!best||c.gap<best.gap))best=c;
+    if(!best)return null;
+    // (the post itself, not the longest line through it: the lines of the posts of the tier below run on under the girt —
+    //  «а» of «по оси Ж» taken from the floor to the top; a post drawn by both its edges stands on the middle of them, so
+    //  its labels on either side name one post)
+    const twin=cand.filter(c=>c!==best&&Math.abs(c.x-best.x)>=.8&&Math.abs(c.x-best.x)<=h*.45&&Math.min(c.y1,best.y1)-Math.max(c.y0,best.y0)>=(best.y1-best.y0)*.6&&!(c.w<wMax*.8)).sort((p,q)=>Math.abs(p.x-best.x)-Math.abs(q.x-best.x))[0];
+    const x=twin?(best.x+twin.x)/2:best.x;
+    return{leader:true,x,y:f.c.y,segment:-1,line:{a:{x,y:best.y0},b:{x,y:best.y1}}}})():null;
+   for(const target of led?[tg,...(tg.more||[]).filter(m=>!edgeOf(m.segment,segments,lines)).map(m=>({...tg,...m}))]:post?[post]:postMark(str)||/^[а-я]$/u.test(mark)?[]:[{leader:false}]){
+    const line0=target.line||memberLine(t,target,segments,lines,skip);if(!line0)continue;
     const line=Math.abs(line0.a.x-line0.b.x)<1.5?thickEnds(line0,segments,lines):line0;
     const a={u:along(line.a.x),z:toZ(line.a.y)},b={u:along(line.b.x),z:toZ(line.b.y)};
     // A rail drawn as one continuous line spans only the bay of its mark.
@@ -662,19 +707,43 @@ function extractElevations({segments=[],texts=[]}={},page=1){
      if(lowAxis&&s0.u<lowAxis.mm)s0.u=lowAxis.mm;
      if(highAxis&&s1.u>highAxis.mm)s1.u=highAxis.mm
     }
+    if(fixed)for(const e of [a,b])if(e.z<f.floor&&e.z>f.floor-400)e.z=f.floor;
+    // (a member wholly past the end axes is not of this wall: the table of marks with their sections beside the last view
+    //  — «Рр», «Ро», «Рн»… of КМ2 л.14 ИР-71535 read as girts 18…36 m along the wall of 12 m)
+    if(Math.min(a.u,b.u)>axes[axes.length-1].mm+1500||Math.max(a.u,b.u)<axes[0].mm-1500)continue;
     if([a.z,b.z].some(z=>z<lo||z>hi))continue;
     const vertical=Math.abs(line.a.x-line.b.x)<1.5,flat=Math.abs(line.a.y-line.b.y)<1.5;
     if(vertical&&Math.abs(a.z-b.z)<300||!vertical&&Math.abs(a.u-b.u)<200&&Math.abs(a.z-b.z)<200)continue;
     if(!found.some(f=>f.line.a.x===line.a.x&&f.line.a.y===line.a.y&&f.line.b.x===line.b.x&&f.line.b.y===line.b.y))found.push({line,a,b,vertical,flat})
+   }
+   // A girt under a gentle slope (1:10 or so) with its label over it, level: the line under the label, cut to the bay of
+   // the label (Ро, Ро1 of the sloped tops of the walls on КМ2 л.14 ИР-71535 — too steep to be read along the label, too
+   // flat for a brace).
+   if(!found.length&&!post&&!postMark(str)&&!/^[а-я]$/u.test(mark)&&!led&&Math.abs(Number(t.angle)||0)<5){
+    const fr=textFrame(t),h=Number(t.size)||8;let best=null;
+    for(const i of lines.near(fr.c,fr.w/2+h*2.2)){if(skip.has(i))continue;const q=segments[i],l=Math.hypot(q.b.x-q.a.x,q.b.y-q.a.y);if(l<h*4)continue;
+     const v={x:(q.b.x-q.a.x)/l,y:(q.b.y-q.a.y)/l},sl=Math.abs(v.y);if(sl<.06||sl>.34)continue;
+     const w={x:fr.c.x-q.a.x,y:fr.c.y-q.a.y},al=w.x*v.x+w.y*v.y,off=v.x*w.y-v.y*w.x;
+     if(al<0||al>l)continue;const below=(v.x>0?off:-off)<0;if(!below||Math.abs(off)>h*1.7)continue;
+     if(!best||Math.abs(off)<best.off)best={off:Math.abs(off),q}}
+    if(best){const q=best.q,[p0,p1]=q.a.x<=q.b.x?[q.a,q.b]:[q.b,q.a],yAt=x=>p0.y+(p1.y-p0.y)*(x-p0.x)/((p1.x-p0.x)||1);
+     const c=along(fr.c.x),lowAxis=axes.filter(x=>x.mm<=c).at(-1),highAxis=axes.find(x=>x.mm>c);
+     const xOf=mm=>{let lo=p0.x,hi=p1.x;for(let k=0;k<40;k++){const m=(lo+hi)/2;if((raw(m)-mm)*(raw(p1.x)-raw(p0.x))<0)lo=m;else hi=m}return(lo+hi)/2};
+     let x0=p0.x,x1=p1.x;
+     if(lowAxis){const xa=xOf(lowAxis.mm);if(xa>x0&&xa<x1)(raw(p1.x)>raw(p0.x)?(x0=xa):(x1=xa))}
+     if(highAxis){const xb=xOf(highAxis.mm);if(xb>x0&&xb<x1)(raw(p1.x)>raw(p0.x)?(x1=xb):(x0=xb))}
+     const line={a:{x:x0,y:yAt(x0)},b:{x:x1,y:yAt(x1)}},a={u:along(line.a.x),z:toZ(line.a.y)},b={u:along(line.b.x),z:toZ(line.b.y)};
+     if(Math.abs(a.u-b.u)>=200&&[a.z,b.z].every(z=>z>=lo&&z<=hi)&&!(Math.min(a.u,b.u)>axes[axes.length-1].mm+1500||Math.max(a.u,b.u)<axes[0].mm-1500))found.push({line,a,b,vertical:false,flat:false})}
    }
    const at=u=>numbered(title.name)?{x:0,y:u}:{x:u,y:0};
    const base={mark,page,sheet_point_pt:{x:Math.round(t.x),y:Math.round(t.y)},axis_x:numbered(title.name)?title.name:"",axis_y:numbered(title.name)?"":title.name,confidence:"medium"};
    // The leaders of one label ending on members joined to one another (rails and the post between them): one welded
    // frame (ГПЭС М1.19, ось А: «К3» — the window frame of л. 1, two rails and two posts), not a piece at each leader.
    // (a label on its crossbar, no leader: the posts at its ends with it, when they carry no label of their own)
-   const labelled=(x,y0,y1)=>region.some(o=>o!==t&&MARK.test(String(o.str).trim())&&Math.abs(Math.abs(Number(o.angle)||0)-90)<5&&(()=>{const c=textFrame(o).c,h=Number(o.size)||8;return Math.abs(c.x-x)<=h*1.7&&c.y>=y0&&c.y<=y1})());
+   const labelled=(x,y0,y1)=>region.some(o=>o!==t&&(MARK.test(String(o.str).trim())&&Math.abs(Math.abs(Number(o.angle)||0)-90)<5&&(()=>{const c=textFrame(o).c,h=Number(o.size)||8;return Math.abs(c.x-x)<=h*1.7&&c.y>=y0&&c.y<=y1})()||
+    postMark(String(o.str).trim())&&Math.abs(Number(o.angle)||0)<5&&(()=>{const fr=textFrame(o),h=Number(o.size)||8;return Math.max(0,Math.abs(fr.c.x-x)-fr.w/2)<=h*2.5&&fr.c.y>=y0&&fr.c.y<=y1})()));
    const flatLabelled=(y,x0,x1)=>region.some(o=>o!==t&&MARK.test(String(o.str).trim())&&Math.abs(Number(o.angle)||0)<5&&(()=>{const c=textFrame(o).c,h=Number(o.size)||8;return Math.abs(c.y-y)<=h*1.7&&c.x>=x0&&c.x<=x1})());
-   const frame=found.length>=2?frameOf(found,segments,raw,toZ):found.length===1&&!led&&(found[0].flat||found[0].vertical)?postsFrameOf(found[0],segments,raw,toZ,labelled,textFrame(t).c.x,flatLabelled):null;
+   const frame=found.length>=2?frameOf(found,segments,raw,toZ):found.length===1&&!led&&!post&&(found[0].flat||found[0].vertical)?postsFrameOf(found[0],segments,raw,toZ,labelled,textFrame(t).c.x,flatLabelled):null;
    if(frame){
     const p0=at(frame.u0),p1=at(frame.u1);
     placements.push({...base,geometry_type:"beam",kind_label:"Рама",x_mm:p0.x,y_mm:p0.y,x2_mm:p1.x,y2_mm:p1.y,z0_mm:frame.z0,z1_mm:frame.z0,
@@ -683,6 +752,8 @@ function extractElevations({segments=[],texts=[]}={},page=1){
     continue
    }
    for(const {line,a,b,vertical,flat} of found){
+    // (two labels of one post — «а» on each side of it — one post)
+    if(post&&placements.some(o=>o.mark===mark&&o.geometry_type==="column"&&o.x_mm===at(a.u).x&&o.y_mm===at(a.u).y&&o.z0_mm===Math.min(a.z,b.z)))continue;
     const geometry=vertical?"column":flat?"beam":"brace";
     const p0=at(a.u),p1=at(b.u);
     placements.push({...base,geometry_type:geometry,kind_label:geometry==="column"?"Колонна/стойка":geometry==="brace"?"Связь":"Балка/ригель/прогон",
