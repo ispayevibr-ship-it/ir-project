@@ -161,6 +161,10 @@
  // The read-only page: filters → visible elements → the same 3D module of the program.
  function viewer(){
   var D=window.__irSchemeData||JSON.parse(document.getElementById("ir-scheme-data").textContent);
+  // (the axes as on the drawing — 01…010, not «О1…О10»: axName of the card, in the lists and the card too)
+  (function(){var AX=window.irSchemeElementCard&&window.irSchemeElementCard.axName;if(!AX)return;var rn=function(o){var r={};Object.keys(o||{}).forEach(function(k){r[AX(k)]=o[k]});return r};
+   D.axesX=(D.axesX||[]).map(AX);D.axesY=(D.axesY||[]).map(AX);D.gridX=rn(D.gridX);D.gridY=rn(D.gridY);
+   (D.elements||[]).forEach(function(c){if(!c)return;if(c.axisX!=null)c.axisX=AX(c.axisX);if(c.axisY!=null)c.axisY=AX(c.axisY);var a=c.axisText;if(a&&typeof a==="object"){if(a.x!=null)a.x=AX(a.x);if(a.y!=null)a.y=AX(a.y)}})})();
   var $=function(id){return document.getElementById(id)};
   // No word of the conventional in the exported page (the engineer, 03.11.2026: «все упоминания об условных убери при
   // выгрузке»): «(условно)», «(сечение условно)», «· сечение условное: 24», a sentence «… показаны условно …» are taken

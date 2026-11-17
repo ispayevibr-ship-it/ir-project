@@ -247,7 +247,11 @@
   if(e.r>0)rows.push(["Радиус",fmt(e.r)+(e.ri>0?", внутри "+fmt(e.ri):"")]);
   return'<details class="ec-coords"><summary>Точные координаты, мм</summary>'+rows.map(function(r){return'<div><span>'+esc(r[0])+'</span><b>'+esc(r[1])+'</b></div>'}).join("")+'</details>'
  }
- var api={drawingSheet:drawingSheet,made:made,FOUND:FOUND,esc:esc,fmt:fmt,level:level,axisOf:axisOf,position:position,fasteners:fasteners,traits:traits,section:section,head:head,facts:facts,nodes:nodes,tools:tools,parts:parts,bind:bind,kgs:kgs,sheetName:sheetName,drawings:drawings,coords:coords};
+ // An axis named with a zero, as on the drawing (01…010, 01/1, 04/2), not with the Cyrillic «О» it was read as: the
+ // letter О is not used for axes (ГОСТ 21.101), and on the АР and КМ of ИР-71535 the axes across are 01…010 — the
+ // engineer, 17.11.2026: «03 и О3 разные вещи, ты читаешь с чертежа О3, хотя там 03». In any text: «О3/К», «О3 (−60 мм)».
+ function axName(s){return String(s==null?"":s).replace(/(^|[^0-9A-Za-zА-Яа-яЁё])[ОO](?=\d)/g,"$10")}
+ var api={axName:axName,drawingSheet:drawingSheet,made:made,FOUND:FOUND,esc:esc,fmt:fmt,level:level,axisOf:axisOf,position:position,fasteners:fasteners,traits:traits,section:section,head:head,facts:facts,nodes:nodes,tools:tools,parts:parts,bind:bind,kgs:kgs,sheetName:sheetName,drawings:drawings,coords:coords};
  root.irSchemeElementCard=api;
  if(typeof module==="object"&&module.exports)module.exports=api;
 })(typeof window!=="undefined"?window:globalThis);

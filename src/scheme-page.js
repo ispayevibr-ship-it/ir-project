@@ -527,7 +527,9 @@ const fittingSection=c=>c.ft==="flight"||c.ft==="ladder"||c.ft==="deck"?(c.fd>0?
  const line=(a,b,cls)=>`<line x1="${a.x.toFixed(1)}" y1="${a.y.toFixed(1)}" x2="${b.x.toFixed(1)}" y2="${b.y.toFixed(1)}" class="${cls}"/>`;
  function axisText(c){
   const x=c.dx?`${c.axisX} ${c.dx>=0?"+":"−"} ${fmt(Math.abs(c.dx))} мм`:c.axisX,y=c.dy?`${c.axisY} ${c.dy>=0?"+":"−"} ${fmt(Math.abs(c.dy))} мм`:c.axisY;
-  return{x,y}
+  // (shown as on the drawing — 01…010: axName of the card; the names inside stay one key, «О» and «0» the same axis)
+  const AX=window.irSchemeElementCard?.axName||String;
+  return{x:AX(x),y:AX(y)}
  }
 
  // Direct placement uses the existing scheme_column record format.
@@ -1142,7 +1144,9 @@ const fittingSection=c=>c.ft==="flight"||c.ft==="ladder"||c.ft==="deck"?(c.fd>0?
     reasons:Array.isArray(c.instance_reasons)?c.instance_reasons.map(String):[],sources:c.param_sources&&typeof c.param_sources==="object"?c.param_sources:null,
     pdf_new:c.pdf_new&&typeof c.pdf_new==="object"?c.pdf_new:null,check_note:String(c.check_note||""),manual:!c.import_batch,
     confirmed:c.engineer_confirmed&&typeof c.engineer_confirmed==="object"?c.engineer_confirmed:null,edited:Boolean(c.engineer_edited)};
-   const grid={axesX:[...axesX],axesY:[...axesY],posX:Object.fromEntries(axisXPos),posY:Object.fromEntries(axisYPos)};
+   // (the axes as on the drawing — 01…010, not «О1…О10»: axName of the card; the engineer, 17.11.2026 «03 и О3 разные вещи»)
+   const AX=window.irSchemeElementCard?.axName||String,rnAX=m=>Object.fromEntries([...m].map(([k,v])=>[AX(k),v]));
+   const grid={axesX:axesX.map(AX),axesY:axesY.map(AX),posX:rnAX(axisXPos),posY:rnAX(axisYPos)};
    // As the card of the report of 21.10.2026: the day of mounting, the sheet, the masses, the bolts, the nodes and the parts
    // of the member in their colours on the model (src/scheme-element-card.js head … parts).
    if(!mountDays&&progress?.total>0)loadMountDays().then(()=>{if(selectedId===c.id)renderDetails()});
