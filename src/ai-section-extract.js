@@ -688,6 +688,14 @@ function extractElevations({segments=[],texts=[]}={},page=1){
      if(y1-y0>(row.y-title.y)*.6)continue;
      const gap=Math.max(0,Math.abs(q.a.x-f.c.x)-f.w/2);if(gap<=h*2.5)cand.push({gap,i,x:q.a.x,y0,y1,w:Number(q.w)||0})}
     const wMax=Math.max(0,...cand.map(c=>c.w));
+    // A label between two posts, a short bar across from one to the other at its height (the crossbar «а» of the door
+    // frames on «по оси Б», «по оси Л» of КМ2 л.14 ИР-71535 — «а» left, between and right of the pair): the bar.
+    {const lft=cand.filter(c=>c.x<f.c.x-f.w/2).sort((p,q)=>q.x-p.x)[0],rgt=cand.filter(c=>c.x>f.c.x+f.w/2).sort((p,q)=>p.x-q.x)[0];
+     if(lft&&rgt&&rgt.x-lft.x<=f.w+h*4){let bar=null;
+      for(const i of lines.near(f.c,h*2.5)){if(skip.has(i))continue;const q=segments[i];if(Math.abs(q.a.y-q.b.y)>.3||Math.abs(q.a.y-f.c.y)>h*1.6)continue;
+       const x0=Math.min(q.a.x,q.b.x),x1=Math.max(q.a.x,q.b.x);if(Math.abs(x0-lft.x)>2||Math.abs(x1-rgt.x)>2)continue;
+       if(!bar||Math.abs(q.a.y-f.c.y)<Math.abs(bar.y-f.c.y))bar={y:q.a.y}}
+      if(bar)return{leader:true,x:f.c.x,y:bar.y,segment:-1,bar:true,line:{a:{x:lft.x,y:bar.y},b:{x:rgt.x,y:bar.y}}}}}
     for(const c of cand)if(!(c.w<wMax*.8)&&(!best||c.gap<best.gap))best=c;
     if(!best)return null;
     // (the post itself, not the longest line through it: the lines of the posts of the tier below run on under the girt —
@@ -742,7 +750,10 @@ function extractElevations({segments=[],texts=[]}={},page=1){
       let wl=0;for(const i of lines.near({x:fr.c.x,y:yl},2)){const q=segments[i],r=offOf(q,{x:fr.c.x,y:yl});if(r.al>=-.5&&r.al<=r.l+.5&&Math.abs(r.off)<.4&&Math.abs(offOf(q,fl.a).off)<.6)wl=Math.max(wl,Number(q.w)||0)}
       // (a thin line over the label — the outline of the panels over the girt, not it)
       if(wl<wMax*.8&&(o.off>0||best.sl>=.06))use=true;
-      else if(found[0].flat&&best.sl>=.06&&best.off<Math.abs(o.off)-.4)use=true}}
+      else if(found[0].flat&&best.sl>=.06&&best.off<Math.abs(o.off)-.4)use=true;
+      // (a level line over the label that another label of the mark stands on — «Рр1» of the girt above at +5,500 «по
+      //  оси Л»: this label names the thick line under it, +4,370, the girts' labels all written over their lines)
+      else if(found[0].flat&&o.off>0&&best.off<=h*1.7&&region.some(r=>r!==t&&String(r.str).trim()===str&&Math.abs(Number(r.angle)||0)<5&&(()=>{const c2=textFrame(r).c,r2=offOf({a:fl.a,b:fl.b},c2);return r2.al>=0&&r2.al<=r2.l&&r2.off<0&&-r2.off<=h*2.2})()))use=true}}
     if(use){const q=best.q,[p0,p1]=q.a.x<=q.b.x?[q.a,q.b]:[q.b,q.a],yAt=x=>p0.y+(p1.y-p0.y)*(x-p0.x)/((p1.x-p0.x)||1);
      const c=along(fr.c.x),lowAxis=axes.filter(x=>x.mm<=c).at(-1),highAxis=axes.find(x=>x.mm>c);
      const xOf=mm=>{let lo=p0.x,hi=p1.x;for(let k=0;k<40;k++){const m=(lo+hi)/2;if((raw(m)-mm)*(raw(p1.x)-raw(p0.x))<0)lo=m;else hi=m}return(lo+hi)/2};

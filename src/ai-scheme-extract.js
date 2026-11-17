@@ -1348,6 +1348,16 @@ function extractScheme({segments=[],texts=[],glyphs=[],page=1,kinds=DEFAULT_KIND
    if(Math.abs(s.a.x-s.b.x)<=0.3){const l=gridX.find(l=>Math.abs(l.pt-s.a.x)<0.8);if(l)axisSegs.add(i);if(l&&(l.name||gridX.some(n=>n.name&&Math.abs(n.pt-s.a.x)<0.8)))namedSegs.add(i)}
    if(Math.abs(s.a.y-s.b.y)<=0.3){const l=gridY.find(l=>Math.abs(l.pt-s.a.y)<0.8);if(l)axisSegs.add(i);if(l&&(l.name||gridY.some(n=>n.name&&Math.abs(n.pt-s.a.y)<0.8)))namedSegs.add(i)}
   });
+  // A member drawn on a named axis (КМ2 л.7: the outer purlins П1 on the axes К and В — a solid line 0.84 pt over the
+  // dash-dot of the axis, 0.48 pt): a long stroke there clearly thicker than the axis's own dashes is the member's, not
+  // the axis's.
+  {const by=new Map();
+   for(const i of namedSegs){const s=segments[i],k=(Math.abs(s.a.x-s.b.x)<=0.3?"x":"y")+Math.round(Math.abs(s.a.x-s.b.x)<=0.3?s.a.x:s.a.y);if(!by.has(k))by.set(k,[]);by.get(k).push(i)}
+   for(const list of by.values()){
+    const ws=list.map(i=>segments[i]).filter(s=>{const n=dist(s.a,s.b);return n>=8&&n<60}).map(s=>Number(s.w)||0).sort((a,b)=>a-b);if(ws.length<4)continue;
+    const axisW=ws[Math.floor(ws.length/2)];
+    for(const i of list){const s=segments[i],w=Number(s.w)||0;if(dist(s.a,s.b)>=60&&w>=Math.max(.6,axisW*1.6))namedSegs.delete(i)}
+   }}
   const snap=Math.max(6,250/scale);
   let title=group.framed?String(group.framed.title.str).trim():titleFor(titles,bbox);const titleKind=sheetKind(title);
   // A ladder's own plan («Схема расположения элементов пожарной лестницы в осях И/6», a view by two axes).
@@ -1729,6 +1739,30 @@ function extractScheme({segments=[],texts=[],glyphs=[],page=1,kinds=DEFAULT_KIND
      notes:["Решётка на линии марки: раскос по линии на схеме, марка одна на ряд"]};
     placements.push(one);drawn.set(one,{...d,line,cut:true});taken.push(line)
    }
+  }
+  // A cross of bracing under one label (КМ2 л.7: «Сг-9», «Сг-10» — one mark per bay, the second diagonal unlabelled,
+  // dashed): a slanted brace placed by its line is also the other diagonal of the same box — a slanted line through its
+  // middle (±10 %), of its length (±15 %), its ends at the other two corners of the box (±8 %), no other label's line.
+  for(const [p,d] of [...drawn]){
+   // (a bracing mark only: the cross on a panel of decking «Н2» is the sign of the panel, its diagonal drawn once)
+   if(p.geometry_type!=="brace"||markKind(core(p.mark),kinds)!=="brace")continue;const l=d.line;if(!l)continue;
+   const n=dist(l.a,l.b);if(n<30)continue;const u={x:(l.b.x-l.a.x)/n,y:(l.b.y-l.a.y)/n};if(Math.abs(u.x)<.17||Math.abs(u.y)<.17)continue;
+   const m={x:(l.a.x+l.b.x)/2,y:(l.a.y+l.b.y)/2},want=[{x:l.a.x,y:l.b.y},{x:l.b.x,y:l.a.y}];let twin=null;
+   for(const i of lines.near(m,n*.55)){
+    const q=segments[i],k=dist(q.a,q.b);if(k<4)continue;const v={x:(q.b.x-q.a.x)/k,y:(q.b.y-q.a.y)/k};
+    if(Math.abs(v.x)<.17||Math.abs(v.y)<.17||Math.abs(cross(u,v))<.34)continue;
+    if(Math.abs(cross(v,{x:m.x-q.a.x,y:m.y-q.a.y}))>Math.max(2,n*.03))continue;
+    const g=growLine(q,segments,lines,namedSegs),gn=dist(g.a,g.b);if(Math.abs(gn-n)>n*.15)continue;
+    if(dist({x:(g.a.x+g.b.x)/2,y:(g.a.y+g.b.y)/2},m)>n*.1)continue;
+    const fit=(e,w)=>dist(e,w)<=n*.08;if(!((fit(g.a,want[0])&&fit(g.b,want[1]))||(fit(g.a,want[1])&&fit(g.b,want[0]))))continue;
+    if(takenBy(g))continue;twin=g;break
+   }
+   if(!twin)continue;
+   const line={a:twin.a,b:twin.b},ends=memberEnds(line);
+   const one={...p,x_mm:ends[0].x,y_mm:ends[0].y,x2_mm:ends[1].x,y2_mm:ends[1].y,
+    axis_x:nearestName(linesX,(line.a.x+line.b.x)/2),axis_y:nearestName(linesY,(line.a.y+line.b.y)/2),
+    notes:["Вторая диагональ креста связей: марка одна на крест"]};
+   placements.push(one);drawn.set(one,{...d,line,cut:true});taken.push(line)
   }
   // Stair flights drawn by their treads on a small plan (the stair of a platform).
   if(group.local){
