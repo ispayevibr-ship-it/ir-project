@@ -1107,15 +1107,24 @@ function leaderTarget(text,segments,index,axisSegs,lines){
   for(const sh of shelves)for(const e of [sh.a,sh.b].map(e=>extend(e,e===(sh.a.x<sh.b.x?sh.a:sh.b)?-1:1)))for(const i of index.near(e,4)){
    const q=segments[i];if(axisSegs.has(i)||q===sh)continue;
    const len=dist(q.a,q.b);if(len<10||Math.abs(q.a.y-q.b.y)<=1)continue;
-   for(const [p,r] of [[q.a,q.b],[q.b,q.a]])if(dist(p,e)<3&&(!best||len>best.score))best={score:len,to:r,diagonal:Math.abs(q.a.x-q.b.x)>1,segment:i,shelf:true}
+   for(const [p,r] of [[q.a,q.b],[q.b,q.a]])if(dist(p,e)<3&&(!best||len>best.score))best={score:len,from:p,to:r,diagonal:Math.abs(q.a.x-q.b.x)>1,segment:i,shelf:true}
   }
  }
+ // One label, a fan of straight leaders laid one over another from the end of its shelf, each to the next member along
+ // the way (КМ1 л.13: «П1» under the plan, a vertical leader to every purlin of the bay, 9 strokes from one point up to
+ // 9 purlins): the mark at each end — at least three such strokes.
+ let fanSkip=null;
+ if(best&&best.from&&!best.diagonal&&!more.length){const u=way(best),fan=[];
+  for(const i of index.near(best.from,3)){if(i===best.segment||axisSegs.has(i))continue;const q=segments[i];if(dist(q.a,q.b)<10)continue;
+   for(const [p,r] of [[q.a,q.b],[q.b,q.a]])if(dist(p,best.from)<1.5&&Math.cos(way({from:p,to:r})-u)>.9995&&dist(r,best.to)>8&&!fan.some(o=>dist(o,r)<=8))fan.push({x:r.x,y:r.y,segment:i})}
+  // (the strokes of the fan are the leader, not a member at its ends: «Т1» on the row of ties, its leader along it)
+  if(fan.length>=2){more.push(...fan);fanSkip=[best.segment,...fan.map(f=>f.segment)]}}
  // shelf: the label stands on a shelf of its own (a leader label), not over a line passing by.
  // rail: no leader, the label is written over its member line.
  // slant: the longest slanted leader when a straight stroke from the label was taken (an extension line of a size
  // passing the label's end); it may end at the post the label names.
  const slant=best&&!best.diagonal&&leaders.length?leaders.reduce((a,l)=>dist(l.from,l.to)>dist(a.from,a.to)?l:a):null;
- return best?{x:best.to.x,y:best.to.y,leader:true,diagonal:best.diagonal,segment:best.segment,shelf:Boolean(best.shelf||ends.length),...(more.length?{more}:{}),...(slant?{slant:{x:slant.to.x,y:slant.to.y,segment:slant.segment}}:{})}:{x:box.cx,y:box.y1+6,leader:false,...(rails.length?{rail:true}:{})}
+ return best?{x:best.to.x,y:best.to.y,leader:true,diagonal:best.diagonal,segment:best.segment,shelf:Boolean(best.shelf||ends.length),...(more.length?{more}:{}),...(fanSkip?{skip:fanSkip}:{}),...(slant?{slant:{x:slant.to.x,y:slant.to.y,segment:slant.segment}}:{})}:{x:box.cx,y:box.y1+6,leader:false,...(rails.length?{rail:true}:{})}
 }
 
 function nearestLine(lines,v,tol){
@@ -1666,7 +1675,21 @@ function extractScheme({segments=[],texts=[],glyphs=[],page=1,kinds=DEFAULT_KIND
    if(list.length<2)continue;
    const L=lineOf(drawn.get(list[0])),{c,lo,hi}=L;
    let pieces,halfway=false;
-   if(L.cuts.length>2)pieces=list.map(p=>bayOf(drawn.get(p),L));
+   if(L.cuts.length>2){pieces=list.map(p=>bayOf(drawn.get(p),L));
+   // Two labels in one bay between named axes, the line crossing members off the named axes
+   // (КМ1 л.13: the purlins П1 from truss to truss every 5000, the axes О4/1, О4/2 11 050 apart): cut at those members.
+   if(pieces&&new Set(pieces.map(String)).size<pieces.length){const end=Math.max(2,600/scale);
+    // The members it crosses: a pair of lines across it (a truss drawn by both edges, 2…12 pt apart), the joint between
+    // them.
+    const o=L.flat?"y":"x",at=L.l.a[o],cross=[];
+    for(const q of segments){if(Math.abs(q.a[c]-q.b[c])>.3)continue;const v=q.a[c];if(v<=lo+end||v>=hi-end)continue;
+     const q0=Math.min(q.a[o],q.b[o]),q1=Math.max(q.a[o],q.b[o]);if(q0>at+3||q1<at-3)continue;cross.push({v,q0,q1})}
+    const pairs=[];cross.sort((a,b)=>a.v-b.v);
+    for(let i=0;i<cross.length;i++)for(let j=i+1;j<cross.length&&cross[j].v-cross[i].v<=12;j++){const a=cross[i],b=cross[j];
+     if(b.v-a.v>=2&&Math.abs(a.q0-b.q0)<3&&Math.abs(a.q1-b.q1)<3){const m=(a.v+b.v)/2;if(!pairs.some(x=>Math.abs(x-m)<4))pairs.push(m)}}
+    const tries=[pairs];
+    for(const t of tries){if(t.length<2)continue;const all={...L,cuts:[lo,...t.sort((a,b)=>a-b),hi]};
+     const finer=list.map(p=>bayOf(drawn.get(p),all));if(new Set(finer.map(String)).size>new Set(pieces.map(String)).size){pieces=finer;break}}}}
    else{
     const written=list.filter(p=>along(drawn.get(p),L.flat)).sort((p,q)=>drawn.get(p).at[c]-drawn.get(q).at[c]),gap=Math.max(0,...written.map(p=>drawn.get(p).h))*3;
     const stops=[];for(let i=1;i<written.length;i++){const u=drawn.get(written[i-1]).at[c],v=drawn.get(written[i]).at[c];if(v-u>gap)stops.push((u+v)/2)}
