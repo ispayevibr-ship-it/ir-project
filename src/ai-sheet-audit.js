@@ -70,7 +70,9 @@ function numbersIn(obj,out=new Set(),depth=0){
 }
 
 function auditSheet(geometry,page){
- const texts=joinSplitMarks((geometry?.texts||[]).filter(t=>String(t?.str||"").trim()));
+ // (one label of several marks «Св 2, Св 3» — each mark, as the scheme reads it)
+ const MULTI=/^(?:[А-ЯЁA-Z][а-яёА-ЯЁA-Z]{0,2}\s*\d{1,3}(?:[-.]\d{1,2})?\s*,\s*)+[А-ЯЁA-Z][а-яёА-ЯЁA-Z]{0,2}\s*\d{1,3}(?:[-.]\d{1,2})?$/u;
+ const texts=joinSplitMarks((geometry?.texts||[]).filter(t=>String(t?.str||"").trim())).flatMap(t=>MULTI.test(String(t.str).trim())?String(t.str).split(",").map(p=>({...t,str:p.trim()})):[t]);
  const segments=(geometry?.segments||[]).filter(s=>s&&Number.isFinite(s.a?.x)&&Number.isFinite(s.b?.y)&&near(s.a,s.b)>0.05);
  const schemes=(page?.schemes||[]).filter(s=>!s.error&&s.bbox);
  const aMarks=aMarksOn(texts),markIndex=markIndexOf(texts);

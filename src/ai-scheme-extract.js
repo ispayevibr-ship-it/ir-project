@@ -627,7 +627,18 @@ function growLine(seed,segments,lines,skip){
  let dash=0;
  if(len<30&&!twinOf(seed,segments,lines,skip))for(const i of lines.near(at(len/2),len+30)){
   if(skip.has(i))continue;const p=piece(i);if(!p||p.l>=30||Math.abs(p.l-len)>len*0.5)continue;
-  const gap=p.lo>len?p.lo-len:-p.hi;if(gap>3&&gap<=Math.max(8,len*0.9)){dash=Math.max(8,len*0.9);break}
+  // (the reach by the gap of the pattern: a dash-dot member broken at each truss it passes — КМ1 л.11, Рпф1, gaps of
+  //  5 pt along, 24 pt through a truss — stops at the truss)
+  const gap=p.lo>len?p.lo-len:-p.hi;if(gap>3&&gap<=Math.max(8,len*0.9)){dash=Math.max(8,Math.min(len*0.9,gap*3+3));break}
+ }
+ // A dash-dot line of long dashes (КМ1 л.8: the chord of Свк1/Рпк1 — dashes 24…45 pt, dots 9 pt, gaps of 9 pt, the leader
+ // ending on a long one): from the seed a piece across an even gap of 3…12 pt, then another across the same gap.
+ if(!dash&&len<80&&!twinOf(seed,segments,lines,skip)){
+  const ps=[];for(const i of lines.near(at(len/2),len/2+40)){if(skip.has(i))continue;const p=piece(i);if(p&&p.l<=60)ps.push(p)}
+  for(const dir of [1,-1]){const gapTo=(t,p)=>dir>0?p.lo-t:t-p.hi,farOf=p=>dir>0?p.hi:p.lo;
+   const p1=ps.filter(p=>{const g=gapTo(dir>0?len:0,p);return g>=3&&g<=12}).sort((a,b)=>gapTo(dir>0?len:0,a)-gapTo(dir>0?len:0,b))[0];if(!p1)continue;
+   const g1=gapTo(dir>0?len:0,p1),p2=ps.find(p=>p!==p1&&Math.abs(gapTo(farOf(p1),p)-g1)<2);
+   if(p2){dash=13;break}}
  }
  const grow=()=>{for(let pass=0;pass<(dash?400:80);pass++){
   let grown=false;
@@ -839,7 +850,8 @@ function memberLine(t,target,segments,lines,skip,slant=false){
   const line=growLine(segments[c.i],segments,lines,skip),l=dist(line.a,line.b);
   // A leader shelf is about as long as its label; a member is clearly longer — or drawn in two lines, its edges (ГПЭС
   // М1.9: «В58», a beam of 1 m between two purlins, as long as two of its labels).
-  if(l<Math.max(24,f.w*2.2)&&!(l>=12&&twinOf(line,segments,lines,skip)))continue;
+  // (a label of several marks «Свк 1, Рпк 1» — as long as one of them)
+  if(l<Math.max(24,f.w/(String(t.str||"").split(",").length)*2.2)&&!(l>=12&&twinOf(line,segments,lines,skip)))continue;
   // A run of equal beams with joints between them looks like dashes too; a beam drawn with both edges is no dash (ГПЭС
   // М1.19, ряд Л: «В169» over each half-bay, the dimension line above taken for it).
   if(!pick){pick={c,line,l};if(c.score<0||!dashOf(c.i,segments,lines)||twinOf(line,segments,lines,skip))break;continue}
@@ -1171,6 +1183,12 @@ function joinSplitMarks(texts){
    out.splice(out.indexOf(b),1);break
   }
  }
+ // A label in two lines over and under its shelf, the first ending in a comma (КМ1 л.8: «Св 1,» over the shelf, «Рп1»
+ // under it — the brace and the strut on one line along axis О3): one label of two marks at the place of the first.
+ const MK=/^[А-ЯЁ][а-яёА-ЯЁ]{0,2}\s?\d{1,3}(?:[-.]\d{1,2})?$/u;
+ for(const a of out.slice()){const sa=String(a.str||"").trim();if(!/,$/.test(sa)||!MK.test(sa.slice(0,-1).trim())||Math.abs(Number(a.angle)||0)>3)continue;
+  const h=Number(a.size)||8,b=out.find(o=>o!==a&&Math.abs(Number(o.angle)||0)<=3&&MK.test(String(o.str||"").trim())&&o.y>a.y+h*.6&&o.y<=a.y+h*1.6&&Math.abs(o.x-a.x)<=h*.8&&Math.abs((Number(o.size)||0)-h)<=h*.15);
+  if(!b)continue;out[out.indexOf(a)]={...a,str:sa+" "+String(b.str).trim(),width:Math.max(Number(a.width)||0,Number(b.width)||0)};out.splice(out.indexOf(b),1)}
  return out
 }
 function extractScheme({segments=[],texts=[],glyphs=[],page=1,kinds=DEFAULT_KINDS}={}){
@@ -1364,8 +1382,11 @@ function extractScheme({segments=[],texts=[],glyphs=[],page=1,kinds=DEFAULT_KIND
    for(const i of namedSegs){const s=segments[i],k=(Math.abs(s.a.x-s.b.x)<=0.3?"x":"y")+Math.round(Math.abs(s.a.x-s.b.x)<=0.3?s.a.x:s.a.y);if(!by.has(k))by.set(k,[]);by.get(k).push(i)}
    for(const list of by.values()){
     const ws=list.map(i=>segments[i]).filter(s=>{const n=dist(s.a,s.b);return n>=8&&n<60}).map(s=>Number(s.w)||0).sort((a,b)=>a-b);if(ws.length<4)continue;
-    const axisW=ws[Math.floor(ws.length/2)];
-    for(const i of list){const s=segments[i],w=Number(s.w)||0;if(dist(s.a,s.b)>=60&&w>=Math.max(.6,axisW*1.6))namedSegs.delete(i)}
+    // (the axis's own width: the thinner quarter — a member drawn dash-dot over the axis, Рпф1 of КМ1 л.11 on the row
+    //  axes, is as many strokes as the axis)
+    const axisW=ws[Math.floor(ws.length/4)];
+    const thick=list.filter(i=>{const s=segments[i];return dist(s.a,s.b)>=4&&(Number(s.w)||0)>=Math.max(.6,axisW*1.6)});
+    for(const i of thick){const s=segments[i];if(dist(s.a,s.b)>=60||thick.length>=3)namedSegs.delete(i)}
    }}
   const snap=Math.max(6,250/scale);
   let title=group.framed?String(group.framed.title.str).trim():titleFor(titles,bbox);const titleKind=sheetKind(title);
@@ -1401,10 +1422,11 @@ function extractScheme({segments=[],texts=[],glyphs=[],page=1,kinds=DEFAULT_KIND
   // Across a straight member its line is where it is drawn, give or take its edge: an end may stop short of an axis by
   // a column's width, the member itself is not moved onto an axis a size away (ГПЭС М1.9: «В58» 530 below И).
   const acrossTol=Math.min(endTol,Math.max(150,6*scale));
-  const memberEnds=line=>{
+  // (short: a short member — its ends snap no farther than across a line, 600 mm would fold it upright)
+  const memberEnds=(line,short)=>{
    const flat=Math.abs(line.a.y-line.b.y)<1.5,upright=Math.abs(line.a.x-line.b.x)<1.5;
    return[line.a,line.b].map(p=>{
-    const x=snapMm(toX(p.x),linesX,memberX,upright?acrossTol:endTol),y=snapMm(toY(p.y),linesY,memberY,flat?acrossTol:endTol);
+    const x=snapMm(toX(p.x),linesX,memberX,upright||short?acrossTol:endTol),y=snapMm(toY(p.y),linesY,memberY,flat||short?acrossTol:endTol);
     return{x:x.mm,y:y.mm,exact:x.exact&&y.exact}
    })
   };
@@ -1469,6 +1491,7 @@ function extractScheme({segments=[],texts=[],glyphs=[],page=1,kinds=DEFAULT_KIND
    }
    for(const [k,c] of n)if(c>=2&&c*2>=all.get(k))slantMarks.add(k)
   }
+  const letterCount=new Map();for(const t of labels){const k=String(t.str||"").trim();if(/^[а-я]$/u.test(k)&&!usedTexts.has(t))letterCount.set(k,(letterCount.get(k)||0)+1)}
   for(const t of labels){
    // "К 1" is written with a space on some sheets.
    let mark=hyName(String(t.str||"").trim().replace(/^([А-ЯЁA-Z]{1,3}|[А-ЯЁA-Z][а-яё]{1,2})\s+(\d)/u,"$1$2")),byIndex=false;
@@ -1512,7 +1535,10 @@ function extractScheme({segments=[],texts=[],glyphs=[],page=1,kinds=DEFAULT_KIND
      sheet_point_pt:{x:Math.round(target.x*10)/10,y:Math.round(target.y*10)/10}});
     continue
    }
-   if(usedTexts.has(t)||!MARK_LABEL.test(core(mark))||notMark(core(mark),aMarks))continue;
+   // A lone lowercase letter («а») repeated on the plan is the mark of short members given by the scheme's table
+   // (КМ1 л.11 ИР-71535: short struts «а» at the trusses by rows Л and Б): placed by their line, up to 3,5 m long.
+   const letter=/^[а-я]$/u.test(mark)&&(letterCount.get(mark)||0)>=5;
+   if(usedTexts.has(t)||!MARK_LABEL.test(core(mark))&&!letter||!letter&&notMark(core(mark),aMarks))continue;
    const box=textBox(t);
    if(box.cx<bbox.x0-40||box.cx>bbox.x1+40||box.cy<bbox.y0-40||box.cy>bbox.y1+40)continue;
    let target=targetOf(t);
@@ -1550,7 +1576,8 @@ function extractScheme({segments=[],texts=[],glyphs=[],page=1,kinds=DEFAULT_KIND
     // A framed view: nothing of it lies outside its overall dimensions (the lines run on into the dimension chains).
     if(line&&group.framed){const c=(v,a,b)=>Math.max(Math.min(a,b)-1,Math.min(Math.max(a,b)+1,v));const x0=vAxes[0].pos,x1=vAxes[vAxes.length-1].pos,y0=hAxes[hAxes.length-1].pos,y1=hAxes[0].pos;
      line={...line,a:{x:c(line.a.x,x0,x1),y:c(line.a.y,y0,y1)},b:{x:c(line.b.x,x0,x1),y:c(line.b.y,y0,y1)}}}
-    const ends=line&&memberEnds(line);
+    const ends=line&&memberEnds(line,letter);
+    if(letter&&(!target.leader||!line||!ends||Math.hypot(ends[1].x-ends[0].x,ends[1].y-ends[0].y)>3500))continue;
     if(ends&&Math.hypot(ends[1].x-ends[0].x,ends[1].y-ends[0].y)>=300){
      const straight=Math.abs(line.a.x-line.b.x)<1.5||Math.abs(line.a.y-line.b.y)<1.5;
      const geometry=ruledKind==="brace"||!straight?"brace":"beam",frame=textFrame(t),mid=frame.c;
@@ -1564,6 +1591,7 @@ function extractScheme({segments=[],texts=[],glyphs=[],page=1,kinds=DEFAULT_KIND
      continue
     }
    }
+   if(letter)continue;
    // A frame column mark written beside its column without a leader: the nearest crossing of grid lines (within
    // about two text heights of the label), not the label itself. Wind posts stand between axes and are left alone.
    if(!target.leader&&!symbol&&ruledKind==="column"&&markCode(core(mark))?.group==="columns"&&titleKind!=="beam"){
@@ -1669,6 +1697,14 @@ function extractScheme({segments=[],texts=[],glyphs=[],page=1,kinds=DEFAULT_KIND
      "Линия общая с соседними марками — участок между осями у надписи"+(ends.every(e=>e.exact)?"":", часть концов не на оси, проверьте")]});
    drawn.get(p).cut=true
   };
+  // Members across a line: pairs of lines across it (a truss drawn by both edges, 2…12 pt apart) — their middles.
+  const crossPairs=(L,from,to)=>{const c=L.c,o=L.flat?"y":"x",at=L.l.a[o],cross=[];
+   for(const q of segments){if(Math.abs(q.a[c]-q.b[c])>.3)continue;const v=q.a[c];if(v<=from||v>=to)continue;
+    const q0=Math.min(q.a[o],q.b[o]),q1=Math.max(q.a[o],q.b[o]);if(q0>at+3||q1<at-3)continue;cross.push({v,q0,q1})}
+   const pairs=[];cross.sort((a,b)=>a.v-b.v);
+   for(let i=0;i<cross.length;i++)for(let j=i+1;j<cross.length&&cross[j].v-cross[i].v<=12;j++){const a=cross[i],b=cross[j];
+    if(b.v-a.v>=2&&Math.abs(a.q0-b.q0)<3&&Math.abs(a.q1-b.q1)<3){const m=(a.v+b.v)/2;if(!pairs.some(x=>Math.abs(x-m)<4))pairs.push(m)}}
+   return pairs};
   const rows=new Map();
   for(const [p,d] of drawn){if(!lineOf(d))continue;const k=[d.line.a.x,d.line.a.y,d.line.b.x,d.line.b.y].map(Math.round).join();(rows.get(k)||rows.set(k,[]).get(k)).push(p)}
   for(const list of rows.values()){
@@ -1681,12 +1717,7 @@ function extractScheme({segments=[],texts=[],glyphs=[],page=1,kinds=DEFAULT_KIND
    if(pieces&&new Set(pieces.map(String)).size<pieces.length){const end=Math.max(2,600/scale);
     // The members it crosses: a pair of lines across it (a truss drawn by both edges, 2…12 pt apart), the joint between
     // them.
-    const o=L.flat?"y":"x",at=L.l.a[o],cross=[];
-    for(const q of segments){if(Math.abs(q.a[c]-q.b[c])>.3)continue;const v=q.a[c];if(v<=lo+end||v>=hi-end)continue;
-     const q0=Math.min(q.a[o],q.b[o]),q1=Math.max(q.a[o],q.b[o]);if(q0>at+3||q1<at-3)continue;cross.push({v,q0,q1})}
-    const pairs=[];cross.sort((a,b)=>a.v-b.v);
-    for(let i=0;i<cross.length;i++)for(let j=i+1;j<cross.length&&cross[j].v-cross[i].v<=12;j++){const a=cross[i],b=cross[j];
-     if(b.v-a.v>=2&&Math.abs(a.q0-b.q0)<3&&Math.abs(a.q1-b.q1)<3){const m=(a.v+b.v)/2;if(!pairs.some(x=>Math.abs(x-m)<4))pairs.push(m)}}
+    const pairs=crossPairs(L,lo+end,hi-end);
     const tries=[pairs];
     for(const t of tries){if(t.length<2)continue;const all={...L,cuts:[lo,...t.sort((a,b)=>a-b),hi]};
      const finer=list.map(p=>bayOf(drawn.get(p),all));if(new Set(finer.map(String)).size>new Set(pieces.map(String)).size){pieces=finer;break}}}}
@@ -1709,6 +1740,9 @@ function extractScheme({segments=[],texts=[],glyphs=[],page=1,kinds=DEFAULT_KIND
   for(const [p,d] of drawn){
    const L=!d.cut&&lineOf(d);if(!L||L.cuts.length<3)continue;
    if(!(shortest.get(p.mark)<Math.hypot(p.x2_mm-p.x_mm,p.y2_mm-p.y_mm)*0.6))continue;
+   // (a line drawn from member to member, broken at each — the struts Рпф1 of КМ1 л.11 between the trusses, a gap of 24 pt
+   //  through each truss — is its own bay whatever axis it passes)
+   {const pr=crossPairs(L,L.lo-16,L.hi+16);if(pr.some(m=>Math.abs(m-L.lo)<=16)&&pr.some(m=>Math.abs(m-L.hi)<=16)&&!pr.some(m=>m>L.lo+16&&m<L.hi-16))continue}
    cutTo(p,L,bayOf(d,L),false)
   }
   // A lattice drawn on the line of its mark (КМ1 л.9: the brake trusses between Бкр1 and Тб1 — one «Сгк1» on the thin
