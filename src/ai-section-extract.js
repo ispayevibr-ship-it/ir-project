@@ -615,7 +615,9 @@ function extractElevations({segments=[],texts=[]}={},page=1){
   if(bubbles.length<2||new Set(bubbles.map(b=>b.name)).size!==bubbles.length)continue;
   // Along a lettered row the axes are numbered, and the other way round: a row of mixed or same-kind bubbles is a
   // detail view («… фонтанчику в осях Б / О4»), not the elevation of that row.
-  if(bubbles.some(b=>numbered(b.name)===numbered(title.name)))continue;
+  // (unless the title names the ends of the row and they are its bubbles — «в осях 03-К по оси 1» of КМ2 л.16 ИР-71535,
+  //  the wall of the annex from axis 03 to row К)
+  if(bubbles.some(b=>numbered(b.name)===numbered(title.name))&&!(span&&span.every(n=>bubbles.some(b=>b.name===n))))continue;
   const dims=region.filter(t=>Math.abs(t.angle||0)<10&&/^\d{3,5}$/.test(String(t.str).trim())).map(t=>Number(t.str));
   const left=[0];
   for(let i=1;i<bubbles.length;i++){

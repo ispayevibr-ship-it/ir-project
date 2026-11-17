@@ -250,7 +250,9 @@ function auditSheet(geometry,page){
    // (a size on a floor plan of АР — the walls, partitions, pits of the plan not elements of a scheme —: tied when it measures
    //  its value at the plan's scale between its ticks, its own pair or two ticks along its line — «250» of the gap at the wall
    //  under a line run up to the number, АР ч.2 л.19 ИР-71535)
-   if(!used&&fp&&schemes[k].scaleMmPerPt>0){const sc=schemes[k].scaleMmPerPt,tl=Math.max(10,v*.005);
+   // (and on a girt elevation of КМ — the heights between the levels of girt bottoms, the places of posts and openings along
+   //  the wall: КМ2 л.14 ИР-71535 «1500», «2050» — to the scale of the view)
+   if(!used&&(fp||schemes[k].kind==="elevation")&&schemes[k].scaleMmPerPt>0){const sc=schemes[k].scaleMmPerPt,tl=Math.max(10,v*(fp?.005:.012));
     if(Math.abs((d.hi-d.lo)*sc-v)<=tl)used=true;
     else if(Number.isFinite(d.line)){const L=d.line,f=Math.min(d.from??d.lo,d.lo)-2,e=Math.max(d.to??d.hi,d.hi)+2;
      const ticks=segments.filter(q=>{const a=d.flat?[q.a.y,q.b.y]:[q.a.x,q.b.x],b=d.flat?[q.a.x,q.b.x]:[q.a.y,q.b.y];return Math.min(...a)<L-1.5&&Math.max(...a)>L+1.5&&Math.abs(a[0]-a[1])<=8&&Math.abs(b[0]-b[1])>=1.5&&Math.abs(b[0]-b[1])<=8&&(b[0]+b[1])/2>=f&&(b[0]+b[1])/2<=e}).map(q=>d.flat?(q.a.x+q.b.x)/2:(q.a.y+q.b.y)/2);
@@ -330,6 +332,13 @@ function auditSheet(geometry,page){
   if(tableCell(c)){items.notes.push({text:str,cell:true});continue}
   items.unknown.push({text:str,scheme:k,at:at(t)})
  }
+ // (a level of a girt elevation of КМ is its bottom, the member's height drawn at its top edge: КМ2 л.14 ИР-71535 «+5,000»
+ //  under Рр at 5180, «+2,080» under Рц1 at 2320 — tied when one offset of 60…320 mm holds for two levels of the view or more)
+ for(const [k,s] of schemes.entries()){if(s.kind!=="elevation")continue;
+  const zs=(s.placements||[]).flatMap(p=>[p.z0_mm,p.z1_mm,p.z_mm]).filter(Number.isFinite);if(!zs.length)continue;
+  const ls=items.levels.filter(l=>l.scheme===k&&!l.used&&Number.isFinite(l.mm)),off=new Map(),cnt=new Map();
+  for(const l of ls){const d=zs.map(z=>Math.round(z-l.mm)).filter(d=>d>=60&&d<=320).sort((a,b)=>a-b)[0];if(d===undefined)continue;off.set(l,d);cnt.set(d,(cnt.get(d)||0)+1)}
+  for(const [l,d] of off){if(cnt.get(d)<2)continue;l.used=true;l.bottom=d;const i=missed.findIndex(m=>m.kind==="level"&&m.scheme===k&&m.text===l.text);if(i>=0)missed.splice(i,1)}}
  // Marks: each label paired with an element of its scheme placed from it (the element keeps the label's point), then
  // by count; a label outside the schemes is read when a view, list or table of the sheet has it.
  const wide=t=>Math.max(30,Number(t.width)||0);
