@@ -64,7 +64,7 @@ const KIND_NAME={columns:"Колонна",fahwerk:"Стойка фахверка
 // What a new reading of the drawings brings even to an element the engineer changed or confirmed: the details of its
 // node and its make (from the sheets), not its position, mark, levels or profile.
 const DRAWING_DETAILS=["joint","truss","nodes","base","column","parts","plates","cuts","drill","place","bevels","cross"];
-const ANALYZER="2026-11-17.10";
+const ANALYZER="2026-11-17.11";
 // АР (architecture) and ТХ (technology) sheets are read for context: Claude places what of them is mounted.
 // (КМД — one kind: the program tells its montage and assembly sheets apart, sheet by sheet — kmdSheetType; the two old
 // kinds of a file are still read, as the engineer's hint for its sheets that say nothing)
@@ -334,6 +334,8 @@ function createMontage({database,documents,drafts,renderer,engine,knowledge=null
   const after=AUDIT.planMisses(placing(data).filter(p=>p.audit),plan.elements,normMark);
   const nodes=AUDIT.auditNodes(pages);
   return{checked:checked.length,texts:checked.reduce((n,p)=>n+(p.audit.counts?.texts||0),0),marks:sum("marks"),axes:sum("axes"),dims:sum("dims"),levels:sum("levels"),
+   bolts:checked.reduce((n,p)=>({total:n.total+(p.audit.counts?.symbols?.bolts||0),used:n.used+(p.audit.counts?.symbols?.bolts_read||0)}),{total:0,used:0}),
+   welds:checked.reduce((n,p)=>({total:n.total+(p.audit.counts?.symbols?.welds||0),used:n.used+(p.audit.counts?.symbols?.welds_read||0)}),{total:0,used:0}),
    missed:checked.reduce((n,p)=>n+(p.audit.missed||[]).length,0),after:after.slice(0,500),nodes:nodes.slice(0,500),nodesMissing:nodes.filter(n=>n.state==="no-sheet").length,
    sheets:checked.filter(p=>(p.audit.missed||[]).length||(p.audit.unknown||[]).length||(p.audit.drawing||[]).length).map(p=>({page:p.page,file:p.sourceName||"",sheet:p.pdfPage||p.page,counts:p.audit.counts,
     missed:(p.audit.missed||[]).slice(0,120).map(m=>({kind:m.kind,text:m.text,axes:m.axes||"",why:m.why})),unknown:(p.audit.unknown||[]).slice(0,40),drawing:(p.audit.drawing||[]).slice(0,60)}))}

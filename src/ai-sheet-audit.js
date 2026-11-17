@@ -410,7 +410,12 @@ function auditSheet(geometry,page){
  for(const d of page?.ar?.layoutCheck?.diff||[])drawing.push({text:d.mark,why:"на схемах раскладки листа "+d.layout+", в таблице листа "+d.spec});
  const counts={texts:texts.length,read:texts.length,kept,notes:items.notes.length,marks:count(items.marks),axes:count(items.axes),dims:count(items.dims.filter(d=>d.used!==null)),levels:count(items.levels),
   nodes:items.nodes.length,cuts:items.cuts.length,unknown:items.unknown.length,missed:missed.length,drawing:drawing.length,...(page?.ar?.layoutCheck?{layout:{marks:page.ar.layoutCheck.marks,same:page.ar.layoutCheck.same}}:{})};
- return{counts,missed:missed.slice(0,400),nodes:items.nodes.slice(0,200),unknown:[...new Set(items.unknown.map(u=>u.text))].slice(0,80),...(drawing.length?{drawing}:{}),...(markIndex?{markIndex}:{}),...(process.env.IR_AUDIT_ALL?{unknownAt:items.unknown,missedAll:missed}:{})}
+ // (the drawn bolts and welds — no text —: read when they stand in a view of the sheet (a node, a section) taken by the
+ //  details, or in a scheme; the rest are told as missed symbols — src/ai-drawing-symbols.js, the user 17.11.2026 «болты, сварка»)
+ const symbols=(page?.details?.symbols||[]).map(x=>{const c={x:(x.box.x0+x.box.x1)/2,y:(x.box.y0+x.box.y1)/2};return{...x,read:Boolean(x.view)||schemeOf(c)>=0}});
+ if(symbols.length){const b=symbols.filter(x=>x.kind==="bolt"),w=symbols.filter(x=>x.kind!=="bolt");
+  counts.symbols={bolts:b.length,bolts_read:b.filter(x=>x.read).length,welds:w.length,welds_read:w.filter(x=>x.read).length}}
+ return{counts,missed:missed.slice(0,400),...(symbols.length?{symbols:symbols.slice(0,3000)}:{}),nodes:items.nodes.slice(0,200),unknown:[...new Set(items.unknown.map(u=>u.text))].slice(0,80),...(drawing.length?{drawing}:{}),...(markIndex?{markIndex}:{}),...(process.env.IR_AUDIT_ALL?{unknownAt:items.unknown,missedAll:missed}:{})}
 }
 
 // The whole text of a sheet for Claude (the engineer, 13.11.2026: «1 страница без разницы чего АР, КМД, КМ, ТХ — при анализе

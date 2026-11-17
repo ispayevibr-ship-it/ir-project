@@ -173,6 +173,12 @@ function tablesOf(blocks){
 
 // Views: each title of a view, and the labels nearest it from below and beside (a title stands over its view; the
 // label of a sketch «Поз. 54» — over its sketch).
+const rnd=b=>({x0:Math.round(b.x0*10)/10,y0:Math.round(b.y0*10)/10,x1:Math.round(b.x1*10)/10,y1:Math.round(b.y1*10)/10});
+// Bolts of a view in groups: neighbours within 4 sizes of the symbol (one group — the bolts of one member on its plate).
+function boltGroups(bolts){
+ const par=bolts.map((_,i)=>i),find=i=>{while(par[i]!==i)i=par[i]=par[par[i]];return i};
+ bolts.forEach((a,i)=>bolts.forEach((b,j)=>{if(j>i&&Math.hypot(a.x-b.x,a.y-b.y)<=Math.max(a.size,b.size)*4)par[find(i)]=find(j)}));
+ const n=new Map();bolts.forEach((_,i)=>{const r=find(i);n.set(r,(n.get(r)||0)+1)});return[...n.values()].sort((a,b)=>b-a).slice(0,40)}
 function viewsOf(items,segments,W=0,H=0){
  // (the stamp — 185×55 mm in the lower right corner — and the strip of signatures along the left edge are not of a view)
  const stamp=t=>W>0&&H>0&&(t.c.x>W-540&&t.c.y>H-170||t.c.x<70);
@@ -209,7 +215,7 @@ function viewsOf(items,segments,W=0,H=0){
  titles=titles.filter(t=>{if(!/^\d{1,3}$/u.test(t.str))return true;
   const up=titles.find(u=>u!==t&&/^\d{1,3}[а-я]?$/u.test(u.str)&&Math.abs(u.c.x-t.c.x)<=Math.max(u.h,t.h)*1.2&&t.c.y-u.c.y>=Math.max(u.h,t.h)*.6&&t.c.y-u.c.y<=Math.max(u.h,t.h)*2.6);
   if(!up)return true;sheetOf.set(up,t.str);return false});
- if(!titles.length)return[];
+ if(!titles.length){viewsOf.symbols=[];return[]}
  // (tables: a grid of four and more lines ending at one right edge one under another up to 60 pt apart (a header of two lines — 42 pt), crossed by lines across (not the frame of the sheet) —
  // their cells and the title just over them are the table's, not of the view beside it: the spec of поз. 58–61 by node 41)
  const tables=[];{const hz=new Map();
@@ -284,7 +290,17 @@ function viewsOf(items,segments,W=0,H=0){
   else if(MARK.test(s)&&!PLATE.test(s)&&!pr&&!b)v.marks.add(s);
   else if(!PLATE.test(s)&&!pr&&!b&&(!WELD.test(s)||glued)&&v.text.length<60&&wordy(s))v.text.push(s.slice(0,160))
  }
+ // (the drawn bolts and welds — no text: ⊠ or a circle with a cross, a chain of crosses «+» of a site weld, a comb of a shop
+ //  weld — each to the view it stands in, src/ai-drawing-symbols.js; КМ2 л.8 ИР-71535 node 13: 12 bolts, 4 site welds
+ //  along the angles of Сг-10, 2 shop welds of the gusset to Ф-1; the user 17.11.2026 «болты, сварка»)
+ const sym=require("./ai-drawing-symbols").symbolsOf(segments),symbols=[];
+ for(const b of sym.bolts){const v=owner(b);if(v)(v.drawnBolts=v.drawnBolts||[]).push(b);symbols.push({kind:"bolt",...(b.round?{round:true}:{}),box:rnd(b.box),...(v?{view:v.title}:{})})}
+ for(const w of sym.welds){const v=owner({x:(w.a.x+w.b.x)/2,y:(w.a.y+w.b.y)/2});if(v)(v.drawnWelds=v.drawnWelds||[]).push(w);symbols.push({kind:w.kind,n:w.n,length_pt:w.length_pt,box:rnd(w.box),...(v?{view:v.title}:{})})}
+ viewsOf.symbols=symbols;
  return views.map(v=>{const o={title:v.title,...(v.sheet?{sheet:v.sheet}:{}),at:v.at,box:{x0:Math.round(v.b.x0),y0:Math.round(v.b.y0),x1:Math.round(v.b.x1),y1:Math.round(v.b.y1)}};
+  if(v.drawnBolts)o.bolts_drawn={count:v.drawnBolts.length,groups:boltGroups(v.drawnBolts)};
+  if(v.drawnWelds){const site=v.drawnWelds.filter(w=>w.kind==="weld_site"),shop=v.drawnWelds.filter(w=>w.kind==="weld_shop");
+   o.welds_drawn={...(site.length?{site:site.length}:{}),...(shop.length?{shop:shop.length}:{})}}
   for(const k of ["plates","profiles","steel","bolts","welds","positions","marks","levels","dims","refs","nodes","layers","angles","sizes"])if(v[k].size)o[k]=[...v[k]].slice(0,80);
   if(v.text.length)o.text=v.text;return o})
 }
@@ -407,7 +423,9 @@ function sheetDetails(geometry,blocks){
  const requirements=requirementsOf(notes),tables=tablesOf(blocks),views=viewsOf(items,geometry?.segments,Number(geometry?.widthPt)||0,Number(geometry?.heightPt)||0),trims=trimsOf(items,geometry?.segments);
  const counts={labels:items.length,notes:notes.length,tables:tables.length,views:views.length,trims:trims.length,levels:0,dims:0,marks:0,text:0};
  for(const t of items){if(LEVEL.test(t.str))counts.levels++;else if(DIM.test(t.str))counts.dims++;else if(MARK.test(t.str))counts.marks++;else counts.text++}
- const out={notes:notes.slice(0,400),requirements,tables,views:views.slice(0,160),trims,counts};
+ const symbols=viewsOf.symbols||[];
+ counts.bolts_drawn=symbols.filter(x=>x.kind==="bolt").length;counts.welds_drawn=symbols.length-counts.bolts_drawn;
+ const out={notes:notes.slice(0,400),requirements,tables,views:views.slice(0,160),trims,counts,...(symbols.length?{symbols:symbols.slice(0,3000)}:{})};
  if(items.length<80){const t=titleOf(lines);if(t)out.title=t}
  return out
 }
@@ -428,8 +446,9 @@ function detailLines(details){
  if(req.length)out.push("Требования листа (правилами): "+req.join("; "));
  const tabs=(details.tables||[]).filter(t=>t.kind!=="other").map(t=>t.kind+" "+t.rows.length+" стр.");
  if(tabs.length)out.push("Таблицы листа: "+tabs.slice(0,12).join(", "));
- for(const v of (details.views||[]).filter(v=>v.plates||v.bolts||v.welds||v.profiles).slice(0,40))
-  out.push(v.title+": "+[v.plates&&"пластины "+v.plates.slice(0,8).join(", "),v.profiles&&"профили "+v.profiles.slice(0,8).join(", "),v.bolts&&"болты "+v.bolts.slice(0,6).join(", "),v.welds&&"швы "+v.welds.slice(0,4).join(", ")].filter(Boolean).join("; "));
+ for(const v of (details.views||[]).filter(v=>v.plates||v.bolts||v.welds||v.profiles||v.bolts_drawn||v.welds_drawn).slice(0,40))
+  out.push(v.title+": "+[v.plates&&"пластины "+v.plates.slice(0,8).join(", "),v.profiles&&"профили "+v.profiles.slice(0,8).join(", "),v.bolts&&"болты "+v.bolts.slice(0,6).join(", "),v.welds&&"швы "+v.welds.slice(0,4).join(", "),v.bolts_drawn&&"болтов нарисовано "+v.bolts_drawn.count+(v.bolts_drawn.groups.length>1?" (группы "+v.bolts_drawn.groups.join(", ")+")":""),
+   v.welds_drawn&&"швов нарисовано: "+[v.welds_drawn.site&&"монтажных "+v.welds_drawn.site,v.welds_drawn.shop&&"заводских "+v.welds_drawn.shop].filter(Boolean).join(", ")].filter(Boolean).join("; "));
  for(const t of (details.trims||[]).slice(0,30))out.push("Фасонный элемент поз. "+t.pos+": размеры "+t.dims.join(", ")+(t.developed_mm?" (развёртка "+t.developed_mm+" мм, гибы "+t.bends_deg.join("°, ")+"°)":""));
  return out
 }
