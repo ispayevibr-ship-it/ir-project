@@ -201,8 +201,13 @@ function viewsOf(items,segments,W=0,H=0){
  const named=t=>{if(TITLE.test(t.str)&&t.str.length<=90&&!/^(Схема|План|Узел|Разрез)\s*$/iu.test(t.str)&&!/^поз\.?\s*$/iu.test(t.str))return t.str;
   if(!t.vert&&/^\d{1,3}[а-я]?$/u.test(t.str)&&ringOver(t))return"Узел "+t.str;
   if(t.h<med*1.4||t.vert)return null;
+  // (a member drawn by itself, titled large by its name and mark — КМ1 л.7 ИР-71535 «База колонн Бк 6», the plan of the base
+  //  with its anchors and welds; «Оголовок…», «Колонна К1», «Балка…»)
+  if(/^(База|Базы|Оголовок|Колонна|Колонны|Балка|Балки|Ферма|Стойка|Ригель|Связь|Площадка|Лестница|Опора|Упор|Подвеска|Кронштейн|Монтажный\s+стык|Стык)(?=[\s,.]|$)/iu.test(t.str)&&t.str.length<=60)return t.str;
   if(/^\d{1,3}[а-я]?$/u.test(t.str))return"Узел "+t.str;
-  if(/^(?:\d{1,2}[а-я]?\s*-\s*\d{1,2}[а-я]?|[А-ЯЁ]\s*-\s*[А-ЯЁ])$/u.test(t.str))return"Разрез "+t.str.replace(/\s+/gu,"");
+  if(/^(?:\d{1,2}[а-я]?\s*-\s*\d{1,2}[а-я]?|[А-ЯЁ]\s*-\s*[А-ЯЁ]|[а-яё]\s*-\s*[а-яё])$/u.test(t.str))return"Разрез "+t.str.replace(/\s+/gu,"");
+  // (a member drawn by itself under its mark written large — КМ1 л.36 ИР-71535 «Кр1»…«Кр5», the brackets of the ducts)
+  if(/^[А-ЯЁ][а-яё]{0,2}\s?\d{1,3}(?:[-.]\d{1,2})?$/u.test(t.str))return"Элемент "+t.str.replace(/\s+/gu,"");
   return null};
  // (a «Поз. 58», «Узел 7» of the ordinary label height on a sheet whose views are titled larger — a leader's label in a
  // view, not a view: ИР-71535 АР ч.1 л.13 — «Поз. 56…61» in node 41, «Узел 7 см. лист АР-25» in section 2-2)
@@ -294,8 +299,12 @@ function viewsOf(items,segments,W=0,H=0){
  //  weld — each to the view it stands in, src/ai-drawing-symbols.js; КМ2 л.8 ИР-71535 node 13: 12 bolts, 4 site welds
  //  along the angles of Сг-10, 2 shop welds of the gusset to Ф-1; the user 17.11.2026 «болты, сварка»)
  const sym=require("./ai-drawing-symbols").symbolsOf(segments),symbols=[];
- for(const b of sym.bolts){const v=owner(b);if(v)(v.drawnBolts=v.drawnBolts||[]).push(b);symbols.push({kind:"bolt",...(b.round?{round:true}:{}),box:rnd(b.box),...(v?{view:v.title}:{})})}
- for(const w of sym.welds){const v=owner({x:(w.a.x+w.b.x)/2,y:(w.a.y+w.b.y)/2});if(v)(v.drawnWelds=v.drawnWelds||[]).push(w);symbols.push({kind:w.kind,n:w.n,length_pt:w.length_pt,box:rnd(w.box),...(v?{view:v.title}:{})})}
+ // (a symbol outside the drawing found for a view but within 150 pt of its labels — the drawing in pieces: КМ1 л.10 nodes 1,
+ //  2, the bolts of the angles beyond the labels — is that view's; the nearest such)
+ const symOwner=c=>owner(c)||views.filter(v=>c.x>=v.b.x0-150&&c.x<=v.b.x1+150&&c.y>=v.b.y0-150&&c.y<=v.b.y1+150)
+  .sort((p,q)=>{const d=v=>Math.hypot(Math.max(v.b.x0-c.x,0,c.x-v.b.x1),Math.max(v.b.y0-c.y,0,c.y-v.b.y1));return d(p)-d(q)})[0]||null;
+ for(const b of sym.bolts){const v=symOwner(b);if(v)(v.drawnBolts=v.drawnBolts||[]).push(b);symbols.push({kind:"bolt",...(b.round?{round:true}:{}),box:rnd(b.box),...(v?{view:v.title}:{})})}
+ for(const w of sym.welds){const v=symOwner({x:(w.a.x+w.b.x)/2,y:(w.a.y+w.b.y)/2});if(v)(v.drawnWelds=v.drawnWelds||[]).push(w);symbols.push({kind:w.kind,n:w.n,length_pt:w.length_pt,box:rnd(w.box),...(v?{view:v.title}:{})})}
  viewsOf.symbols=symbols;
  return views.map(v=>{const o={title:v.title,...(v.sheet?{sheet:v.sheet}:{}),at:v.at,box:{x0:Math.round(v.b.x0),y0:Math.round(v.b.y0),x1:Math.round(v.b.x1),y1:Math.round(v.b.y1)}};
   if(v.drawnBolts)o.bolts_drawn={count:v.drawnBolts.length,groups:boltGroups(v.drawnBolts)};
