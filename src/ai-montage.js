@@ -1187,7 +1187,9 @@ function createMontage({database,documents,drafts,renderer,engine,knowledge=null
   let catalog=null;
   try{
    const cat=buildCatalog(data,checkedResult(data)),list=[...cat.values()].filter(e=>normMark(e.mark)===nm);
-   const e=list.find(x=>volume&&x.doc===volume)||list[0];
+   // (a mark of another volume is another member with the same mark — ИР-71535 Кр4: the bracket of КМ1 л.35 and the porch
+   // of КМ3 л.5; the engineer 17.11.2026 «чертеж почему показывается Км1, если это км3»: only the member's own volume)
+   const own=/^КМ\d/u.test(volume),e=own?list.find(x=>x.doc===volume||!x.doc):list[0];
    if(e)catalog={mark:e.mark,doc:e.doc,profile:e.profile||"",profile_standard:e.profile_standard||"",steel:e.steel||"",length_mm:e.length_mm,count:e.count,mass_kg:e.mass_kg,
     z0_mm:e.z0_mm??e.section_z0_mm??null,z1_mm:e.z1_mm??e.section_z1_mm??null,beam_mm:e.section_beam_mm??null,sources:[...new Set(e.sources||[])].slice(0,12)}
   }catch(error){catalog=null}
@@ -1207,7 +1209,7 @@ function createMontage({database,documents,drafts,renderer,engine,knowledge=null
   for(const p of pages){
    for(const v of p.sheet?.views||[]){
     if(!v.box||!(v.marks||[]).some(x=>normMark(x)===nm))continue;
-    if(volume&&/^КМ\d/u.test(volume)&&volumeOf(p)&&volumeOf(p)!==volume)continue;
+    if(volume&&/^КМ\d/u.test(volume)&&volumeOf(p)!==volume)continue;
     shots.push({title:"Вид марки · «"+String(v.title||mark).slice(0,60)+"»",source:(p.sourceName||"PDF")+", лист "+(p.pdfPage||p.page),p,region:rect(p,v.box.x0,v.box.y0,v.box.x1,v.box.y1)});
     if(shots.length>=3)break
    }

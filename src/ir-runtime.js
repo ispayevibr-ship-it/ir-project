@@ -2197,7 +2197,9 @@ const fittingSection=c=>c.ft==="flight"||c.ft==="ladder"||c.ft==="deck"?(c.fd>0?
   if(!c.source_import_key||!irProject.ai?.invoke)return;
   const host=panel.querySelector(".ec-mark-host"),actions=panel.querySelector(".scheme-detail-actions");
   if(host)host.appendChild(box);else if(actions)panel.insertBefore(box,actions);else panel.appendChild(box);
-  const volume=(/КМ\s*\d+/u.exec(String(c.source_import_doc||""))||[""])[0].replace(/\s+/g,"");
+  // (the volume of the member by its own sheet first — «КМ1 л.35»: a set of КМ1–КМ3 in one file named the first volume, and the
+  // same mark in another volume is another member — ИР-71535 the bracket Кр4 of КМ1 л.35 got the porch Кр4 of КМ3 л.5)
+  const volume=(/КМ\s*\d+/u.exec(String(c.source_sheet||""))||/КМ\s*\d+/u.exec(String(c.source_import_doc||""))||[""])[0].replace(/\s+/g,"");
   const key=oid+"|"+c.source_import_key+"|"+c.mark+"|"+volume;
   // (the steel of the mark by its drawings into the characteristic of the card when the record has none)
   // 1.11.73: the enlarged drawing opens in its own layer on top of the whole window (the details panel is a stacking context, so the 3D toolbar and the cuts chip were drawn over it)
