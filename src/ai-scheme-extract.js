@@ -670,6 +670,31 @@ function growLine(seed,segments,lines,skip){
   const b=bridge(1),a=bridge(-1);if(b===null&&a===null)break;
   if(b!==null)tB=b;if(a!==null)tA=a;grow()
  }
+ // A slanted brace of a cross drawn under the other: broken where the other diagonal crosses it, a gap of up to 20 pt
+ // with the crossing slanted line through its middle part, the brace going on beyond on its line (КМ1 л.11: Сгф1, Свф —
+ // the second diagonal of each bay was read from the node to the crossing only). Lines along the sheet stay broken there:
+ // a beam ending on a crossing beam is its own member.
+ const slanted=Math.abs(u.x)>.17&&Math.abs(u.y)>.17;
+ const overCross=dir=>{
+  const t0=dir>0?tB:tA;let best=null;
+  for(const i of lines.near(at(t0+dir*8),12)){
+   if(skip.has(i))continue;const p=piece(i);if(!p||p.l<12)continue;
+   const gap=dir>0?p.lo-t0:t0-p.hi;if(gap<2||gap>20)continue;
+   const far=dir>0?p.hi:p.lo;if(best===null||(dir>0?far>best.far:far<best.far))best={far,gap}
+  }
+  if(!best)return null;
+  const g0=dir>0?t0:t0-best.gap,g1=g0+best.gap,P=at(g0),Q=at(g1);
+  const hit=lines.near(at((g0+g1)/2),best.gap/2+30).some(i=>{
+   if(skip.has(i))return false;const s=segments[i],l=dist(s.a,s.b);if(l<24)return false;
+   const v={x:(s.b.x-s.a.x)/l,y:(s.b.y-s.a.y)/l};if(Math.abs(v.x)<.17||Math.abs(v.y)<.17||Math.abs(cross(u,v))<.34)return false;
+   const den=cross(u,v),w={x:s.a.x-P.x,y:s.a.y-P.y},k=cross(w,v)/den,m=cross(w,u)/den;
+   return k>=best.gap*.25&&k<=best.gap*.75&&m>4&&m<l-4});
+  return hit?best.far:null
+ };
+ for(let n=0;n<4&&slanted&&!dash;n++){
+  const b=overCross(1),a=overCross(-1);if(b===null&&a===null)break;
+  if(b!==null)tB=b;if(a!==null)tA=a;grow()
+ }
  return{a:at(tA),b:at(tB)}
 }
 // A member drawn as a line on the plan: its label lies along it, or a leader points onto it.
@@ -1605,6 +1630,58 @@ function extractScheme({segments=[],texts=[],glyphs=[],page=1,kinds=DEFAULT_KIND
    const L=!d.cut&&lineOf(d);if(!L||L.cuts.length<3)continue;
    if(!(shortest.get(p.mark)<Math.hypot(p.x2_mm-p.x_mm,p.y2_mm-p.y_mm)*0.6))continue;
    cutTo(p,L,bayOf(d,L),false)
+  }
+  // A lattice drawn on the line of its mark (КМ1 л.9: the brake trusses between Бкр1 and Тб1 — one «Сгк1» on the thin
+  // line along the row, the diagonals zigzag across it bay after bay, unlabelled): a bracing mark placed by a straight
+  // line is each of the slanted strokes crossing that line at their middle part, of one length (±12 %), in turn up and
+  // down, an even step apart, run on from the label's piece while the step holds. The strokes no other label took.
+  const taken=[...drawn.values()].map(d=>d.line).filter(Boolean);
+  const takenBy=q=>taken.some(l=>{const n=dist(l.a,l.b);if(n<1)return false;const u={x:(l.b.x-l.a.x)/n,y:(l.b.y-l.a.y)/n},m={x:(q.a.x+q.b.x)/2-l.a.x,y:(q.a.y+q.b.y)/2-l.a.y},t=m.x*u.x+m.y*u.y;
+   return t>-2&&t<n+2&&Math.abs(cross(u,m))<1.5&&Math.abs(cross(u,{x:(q.b.x-q.a.x)/dist(q.a,q.b),y:(q.b.y-q.a.y)/dist(q.a,q.b)}))<.05});
+  const latticeOn=(flat,at,lo,hi)=>{
+   const c=flat?"x":"y",o=flat?"y":"x";
+   // The line itself drawn under the crossing (the lattice's line, not another member passing by).
+   const onLine=v=>segments.some(q=>Math.abs(q.a[o]-at)<1&&Math.abs(q.b[o]-at)<1&&Math.min(q.a[c],q.b[c])<=v+.5&&Math.max(q.a[c],q.b[c])>=v-.5);
+   const xs=[];
+   for(const q of segments){
+    const n=dist(q.a,q.b);if(n<12||n>400)continue;const da=q.a[o]-at,db=q.b[o]-at;if(da*db>=0)continue;
+    const k=da/(da-db);if(k<.12||k>.88)continue;const dc=Math.abs(q.b[c]-q.a[c]),dd=Math.abs(q.b[o]-q.a[o]);if(dc<n*.17||dd<n*.17)continue;
+    const v=q.a[c]+(q.b[c]-q.a[c])*k;if(!onLine(v)||takenBy(q))continue;
+    xs.push({q,v,n,dc,sign:Math.sign((q.b[c]-q.a[c])*(q.b[o]-q.a[o]))})
+   }
+   xs.sort((a,b)=>a.v-b.v);if(xs.length<4)return null;
+   // The run: from the stroke nearest the label's piece both ways, of one length, alternating, the step even.
+   const near=xs.reduce((m,x)=>{const g=x.v<lo?lo-x.v:x.v>hi?x.v-hi:0;return!m||g<m.g?{x,g}:m},null);if(near.g>near.x.dc*4)return null;
+   const i0=xs.indexOf(near.x),run=[near.x];
+   // The line need not run through the middle of the lattice: the gaps go short and long in turn, every other one even.
+   for(const dir of [1,-1]){const seq=[near.x];let period=null;
+    for(let i=i0+dir;i>=0&&i<xs.length;i+=dir){const x=xs[i],prev=seq[seq.length-1],gap=Math.abs(x.v-prev.v);
+     if(gap<prev.dc*.4)continue;if(Math.abs(x.n-near.x.n)>near.x.n*.12||x.sign===prev.sign||gap>prev.dc*3)break;
+     if(seq.length>=2){const two=Math.abs(x.v-seq[seq.length-2].v);period=period??two;if(Math.abs(two-period)>period*.15)break}
+     seq.push(x);dir>0?run.push(x):run.unshift(x)}}
+   return run.length>=4?run:null
+  };
+  for(const [p,d] of [...drawn]){
+   if(p.geometry_type!=="brace"&&markKind(core(p.mark),kinds)!=="brace")continue;
+   const l=d.line;if(!l)continue;const flat=Math.abs(l.a.y-l.b.y)<1.5;if(!flat&&Math.abs(l.a.x-l.b.x)>=1.5)continue;
+   const c=flat?"x":"y",o=flat?"y":"x";
+   let run=latticeOn(flat,l.a[o],Math.min(l.a[c],l.b[c]),Math.max(l.a[c],l.b[c]));
+   // A label standing on its lattice's line as on a shelf, a line of the drawing nearer its letters taken for its member
+   // (КМ1 л.9, ряд Л: «Сгк1» over the thin line, the dashes of the rail above): the lines along the label close by.
+   if(!run&&d.at&&d.h){const seen=new Set();
+    for(const q of segments){const n=dist(q.a,q.b);if(n<d.h*4||Math.abs(q.a[o]-q.b[o])>.3||Math.abs(q.a[o]-d.at[o])>d.h*3)continue;
+     const k=Math.round(q.a[o]*2);if(seen.has(k))continue;const q0=Math.min(q.a[c],q.b[c]),q1=Math.max(q.a[c],q.b[c]);
+     if(q1<d.at[c]-(d.half||0)-d.h*2||q0>d.at[c]+(d.half||0)+d.h*2)continue;seen.add(k);
+     run=latticeOn(flat,q.a[o],q0,q1);if(run)break}}
+   if(!run)continue;
+   const i=placements.indexOf(p);if(i<0)continue;placements.splice(i,1);drawn.delete(p);
+   for(const x of run){
+    const line={a:x.q.a,b:x.q.b},ends=[line.a,line.b].map(e=>({x:Math.round(toX(e.x)/10)*10,y:Math.round(toY(e.y)/10)*10}));
+    const one={...p,x_mm:ends[0].x,y_mm:ends[0].y,x2_mm:ends[1].x,y2_mm:ends[1].y,geometry_type:"brace",kind_label:KIND_NAMES.brace,
+     axis_x:nearestName(linesX,(line.a.x+line.b.x)/2),axis_y:nearestName(linesY,(line.a.y+line.b.y)/2),confidence:"medium",
+     notes:["Решётка на линии марки: раскос по линии на схеме, марка одна на ряд"]};
+    placements.push(one);drawn.set(one,{...d,line,cut:true});taken.push(line)
+   }
   }
   // Stair flights drawn by their treads on a small plan (the stair of a platform).
   if(group.local){
