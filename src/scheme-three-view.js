@@ -15166,6 +15166,44 @@ window.irThreeSchemeView=(function irThreeModule(){
       for(var i=0;i<ps.count;i++){v.fromBufferAttribute(ps,i).applyMatrix4(m.matrixWorld);if(sg*(v[a]-lim)>0){v[a]=lim;v.applyMatrix4(inv);ps.setXYZ(i,v.x,v.y,v.z);mv++}}
       if(mv&&mv<ps.count){ps.needsUpdate=true;g.computeBoundingBox();g.computeBoundingSphere();m.geometry=g;stubTrimN++}})})
    root.setAttribute("data-stub-trims",String(stubTrimN))}
+  // Leftovers of a cut wall panel (hard rule of the engineer 18.11.2026 «когда сэндвич обрезаешь, куски остаются, не должно
+  // быть»): after the cuts only the cut panel stays. (a) A filler of the panel — a step of its foot, a strip up to the roof,
+  // a seam — lying past the cut end of its own body but still within the panel's length by the drawing (the step wall by 03
+  // at the corner К: Пс-67 cut at the outer face of the wall of the row К at 48 929, a foot step at 49 100…49 150 and the seam
+  // of the old end at 49 244 stayed in the air) — off. (b) A filler of a wall standing on a roof going down under the roof's
+  // top (the foot steps of Пс-67 at 47 850…48 200 down to the bottom of the gutter at +20,08 hung under the lower roof) —
+  // cut at the roof's top, off when nothing stays above it. scrapsOut(true) only counts — the check of the model.
+  var scrapsN=[0,0];
+  function scrapsOut(count){var gone=0,clip=0,list=[];
+   var walls=new Map(),roofs=[],every=new Set(allMeshes);scene.traverse(function(m){if(m.isMesh)every.add(m)});
+   every.forEach(function(m){var u=m.userData||{},c=dataById.get(String(u.memberId));if(!m.isMesh||m.isBatchedMesh||m.isInstancedMesh||!m.parent||u.edges||!c||c.ft!=="panel"||!c.lay||!m.geometry||!m.geometry.attributes||!m.geometry.attributes.position)return;
+    var vis=true,p=m;while(p){if(p.visible===false){vis=false;break}p=p.parent}if(!vis)return;
+    m.updateMatrixWorld(true);var b=new T.Box3().setFromObject(m);if(b.isEmpty())return;
+    if(c.lay.panel==="roof"){if(!u.fixed&&!u.seam)roofs.push({m:m,b:b});return}
+    var k=String(u.memberId);if(!walls.has(k))walls.set(k,{c:c,body:[],fill:[]});var W=walls.get(k);
+    if(!u.fixed&&!u.seam)W.body.push({m:m,b:b});else if(!u.tl&&!u.gapFill&&!u.cornerFill&&(u.footing||u.clad||u.seam))W.fill.push({m:m,b:b,u:u})});
+   var rc=new T.Raycaster(),down=new T.Vector3(0,-1,0);
+   var cap=1e9,roofTop=function(x,z,y0){var o=new T.Vector3(x,y0,z),hit=null;rc.set(o,down);rc.near=0;rc.far=50;
+    roofs.forEach(function(R){if(x<R.b.min.x-.001||x>R.b.max.x+.001||z<R.b.min.z-.001||z>R.b.max.z+.001||R.b.max.y>y0+.001&&R.b.min.y>y0)return;rc.intersectObject(R.m,false).forEach(function(q){if(q.point.y<=cap&&(hit==null||q.point.y>hit))hit=q.point.y})});return hit};
+   walls.forEach(function(W,k){if(!W.body.length||!W.fill.length)return;var B=new T.Box3();W.body.forEach(function(e){B.union(e.b)});
+    var a=(B.max.x-B.min.x)>=(B.max.z-B.min.z)?"x":"z",c=W.c;cap=B.min.y+.3;
+    var p0=toWorld(c.x,c.y,0),p1=toWorld(c.x2!=null?c.x2:c.x,c.y2!=null?c.y2:c.y,0),d0=Math.min(p0[a],p1[a])-.01,d1=Math.max(p0[a],p1[a])+.01;
+    W.fill.forEach(function(e){var b=e.b,m=e.m;if(!m.parent)return;
+     var past=b.min[a]>B.max[a]+.002||b.max[a]<B.min[a]-.002,inLen=b.min[a]>=d0&&b.max[a]<=d1;
+     if(past&&inLen){list.push({id:k,why:"past",b:b});if(!count){m.parent.remove(m);gone++}return}
+     if(e.u.seam)return;
+     var cx=(b.min.x+b.max.x)/2,cz=(b.min.z+b.max.z)/2,top=roofTop(cx,cz,B.max.y+.01);if(top==null)return;
+     if(B.max.y<top+.3||B.min.y<top-.3)return;/* (the body stands under the roof or runs on down past it — not on it) */
+     if(b.min.y>=top-.005)return;
+     var ps0=m.geometry.attributes.position,w=new T.Vector3(),low=0;for(var j=0;j<ps0.count;j++){w.fromBufferAttribute(ps0,j).applyMatrix4(m.matrixWorld);var tj=roofTop(w.x+(cx-w.x)*.002,w.z+(cz-w.z)*.002,B.max.y+.01);if(tj!=null&&w.y<tj-.005)low++}
+     if(!low)return;
+     if(b.max.y<=top+.005){list.push({id:k,why:"under",b:b});if(!count){m.parent.remove(m);gone++}return}
+     list.push({id:k,why:"through",b:b});if(count)return;
+     var g=m.geometry.clone(),ps=g.attributes.position,inv=new T.Matrix4().copy(m.matrixWorld).invert(),v=new T.Vector3(),mv=0;
+     for(var i=0;i<ps.count;i++){v.fromBufferAttribute(ps,i).applyMatrix4(m.matrixWorld);var qx=v.x+(cx-v.x)*.002,qz=v.z+(cz-v.z)*.002,t=roofTop(qx,qz,B.max.y+.01);if(t==null)t=top;if(v.y<t){v.y=t;v.applyMatrix4(inv);ps.setXYZ(i,v.x,v.y,v.z);mv++}}
+     if(mv){ps.needsUpdate=true;g.computeVertexNormals();g.computeBoundingBox();g.computeBoundingSphere();m.geometry=g;clip++}})});
+   if(count)return list;
+   scrapsN=[gone,clip];if(root){root.setAttribute("data-scraps",gone+"/"+clip);root.__irScraps=function(){return scrapsOut(true).map(function(q){return{id:q.id,why:q.why,b:[q.b.min.x,q.b.max.x,q.b.min.y,q.b.max.y,q.b.min.z,q.b.max.z].map(function(v){return Math.round(v*1000)})}})}}}
   // A gutter of the АР (lay.trim "gutter", узел 41 between the end of a roof and a higher wall) under a roof panel run on
   // over a wall cut down to the roof — ИР-71535 Пк-1 at the corner В/03: the wall of the row В on its girts at 1000…1120 from
   // the axis, КМ2 л.14, its part beside the step wall down to the parapet, the strip on over it; the gutter of the row В went
@@ -16375,6 +16413,7 @@ window.irThreeSchemeView=(function irThreeModule(){
    try{gapClose()}catch(e){if(window.console)console.warn("gapClose",e&&e.stack||e)}
    try{stubTrims()}catch(e){if(window.console)console.warn("stubTrims",e&&e.stack||e)}
    try{gutterUnderRoof()}catch(e){if(window.console)console.warn("gutterUnderRoof",e&&e.stack||e)}
+   try{scrapsOut()}catch(e){if(window.console)console.warn("scrapsOut",e&&e.stack||e)}
    root.setAttribute("data-panel-cuts",panelCutsN+"/"+Math.round(performance.now()-t0)+"ms")
   }
   function lowerGround(){
