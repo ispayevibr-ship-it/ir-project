@@ -13,7 +13,7 @@ window.irThreeSchemeView=(function irThreeModule(){
  // ускорить построение схемы?» — «да»). It is raised by scripts/scheme-model-digest.js, never by hand: the script builds
  // the checked schemes with this file and raises the number when what would be kept for any of them differs from the
  // record (knowledge/quality/model-digest.json); scripts/scheme-pack.js refuses a pack made without it.
- var MODEL_BUILD=72;
+ var MODEL_BUILD=73;
  var token=0,active=null,loadPromise=null,cameraMemory={};
  // Bundled with the app (works offline); the CDN is only a fallback for an incomplete hot update.
  var sources=[
@@ -16612,7 +16612,8 @@ window.irThreeSchemeView=(function irThreeModule(){
     else{put(new T.BoxGeometry(N,.02,N),at(cs,yb-.01),q);put(new T.BoxGeometry(N,N,.45),at(cs+N/2+.225,yb+N/2),q);flange(cs+N/2+.45,yb+N/2,"s");put(new T.BoxGeometry(N,N,.02),at(cs+N/2+.46,yb+N/2),q,false,true)}
     shaftN++;
     if(!big&&Math.abs(N-.8)<.01&&inner.length){// Ø500 inside, on the inner parts of the consolas, from its grille into the duct
-     var rs=inner.reduce(function(s,t){return s+t.s},0)/inner.length+.34,y0=3.52,y1=Yh-N/2;
+     var rs=inner.reduce(function(s,t){return s+t.s},0)/inner.length+.36,// (б-б: 100 + 520 / 2 from the inner end — in the middle of the box of the two cross angles, 10 mm off each back; was .34, 10 mm into the outer one)
+     y0=3.52,y1=Yh-N/2;
      put(new T.CylinderGeometry(.25,.25,y1-y0,24),at(rs,(y0+y1)/2),q);
      for(var ry=y0+1.5;ry<y1-.3;ry+=1.5)put(new T.CylinderGeometry(.28,.28,.03,24),at(rs,ry),q);
      put(new T.BoxGeometry(.75,1.79,.3),at(rs,1.73+.895),q,false,true)}
