@@ -852,9 +852,14 @@ window.irThreeSchemeView=(function irThreeModule(){
    var geo=new T.BufferGeometry().setFromPoints([a,b]),line=new T.Line(geo,material);
    if(material.isLineDashedMaterial)line.computeLineDistances();group.add(line);return line
   }
+  // A new screen label is hidden till it is painted, and the order of painting is taken anew: the elevations are built
+  // again two for two (buildLevels), the count of labels stayed the same, the kept order still held the removed ones —
+  // the new «±0,000» and top elevation were never painted and stood shown at the corner of the view, at left 0, top 0, a
+  // quarter of «…,080» over «Общий вид» (the engineer, 18.11.2026 «что это за цифры постоянно в углу? мы их убираем, они
+  // возвращаются»).
   function tag(layer,cls,text,pos,group){
-   var el=document.createElement("span");el.className=cls;el.textContent=text;layer.appendChild(el);
-   var t={el:el,pos:pos,group:group};screenTags.push(t);return t
+   var el=document.createElement("span");el.className=cls;el.textContent=text;el.hidden=true;layer.appendChild(el);
+   var t={el:el,pos:pos,group:group};screenTags.push(t);screenTags.ranked=0;return t
   }
   // Grid lines with axis bubbles at their ends. Of the two ends of an axis the bubble is shown at the one on the side of
   // the camera, the bay dimensions — on that side too (tagSide): bubbles at both ends and the dimensions of one fixed
@@ -898,7 +903,7 @@ window.irThreeSchemeView=(function irThreeModule(){
   var tankDims=new T.Group(),tankTags=[],tankMaterial=new T.LineBasicMaterial({color:0x173f5b});scene.add(tankDims);
   function buildTankDims(){
    tankDims.children.slice().forEach(function(l){tankDims.remove(l);l.geometry.dispose()});
-   tankTags.forEach(function(t){t.el.remove();var i=screenTags.indexOf(t);if(i>=0)screenTags.splice(i,1)});tankTags=[];
+   tankTags.forEach(function(t){t.el.remove();var i=screenTags.indexOf(t);if(i>=0)screenTags.splice(i,1)});tankTags=[];screenTags.ranked=0;
    var tanks=[];
    elems.forEach(function(c){
     if(c.geometryType!=="shell"||c.ft||!(number(c.r)>0)||(number(c.ri)>0&&number(c.ri)!==number(c.r)))return;
@@ -943,7 +948,7 @@ window.irThreeSchemeView=(function irThreeModule(){
   }
   function buildLevels(){
    levelDims.children.slice().forEach(function(l){levelDims.remove(l);l.geometry.dispose()});
-   levelTags.forEach(function(t){t.el.remove();var i=screenTags.indexOf(t);if(i>=0)screenTags.splice(i,1)});levelTags=[];
+   levelTags.forEach(function(t){t.el.remove();var i=screenTags.indexOf(t);if(i>=0)screenTags.splice(i,1)});levelTags=[];screenTags.ranked=0;
    var top=topLevel(elems);if(!(top>=500))return;
    // Of the two side corners of the grid as the 3D view opens (left front, right back) the one with fewer members
    // near it; the shelves and the elevations towards the model.

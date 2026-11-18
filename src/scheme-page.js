@@ -894,11 +894,40 @@ const fittingSection=c=>c.ft==="flight"||c.ft==="ladder"||c.ft==="deck"?(c.fd>0?
    if(!data){alert("На схеме нет элементов для ссылки.");return}
    const html=await window.irSchemeHtmlExport.build(data);
    const r=await irProject.ai.invoke("ai-settings:server-report-share",{objectId:data.objectId,objectName:data.object.name,label:data.object.short||data.object.name,title:"Монтажная схема, "+(data.object.name||"Объект"),html,kind:"scheme"});
+   if(r?.link)schemeDigest(data).then(sig=>{try{localStorage.setItem(autoLinkKey(data.objectId),sig)}catch(_e){}});
    if(typeof window.irReportLinkDialog!=="function"&&typeof window.irLazy==="function")await window.irLazy("export").catch(()=>null);
    if(typeof window.irReportLinkDialog==="function")window.irReportLinkDialog(data.objectId,r,"scheme");
    else if(r?.link?.url){try{await navigator.clipboard.writeText(r.link.url)}catch(_e){}alert("Ссылка на монтажную схему скопирована:\n"+r.link.url)}
   }catch(error){alert("Не удалось сделать ссылку: "+String(error?.message||error).replace(/^Error invoking remote method '[^']+': (Error: )?/,""))}
   finally{if(btn){btn.disabled=false;btn.textContent=old}}
+ }
+ // The scheme link keeps itself fresh (the engineer, 18.11.2026 «как нам сделать так чтобы я тебе постоянно не загружал схему»
+ // — «по ссылке она автоматически сама обновлялась, а ты оттуда брал»): once the object has a scheme link («🔗 Ссылка»), the
+ // whole scheme (all work types, the general view) goes to the same address by itself a minute after the scheme changed —
+ // a placement, an edit, a status. Nothing is sent when nothing changed (a digest of the members and the grid), when no link
+ // was made, when not signed in; no window, no message — the manual button shows the dialog as before.
+ let autoLinkTimer=0,autoLinkBusy=false;
+ const AUTO_LINK_WAIT=60e3,autoLinkKey=id=>"ir-scheme-autolink."+id;
+ async function schemeDigest(data){
+  const text=JSON.stringify({e:data.elements,x:data.gridX,y:data.gridY,w:data.works});
+  try{const h=await crypto.subtle.digest("SHA-256",new TextEncoder().encode(text));return [...new Uint8Array(h)].map(b=>b.toString(16).padStart(2,"0")).join("")}
+  catch(_e){let a=0;for(let i=0;i<text.length;i++)a=(a*31+text.charCodeAt(i))|0;return text.length+":"+a}
+ }
+ const autoLinkOk=()=>frameMode&&activeScheme==="all"&&Boolean(window.irSchemeHtmlExport)&&typeof irProject!=="undefined"&&Boolean(irProject?.ai?.invoke);
+ function autoLinkLater(){clearTimeout(autoLinkTimer);if(autoLinkOk())autoLinkTimer=setTimeout(autoLinkNow,AUTO_LINK_WAIT)}
+ async function autoLinkNow(){
+  if(autoLinkBusy||!autoLinkOk()||!document.getElementById("schemeShareLink"))return;
+  autoLinkBusy=true;
+  try{
+   const data=await exportSchemeData();if(!data)return;
+   const sig=await schemeDigest(data);let last="";try{last=localStorage.getItem(autoLinkKey(data.objectId))||""}catch(_e){}
+   if(last===sig)return;
+   const info=await irProject.ai.invoke("ai-settings:server-report-link",{objectId:data.objectId,kind:"scheme"});
+   if(!info?.link)return;
+   const html=await window.irSchemeHtmlExport.build(data);
+   await irProject.ai.invoke("ai-settings:server-report-share",{objectId:data.objectId,objectName:data.object.name,label:data.object.short||data.object.name,title:"Монтажная схема, "+(data.object.name||"Объект"),html,kind:"scheme"});
+   try{localStorage.setItem(autoLinkKey(data.objectId),sig)}catch(_e){}
+  }catch(_e){}finally{autoLinkBusy=false}
  }
  let pickerCollator=null;
  function pickerRecords(){
@@ -1803,6 +1832,7 @@ const fittingSection=c=>c.ft==="flight"||c.ft==="ladder"||c.ft==="deck"?(c.fd>0?
  }
  function draw(){
   if(activeScheme!=="all"&&!frameMode&&!activeView()){activeScheme="all";refreshGridModel()}
+  autoLinkLater();
   // (the shown elements once for the drawing: each listing of them took the coordinates of all of them again)
   const shownNow=columns();
   if(selectedId&&!shownNow.some(c=>c.id===selectedId))selectedId="";
