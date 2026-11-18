@@ -2096,7 +2096,9 @@ const fittingSection=c=>c.ft==="flight"||c.ft==="ladder"||c.ft==="deck"?(c.fd>0?
   try{const h=await crypto.subtle.digest("SHA-256",new TextEncoder().encode(text));return [...new Uint8Array(h)].map(b=>b.toString(16).padStart(2,"0")).join("")}
   catch(_e){let a=0;for(let i=0;i<text.length;i++)a=(a*31+text.charCodeAt(i))|0;return text.length+":"+a}
  }
- const autoLinkOk=()=>frameMode&&activeScheme==="all"&&Boolean(window.irSchemeHtmlExport)&&typeof irProject!=="undefined"&&Boolean(irProject?.ai?.invoke);
+ // (the module of the HTML page is loaded with the 3D, after the first drawing — not asked here, 1.12.221 never started:
+ // the engineer, 18.11.2026 «ничего нет там»; it is loaded when the timer comes)
+ const autoLinkOk=()=>frameMode&&activeScheme==="all"&&typeof irProject!=="undefined"&&Boolean(irProject?.ai?.invoke);
  // (one timer at a time, not put off by each drawing: the scheme draws itself anew often — a timer moved at each drawing
  // may never come; the first check 5 s after the scheme opened; the mark on the button put back after the drawing)
  let autoLinkFirst=true,autoLinkLast=null;
@@ -2109,6 +2111,8 @@ const fittingSection=c=>c.ft==="flight"||c.ft==="ladder"||c.ft==="deck"?(c.fd>0?
   if(autoLinkBusy||!autoLinkOk()||!document.getElementById("schemeShareLink"))return;
   autoLinkBusy=true;
   try{
+   if(!window.irSchemeHtmlExport&&typeof window.irLazy==="function")await window.irLazy("scheme").catch(()=>null);
+   if(!window.irSchemeHtmlExport){autoLinkMark("⚠","Ссылка не обновилась сама: модуль выгрузки схемы не загрузился");return}
    const data=await exportSchemeData();if(!data)return;
    const sig=await schemeDigest(data);let last="";try{last=localStorage.getItem(autoLinkKey(data.objectId))||""}catch(_e){}
    if(last===sig){autoLinkMark("✓","Схема по ссылке такая же, как в программе"+autoLinkWhen(data.objectId));return}
