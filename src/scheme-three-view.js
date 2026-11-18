@@ -13,7 +13,7 @@ window.irThreeSchemeView=(function irThreeModule(){
  // ускорить построение схемы?» — «да»). It is raised by scripts/scheme-model-digest.js, never by hand: the script builds
  // the checked schemes with this file and raises the number when what would be kept for any of them differs from the
  // record (knowledge/quality/model-digest.json); scripts/scheme-pack.js refuses a pack made without it.
- var MODEL_BUILD=65;
+ var MODEL_BUILD=66;
  var token=0,active=null,loadPromise=null,cameraMemory={};
  // Bundled with the app (works offline); the CDN is only a fallback for an incomplete hot update.
  var sources=[
@@ -813,6 +813,8 @@ window.irThreeSchemeView=(function irThreeModule(){
   // (the words on the existing building — buildingTexts: drawn as they are, not merged with the model — the merging keeps
   // no pictures —, each shown while its block is)
   var bTexts=new T.Group();scene.add(bTexts);
+  // (the ducts and shafts ОВ on the brackets Кр1–Кр5 — drawn as they are, not merged into the steel: shaftDucts)
+  var shaftGroup=new T.Group();scene.add(shaftGroup);
   var dims=new T.Group();scene.add(dims);
   var helpers=new T.Group();scene.add(helpers);
   // The places of the hidden pieces are not counted again at every picture: the anchors of the bases far from the camera
@@ -4901,7 +4903,7 @@ window.irThreeSchemeView=(function irThreeModule(){
    })
   }
   var masonryPart=new Set(),masonryCapN=0;
-  var masonryN=0,ductPieces=[],ductN=0,ductMat=null;
+  var masonryN=0,ductPieces=[],ductN=0,ductMat=null,shaftList=[],shaftN=0;
   // The pipes and ducts through the openings of the АР (the engineer, 11.11.2026: «Если где то выходят трубы, дымовые и
   // тд, все прорисуй»): the АР gives only their holes — «Отверстие ОВ 700 х 1000(h). отм. низа +2,900» on the views of
   // the walls, «Отверстие ОВ 900 х 900» on the plans of the roof (lay.holes of the panels); the duct itself is of the
@@ -7948,6 +7950,10 @@ window.irThreeSchemeView=(function irThreeModule(){
       // (and the end it would lose — under 1 m of it past the wall — standing on a beam or column behind it is its node
       // there: whole, the panel cut round it — Рс-3 L90×8 of the annex О8–О10 at Б−652 by КМ2 л.12 узлы 40, 42 on the
       // common gusset by О8 lost its last 0,5 m and the gusset stuck out of the wall of О8 — the engineer, 14.11.2026)
+      // (a consola of the brackets Кр1–Кр5 of КМ1 л.35 runs through the sandwich to the duct outside — разрезы 1-1, 2-2, в-в:
+      // whole, the panel cut round it; cut at the wall, its outer part and the brace on it hung in the air — Кр3 ряд Б у
+      // X=36300 +14,250, the engineer, 18.11.2026 «вот этот металл тоже висит в воздухе, куда крепится?»)
+      if(c.joint&&c.joint.through_wall||/^Кронштейн Кр\d.*шахта/.test(nameOf(c)))return;
       var lostEnd=(da>0?1:-1)===keep?b:a;
       if(kept>=.25&&(1-kept)*M<1&&(1-kept)*M>=.1&&onMember(lostEnd,c))return;
       if(kept<.25&&Math.max(hs.h,hs.b)>=.03){if(kept*M>=.1&&onColumn((da>0?1:-1)===keep?a:b))return;if(Math.max(hs.h,hs.b)<.05){}else if(kept*M<.3)keep=-keep;else return}
@@ -8807,7 +8813,15 @@ window.irThreeSchemeView=(function irThreeModule(){
     var mm=function(v,i,d){var x=Array.isArray(v)?number(v[i]):0;return(x>0?x:d)/1000};
     var tP=mm(br.plate_mm,0,14),wP=mm(br.plate_mm,1,300),tR=mm(br.rib_mm,0,10),oR=mm(br.rib_mm,1,300),dR=mm(br.rib_mm,2,200),cap=number(br.cap_mm)/1000;
     var gsec=sectionOf(g.profile_name||g.profileName,g.profile_standard),tw=gsec&&gsec.t?gsec.t/1000:.005,d=boltMm(br.bolt,g)/1000,flatCh=flangesDown(g);
-    [[a,au],[b,au.clone().negate()]].forEach(function(E){
+    // (and a column it runs by on its way, 20 mm…1,2 m off it: a bracket there too — the girders of the rows В and К of the
+    // annex О1–О3 (КМ2 л.15) set out on the outer faces of their posts ran from О1 past К1 at О2 to К5 at О3 with no
+    // bracket but at their ends, past the columns: all of them in the air — the engineer, 18.11.2026, «эти ригеля тоже
+    // висят в воздухе»)
+    var ends=[[a,au],[b,au.clone().negate()]],usedK=new Set(),endsMade=0;
+    gcols.forEach(function(k){if(z<number(k.z0)||z>number(topOf(k)))return;if(flatCh)return;/* (a girder laid flat frames into its columns: КМ3 л.27) */var C=toWorld(k.x,k.y,z),t=C.clone().sub(a).dot(au);if(t<.6||t>L-.6)return;/* (by an end: the bracket of the end) */
+     var ks=planHalf(k);if(Math.max(ks.x,ks.z)<.15)return;/* (a column of the frame, not a post □180 of another wall) */var P=a.clone().add(au.clone().multiplyScalar(t)),o=C.clone().sub(P);o.y=0;var hOut=Math.abs(au.z)*ks.x+Math.abs(au.x)*ks.z,gp=o.length()-gw-hOut;
+     if(gp>.02&&gp<=1.2)ends.push([P,au,true])});
+    ends.forEach(function(E){
      // A girder end in line with a column or into its body frames into that column, and one at the foot of the
      // column it ends at (the bottom girder of a wall at the floor) has no room for a bracket: neither gets one from
      // a column farther off (the bracket of the column К7 of the shop under the bottom girder of the frame КМ3 л.29
@@ -8824,7 +8838,9 @@ window.irThreeSchemeView=(function irThreeModule(){
       if(gap>1.2)return;
       if(!best||gap<best.gap)best={k:k,C:C,along:along,out:ov.divideScalar(dOut),dOut:dOut,hAlong:hAlong,hOut:hOut,gap:gap}
      });
+     if(into&&!E[2])endsMade++;/* (framing into its column holds that end too) */
      if(!best||into||!flatCh&&z<number(best.k.z0)+300)return;
+     if(best&&E[2]&&(usedK.has(best.k)||endsMade>=2))return;/* (a column its end has a bracket at already; a girder on brackets at both its ends needs none on its way: the angle L63×5 under Рст by О8 ran into it) */if(best)usedK.add(best.k);if(!E[2])endsMade++;
      // (a flat girder rests on an angle ОС of the column it runs by, КМ3 л.29 nodes 3, 4: one farther off is not its
      // column — the girder Р1 of the frame О1–О3 over the top of К1 got a leg of 1,6 m from К1 of the shop)
      if(flatCh&&best.gap>.1)return;
@@ -9901,7 +9917,7 @@ window.irThreeSchemeView=(function irThreeModule(){
    return st.every(function(x){return x==="mounted"})?"mounted":st.some(function(x){return x!=="planned"})?"partial":"planned"
   }
   function computeNodes(){
-   var list=[],plain=function(c){return !c.ft&&!(number(c.r)>0)&&!slight(c)};
+   var list=[],plain=function(c){return !c.ft&&!(number(c.r)>0)&&(!slight(c)||/стен\S*\s+ступен/i.test(nameOf(c)))};/* (the frame of the wall of a roof step — «стены ступени», КМ2 л.14 — is not the steps of a stair: its nodes 10, 11) */
    var cols=elems.filter(function(c){return c.geometryType==="column"&&plain(c)&&dataById.has(String(c.id))});
    var lines=elems.filter(function(c){return(c.geometryType==="beam"||c.geometryType==="brace"||c.geometryType==="bent")&&plain(c)&&dataById.has(String(c.id))});
    // Plan cells of 1 m: a node, a column or a member line is looked for in its own cells only (thousands of members
@@ -16319,11 +16335,59 @@ window.irThreeSchemeView=(function irThreeModule(){
   // (its triangles clipped by the box): the boxes of the panel left round the holes. The engineer, 13.11.2026: «есть
   // моменты где металлоконструкции торчат из сэндвича, там должен быть или вырез или не должна так металлоконструкция
   // торчать». A sloped piece (cut along a roof) stays whole.
+  // The vertical air ducts ОВ the brackets Кр1–Кр5 of КМ1 л.35 carry (план «Схема расположения элементов крепления
+  // вертикальных воздуховодов ОВ по оси Л / по оси Б», разрезы 1-1, 2-2): a shaft 800×800 or 1000×1000 outside the wall on
+  // the consolas — its outer face at their tips («425»/«645» of the views Кр3, Кр4 to the duct), from the lowest consola
+  // that reaches out to an elbow over the highest, through the wall into the shop; by the shafts 800 a Ø500 inside, on the
+  // inner parts of the consolas («Ø500», разрез в-в). Not steel of the КМ, no mark: not in the marks list, the weights,
+  // the checks of metal — drawn to see what the brackets hold (the engineer, 18.11.2026, «вот шахты показаны, где
+  // шахты?», «воздуховоды. ну так их покажи, но не как элемент который относится к ведомости»). The panels are cut round
+  // the elbow through the wall (panelSteelCuts).
+  // (shaftList, shaftN — declared with ductMat: panelSteelCuts runs before this line)
+  function shaftDucts(){
+   shaftList.forEach(function(m){if(m.parent)m.parent.remove(m)});shaftList=[];shaftN=0;
+   var re=/^Кронштейн (Кр\d+), ряд ([А-ЯЁ]\d*), шахта (\d+) у X=(\d+), отм, ([+\-\d,]+) — (консоль|вертикаль)/,G=new Map(),bb=new T.Box3();
+   elems.forEach(function(c){var m=re.exec(nameOf(c));if(!m||!c.id)return;var k=m[2]+"|"+m[4],g=G.get(k);if(!g)G.set(k,g={N:number(m[3])/1000,cons:[],verts:[]});
+    var ms=(meshesById.get(String(c.id))||[]).filter(function(q){return q.isMesh&&q.parent&&!(q.userData||{}).edges});if(!ms.length)return;
+    var B=new T.Box3();ms.forEach(function(q){q.updateWorldMatrix(true,false);bb.setFromObject(q);if(!bb.isEmpty())B.union(bb)});if(B.isEmpty())return;
+    (m[6]==="консоль"?g.cons:g.verts).push({c:c,B:B,p:memberPoints(c)})});
+   if(!G.size)return;
+   var cen=new T.Vector3(),nc=0;elems.forEach(function(c){if(c.geometryType==="column"&&!c.ft&&c.id){var q=memberPoints(c)[0];cen.add(q);nc++}});if(!nc)return;cen.divideScalar(nc);
+   if(!ductMat)ductMat=new T.MeshStandardMaterial({color:0xc4cacf,metalness:.55,roughness:.45});
+   var put=function(geo,at,quat,cut){var m=new T.Mesh(geo,ductMat);m.position.copy(at);if(quat)m.quaternion.copy(quat);m.userData.duct=true;m.userData.shaft=true;m.userData.fixed=true;m.userData.cutsPanel=Boolean(cut);
+    m.userData.title="Воздуховод ОВ (по КМ1 л.35)";shaftGroup.add(m);shaftList.push(m);return m};
+   G.forEach(function(g){
+    if(!g.cons.length||!g.verts.length)return;
+    var V=new T.Box3();g.verts.forEach(function(v){V.union(v.B)});var wc=V.getCenter(new T.Vector3());
+    var d0=g.cons[0].p,n=d0[d0.length-1].clone().sub(d0[0]);n.y=0;if(n.length()<.1)return;n.normalize();
+    // (n: out of the shop — away from the nearest column of the frame behind the wall, 0,3…3 m off it: the centre of all
+    // the columns misled at the platform of the air units standing out of the shop in front of the row Б)
+    var near=null,nd=3;elems.forEach(function(c){if(c.geometryType!=="column"||c.ft||!c.id||re.test(nameOf(c))||!/^К\d/.test(String(c.mark||"")))return;var q=memberPoints(c)[0],dd=Math.hypot(q.x-wc.x,q.z-wc.z);if(dd>.3&&dd<nd){nd=dd;near=q}});
+    if(near?near.clone().sub(wc).dot(n)>0:cen.clone().sub(wc).dot(n)>0)n.negate();
+    var al=new T.Vector3(-n.z,0,n.x),wOut=Math.max.apply(null,[[V.min.x,V.min.z],[V.max.x,V.max.z],[V.min.x,V.max.z],[V.max.x,V.min.z]].map(function(q){return(q[0]-wc.x)*n.x+(q[1]-wc.z)*n.z}));
+    var tips=[],inner=[],along=[];g.cons.forEach(function(k){var a=k.p[0],b=k.p[k.p.length-1],sa=a.clone().sub(wc).dot(n),sb=b.clone().sub(wc).dot(n),so=Math.max(sa,sb),si=Math.min(sa,sb);along.push(a.clone().sub(wc).dot(al));
+     if(so>wOut+.2)tips.push({s:so,top:k.B.max.y});if(si<-.2)inner.push({s:si,top:k.B.max.y})});
+    if(!tips.length)return;
+    var N=g.N,tipS=tips.reduce(function(s,t){return s+t.s},0)/tips.length,mid=along.reduce(function(s,v){return s+v},0)/along.length;
+    var lo=Math.min.apply(null,tips.map(function(t){return t.top})),hi=Math.max.apply(null,tips.map(function(t){return t.top})),top=hi+N+.3;
+    var q=new T.Quaternion().setFromRotationMatrix(new T.Matrix4().makeBasis(al,new T.Vector3(0,1,0),n.clone().negate()));
+    var at=function(s,y,u){return wc.clone().add(n.clone().multiplyScalar(s)).add(al.clone().multiplyScalar(u==null?mid:u)).setY(y)};
+    var cs=tipS-N/2-.002;
+    put(new T.BoxGeometry(N,top-lo,N),at(cs,(lo+top)/2),q);// the shaft
+    put(new T.BoxGeometry(N,N,.45),at(cs+N/2+.225,lo+N/2),q);// the inlet at its foot, out
+    var inS=-.9,len=cs-inS;put(new T.BoxGeometry(N,N,len),at(inS+len/2,top-N/2),q,true);// the elbow through the wall into the shop
+    shaftN++;
+    if(Math.abs(N-.8)<.01&&inner.length){// Ø500 inside, on the inner parts of the consolas
+     var rs=inner.reduce(function(s,t){return s+t.s},0)/inner.length+.34,lo2=/* (inside the shop: its axis 680/2 from the inner end of the consola, КМ1 л.35 «Кр1») */Math.min.apply(null,inner.map(function(t){return t.top}));
+     put(new T.CylinderGeometry(.25,.25,top-lo2,24),at(rs,(lo2+top)/2),q)}
+   });
+   if(root)root.setAttribute("data-shafts",String(shaftN))}
   function panelSteelCuts(){
    var AR_FT={panel:1,trim:1,door:1,window:1,gate:1,opening:1,partition:1,fixture:1,slab:1,building:1},panelCutsN=0,t0=performance.now();
    var C=2,cells=new Map(),key=function(i,j,k){return i+","+j+","+k},panels=[],box=new T.Box3();
    // (every mesh of the model, not only the members' list)
    // (and the details of the bases and caps of the nodes — kept apart, drawn merged: mergeDetails)
+   try{shaftDucts()}catch(e){if(window.console)console.warn("shaftDucts",e&&e.stack||e)}
    var every=new Set(allMeshes);scene.traverse(function(m){if(m.isMesh)every.add(m)});details.forEach(function(d){if(d.node)d.group.traverse(function(m){if(m.isMesh)every.add(m)})});
    var inAll=new Set(allMeshes);every.forEach(function(m){if(!inAll.has(m)&&dataById.get(String((m.userData||{}).memberId))&&dataById.get(String(m.userData.memberId)).ft==="panel")return;
     var u=m.userData||{};
@@ -16343,6 +16407,9 @@ window.irThreeSchemeView=(function irThreeModule(){
    // (and the boxes outside the ends of the step walls — stepFins of wallLines)
    // (they cut the walls running out past the step wall, not the roof laid over the step wall to its outer face — the strip
    // of the high roof by О3 notched 1,1 m over the end of row К, wallUnderRoof roofSide)
+   // (the elbows of the air ducts of КМ1 л.35 through the wall — shaftDucts)
+   shaftList.forEach(function(m){if(!m.userData.cutsPanel)return;m.updateWorldMatrix(true,false);box.setFromObject(m);var b=[box.min.x,box.min.y,box.min.z,box.max.x,box.max.y,box.max.z],o={m:m,b:b};
+    for(var i=Math.floor(b[0]/C);i<=Math.floor(b[3]/C);i++)for(var j=Math.floor(b[1]/C);j<=Math.floor(b[4]/C);j++)for(var k=Math.floor(b[2]/C);k<=Math.floor(b[5]/C);k++){var kk=key(i,j,k);if(!cells.has(kk))cells.set(kk,[]);cells.get(kk).push(o)}});
    stepFins.forEach(function(m){box.setFromObject(m);var b=[box.min.x,box.min.y,box.min.z,box.max.x,box.max.y,box.max.z],o={m:m,b:b,fin:true};
     for(var i=Math.floor(b[0]/C);i<=Math.floor(b[3]/C);i++)for(var j=Math.floor(b[1]/C);j<=Math.floor(b[4]/C);j++)for(var k=Math.floor(b[2]/C);k<=Math.floor(b[5]/C);k++){
      var kk=key(i,j,k);if(!cells.has(kk))cells.set(kk,[]);cells.get(kk).push(o)}});

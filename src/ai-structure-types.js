@@ -72,7 +72,7 @@ const TYPES=[
  // Stairs, platforms, railings
  // Stairs (ГОСТ 23120-2016, серия 1.450.3-7.94; tanks — ГОСТ 31385): flights at 45° or 60° (tanks ≤ 50°), landings,
  // shaft and ring (spiral) stairs of tanks, ladders with cage hoops. Г — hot-rolled, Х — cold-formed profiles.
- T("stair_flight","Лестничный марш","stairs","brace","stair",["ЛГФ","ЛГВ","ЛГР","ЛХФ","ЛХВ","ЛХР","ЛМ","Лм","МЛ","Л"],/марш|косоур|тетив|ступен/iu),
+ T("stair_flight","Лестничный марш","stairs","brace","stair",["ЛГФ","ЛГВ","ЛГР","ЛХФ","ЛХВ","ЛХР","ЛМ","Лм","МЛ","Л"],/марш|косоур|тетив|(?<!стен[аыеи]?\s)ступен/iu),
  T("stair_landing","Площадка лестницы","stairs","plate","plate",["ПГФ","ПГВ","ПГР","ПХФ","ПХВ","ПХР","П1Х","П2Х","П1Г","П2Г"],/площадк\S*\s+лестниц|лестничн\S*\s+площадк|переходн\S*\s+площадк/iu),
  T("stair_shaft","Шахтная лестница","stairs","column","stair",["Ш"],/шахтн\S*\s+лестниц/iu),
  T("stair_spiral","Кольцевая (винтовая) лестница","stairs","brace","stair",[],/кольцев\S*\s+лестниц|винтов\S*\s+лестниц|спиральн\S*\s+лестниц/iu),
