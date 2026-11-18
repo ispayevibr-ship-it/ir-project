@@ -58,8 +58,8 @@
   ".hx-co img{display:block;min-height:70px;max-height:90px;max-width:240px;object-fit:contain}",
   ".hx h1{margin:4px 0 0;font-size:15px;line-height:1.25;max-width:900px}.hx .pin{flex:none;color:#1f5fbf}.hx .addr{color:var(--muted);font-size:13px}.hx .pin{vertical-align:-2px;margin-right:4px}",
   ".hx-date{font-weight:700;font-size:14px;color:var(--ink)}",
-  ".fx{display:flex;align-items:center;justify-content:center;gap:10px;padding:8px 16px;background:var(--card);border-top:1px solid var(--line);font-size:13px;color:var(--muted)}",
-  ".fx b{color:var(--ink)}.fx a{color:var(--accent);text-decoration:none}.fx a:hover{text-decoration:underline}.wrap>.fx{flex:0 0 auto}",
+  ".fx{position:absolute;right:12px;bottom:10px;z-index:11;padding:4px 10px;border-radius:8px;background:var(--card);border:1px solid var(--line);font-size:13px;font-weight:700;color:var(--accent);text-decoration:none;opacity:.92}",
+  ".fx:hover{text-decoration:underline;opacity:1}",
   ".sum{display:flex;gap:10px;padding:12px 20px;flex-wrap:wrap}.sum>div{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:8px 14px;min-width:120px}",
   ".sum span{display:block;color:var(--muted);font-size:12px}.sum b{font-size:18px;font-variant-numeric:tabular-nums}.sum .bar{height:6px;background:#e4e9f1;border-radius:3px;margin-top:5px;overflow:hidden}.sum .bar i{display:block;height:100%;background:var(--ok)}",
   // The scheme fills the window; the side panel (object, totals, kinds, filter, elements) opens over it on demand.
@@ -103,7 +103,7 @@
   // its buttons by their icons (the words in their titles); the bar of the 3D one row that scrolls sideways, its hints
   // of the mouse hidden (the help is in «Инструкция»); the 3D the rest of the screen.
   "@media(max-width:760px){.wrap>.hx{gap:2px;padding:8px 10px}.hx-co img{min-height:0;max-height:56px;max-width:150px}",
-  " .wrap>.hx h1{font-size:13px;line-height:1.25}.hx .addr{font-size:11.5px}.hx-date{font-size:12.5px}.fx{font-size:12px;padding:10px}",
+  " .wrap>.hx h1{font-size:13px;line-height:1.25}.hx .addr{font-size:11.5px}.hx-date{font-size:12.5px}.fx{font-size:12px;right:8px;bottom:8px}",
   " .stage-bar{flex-wrap:nowrap;justify-content:flex-start;gap:5px;padding:5px 6px}.stage-bar button,.stage-bar label{padding:6px 8px;font-size:12.5px;white-space:nowrap}.stage-bar .lbl{display:none}",
   " .stage-bar #panel{margin-left:auto}#help{top:46px;right:6px;left:6px;width:auto;max-width:none}",
   " #stage3d .ir-three-toolbar{left:6px;right:6px;top:6px;min-height:0;padding:4px 5px;gap:4px;flex-wrap:nowrap;justify-content:flex-start;overflow-x:auto;scrollbar-width:none;border-radius:9px;background:#ffffffe6}",
@@ -436,7 +436,8 @@
   var head='<header class="hx">'+(d.company.logo?'<div class="hx-co"><img src="'+esc(d.company.logo)+'" alt="Логотип"></div>':"")+
    '<h1>'+esc(d.object.name||"Объект")+'</h1>'+(d.object.address?'<div class="addr">'+PIN+esc(d.object.address)+'</div>':"")+
    (day?'<div class="hx-date">'+esc(day)+'</div>':"")+'</header>';
-  var foot='<footer class="fx"><b>IR Project</b><a href="https://a-ts.kz/ir-project/" target="_blank" rel="noopener">a-ts.kz/ir-project</a></footer>';
+  // (18.11.2026, later: «IR Project» itself is the link, right on the scheme at the bottom, not a strip with a second link)
+  var foot='<a class="fx" href="https://a-ts.kz/ir-project/" target="_blank" rel="noopener" title="Страница IR Project">IR Project</a>';
   var pct=s.total?Math.round(s.mounted/s.total*100):0;
   var sum='<section class="sum"><div><span>Элементов на схеме</span><b>'+s.placed+'</b></div><div><span>Смонтировано</span><b class="ok">'+s.placedMounted+'</b></div><div><span>Частично</span><b class="partial">'+s.placedPartial+'</b></div>'+
    '<div><span>Не смонтировано</span><b class="wait">'+(s.placed-s.placedMounted-s.placedPartial)+'</b></div>'+(s.total?'<div><span>По ведомости марок</span><b>'+pct+'%</b> <small>'+s.mounted+' из '+s.total+' шт.</small><div class="bar"><i style="width:'+pct+'%"></i></div></div>':"")+'</section>';
@@ -444,7 +445,7 @@
    '<label><input type="checkbox" id="labels"> Марки</label><label><input type="checkbox" id="dims"> Размеры</label>'+
    // (the background light or dark by one icon — the engineer, 06.11.2026; viewer, paintBg)
    '<button type="button" id="bgBtn" class="bgbtn" aria-pressed="false" title="Тёмный фон" aria-label="Тёмный фон"></button>'+
-   '<button type="button" id="helpBtn" aria-controls="help"><svg class="ic" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20V3H6.5A2.5 2.5 0 0 0 4 5.5z"/><path d="M4 19.5A2.5 2.5 0 0 0 6.5 22H20v-5"/><path d="M9 7h7M9 11h5"/></svg><span class="lbl">Инструкция</span></button><button type="button" id="full" title="На весь экран">⛶<span class="lbl"> На весь экран</span></button><button type="button" id="panel" aria-expanded="false" aria-controls="side" title="Сведения и фильтры">☰<span class="lbl"> Сведения и фильтры</span></button></div><div id="stage3d"></div>'+
+   '<button type="button" id="helpBtn" aria-controls="help"><svg class="ic" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20V3H6.5A2.5 2.5 0 0 0 4 5.5z"/><path d="M4 19.5A2.5 2.5 0 0 0 6.5 22H20v-5"/><path d="M9 7h7M9 11h5"/></svg><span class="lbl">Инструкция</span></button><button type="button" id="full" title="На весь экран">⛶<span class="lbl"> На весь экран</span></button><button type="button" id="panel" aria-expanded="false" aria-controls="side" title="Сведения и фильтры">☰<span class="lbl"> Сведения и фильтры</span></button></div><div id="stage3d"></div>'+foot+
    '<div class="load" id="irLoad" role="progressbar" aria-label="Загрузка 3D-схемы" aria-valuemin="0" aria-valuemax="100" aria-valuenow="2"><b>Загрузка 3D-схемы</b>'+
    '<div class="load-row"><div class="load-bar"><i id="irLoadBar"></i></div><em id="irLoadPct">2 %</em></div><span id="irLoadText">Открываем файл</span></div>'+still(d)+'</section>'+
    '<div class="box card" id="details" hidden></div>'+
@@ -459,7 +460,7 @@
    (new Set((d.elements||[]).map(function(c){return c.source_section||""})).size>1?'<div class="f">Разделы чертежей<div class="groups" id="sections"></div></div>':'')+'<label class="f">Статус<select id="status"><option value="all">Все</option><option value="mounted">Смонтированы</option><option value="partial">Частично</option><option value="planned">Не смонтированы</option></select></label>'+
    '<div class="row2"><label class="f">Отметка от, мм<input id="lmin" type="number" inputmode="numeric"></label><label class="f">до, мм<input id="lmax" type="number" inputmode="numeric"></label></div><div class="empty">На экране: <b id="cnt"></b></div></div>'+
    '<div class="box"><h3>Элементы</h3><input id="q" type="search" placeholder="Марка, наименование, ось" autocomplete="off"><div class="empty" id="found"></div><div class="list" id="list"></div></div>'+
-   '</aside></div>'+foot+'</main>';
+   '</aside></div></main>';
   return'<!doctype html><html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><script>'+inline(HEAD)+'</script>'+
    '<title>'+esc((d.object.name||"Объект")+" — монтажная схема")+'</title><style>'+libs.css+'\n'+PAGE_CSS+'</style></head><body>'+body+
    (libs.packed?'<script type="application/octet-stream" id="ir-pack">'+libs.packed+'</script><script>('+inline(UNPACK.toString())+')()</script></body></html>':
