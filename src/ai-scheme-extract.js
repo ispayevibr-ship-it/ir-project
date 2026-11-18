@@ -1140,7 +1140,12 @@ function leaderTarget(text,segments,index,axisSegs,lines){
   for(const i of index.near(best.from,3)){if(i===best.segment||axisSegs.has(i))continue;const q=segments[i];if(dist(q.a,q.b)<10)continue;
    for(const [p,r] of [[q.a,q.b],[q.b,q.a]])if(dist(p,best.from)<1.5&&Math.cos(way({from:p,to:r})-u)>.9995&&dist(r,best.to)>8&&!fan.some(o=>dist(o,r)<=8))fan.push({x:r.x,y:r.y,segment:i})}
   // (the strokes of the fan are the leader, not a member at its ends: «Т1» on the row of ties, its leader along it)
-  if(fan.length>=2){more.push(...fan);fanSkip=[best.segment,...fan.map(f=>f.segment)]}}
+  // (two strokes are a fan too when the shorter ends on a member drawn thick across it — КМ1 л.34: «Бл2» by the row Е, one
+  //  leader to Бл2 at О3, another over it to Бл2 at О8; the one at О3 was not placed)
+  const thickAt=r=>lines&&[...lines.near(r,3)].some(i=>{const q=segments[i];if((Number(q.w)||0)<.9||dist(q.a,q.b)<24)return false;
+   const l=dist(q.a,q.b),v={x:(q.b.x-q.a.x)/l,y:(q.b.y-q.a.y)/l},w={x:r.x-q.a.x,y:r.y-q.a.y},t=w.x*v.x+w.y*v.y;
+   return Math.abs(Math.cos(Math.atan2(v.y,v.x)-u))<.2&&t>2&&t<l-2&&Math.abs(w.x*v.y-w.y*v.x)<2.5});
+  if(fan.length>=2||fan.length===1&&thickAt(fan[0])&&thickAt(best.to)){more.push(...fan);fanSkip=[best.segment,...fan.map(f=>f.segment)]}}
  // shelf: the label stands on a shelf of its own (a leader label), not over a line passing by.
  // rail: no leader, the label is written over its member line.
  // slant: the longest slanted leader when a straight stroke from the label was taken (an extension line of a size
