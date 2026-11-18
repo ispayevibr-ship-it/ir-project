@@ -54,17 +54,19 @@
   ".still th{color:var(--muted);font-weight:600;white-space:nowrap}.still td small{display:block;color:var(--muted)}.still td:nth-child(4),.still td:nth-child(5){white-space:nowrap;font-variant-numeric:tabular-nums}",
   ":root{--bg:#eef2f7;--card:#fff;--ink:#17233a;--muted:#5d6b80;--line:#dbe3ee;--accent:#1f5fbf;--ok:#1f8a4c;--part:#c98a0b;--wait:#7a8699;color-scheme:light}",
   "*{box-sizing:border-box}html,body{margin:0}html.js,html.js body{height:100%}body{background:var(--bg);color:var(--ink);font:14px/1.4 'Segoe UI',system-ui,-apple-system,sans-serif}",
-  ".hx{display:flex;align-items:center;gap:18px;padding:14px 20px;background:var(--card);border-bottom:1px solid var(--line);flex-wrap:wrap}",
-  ".hx-co{display:flex;align-items:center;gap:12px;min-width:0}.hx-co:empty{display:none}.hx-co img{min-height:70px;max-height:90px;max-width:240px;object-fit:contain}",
-  ".hx-obj{flex:1 1 320px;min-width:0}.hx-obj h1{margin:0;font-size:15px;line-height:1.25}.hx-obj .pin{flex:none;color:#1f5fbf}.hx-obj .addr{display:flex;align-items:center;gap:5px}",
-  ".hx-obj .addr{color:var(--muted);margin-top:3px}.hx-meta{text-align:right;color:var(--muted);font-size:12.5px}.hx-meta b{display:block;color:var(--ink);font-size:14px}.hx-meta .made{display:block;margin-top:2px;font-size:10.5px;letter-spacing:.02em;opacity:.8}",
+  ".hx{display:flex;flex-direction:column;align-items:center;text-align:center;gap:3px;padding:12px 20px;background:var(--card);border-bottom:1px solid var(--line)}",
+  ".hx-co img{display:block;min-height:70px;max-height:90px;max-width:240px;object-fit:contain}",
+  ".hx h1{margin:4px 0 0;font-size:15px;line-height:1.25;max-width:900px}.hx .pin{flex:none;color:#1f5fbf}.hx .addr{color:var(--muted);font-size:13px}.hx .pin{vertical-align:-2px;margin-right:4px}",
+  ".hx-date{font-weight:700;font-size:14px;color:var(--ink)}",
+  ".fx{display:flex;align-items:center;justify-content:center;gap:10px;padding:8px 16px;background:var(--card);border-top:1px solid var(--line);font-size:13px;color:var(--muted)}",
+  ".fx b{color:var(--ink)}.fx a{color:var(--accent);text-decoration:none}.fx a:hover{text-decoration:underline}.wrap>.fx{flex:0 0 auto}",
   ".sum{display:flex;gap:10px;padding:12px 20px;flex-wrap:wrap}.sum>div{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:8px 14px;min-width:120px}",
   ".sum span{display:block;color:var(--muted);font-size:12px}.sum b{font-size:18px;font-variant-numeric:tabular-nums}.sum .bar{height:6px;background:#e4e9f1;border-radius:3px;margin-top:5px;overflow:hidden}.sum .bar i{display:block;height:100%;background:var(--ok)}",
   // The scheme fills the window; the side panel (object, totals, kinds, filter, elements) opens over it on demand.
   // The window: the header (company, object, address, date) on top, the scheme under it to the edges; the side panel
   // (totals, kinds, filter, elements) opens over the scheme on demand, the card of a clicked element is its own box.
   "html.js,html.js body{height:100%;overflow:hidden}.js .wrap{position:fixed;inset:0;display:flex;flex-direction:column;padding:0}",
-  ".wrap>.hx{flex:0 0 auto;padding:8px 16px;gap:14px}",
+  ".wrap>.hx{flex:0 0 auto;padding:8px 16px}",
   ".area{position:relative;flex:1 1 auto;min-height:0}.js .area>.stage{position:absolute;inset:0;border:0;border-radius:0}",
   ".card{position:absolute;left:12px;top:122px;width:340px;max-width:calc(100% - 24px);max-height:calc(100% - 180px);overflow:auto;z-index:15;box-shadow:0 8px 24px rgba(15,30,60,.18)}",
   ".card[hidden]{display:none}.card .side-close{margin-left:8px}",
@@ -94,15 +96,14 @@
   // A phone: the page scrolls as a document and the scheme has its own height (78% of the screen, at least 420 px) —
   // the window-filling layout gave the 3D field no height in the iPhone viewer, and the scheme stayed empty.
   "@media(max-width:760px){html.js,html.js body{height:auto;overflow:auto}.js .wrap{position:static;display:block}.js .area>.stage{position:relative;inset:auto}",
-  " #stage3d{flex:none;height:78vh;height:calc(100svh - 150px);min-height:380px}.side{position:fixed}.wrap>.hx{padding:8px 12px}.wrap>.hx .hx-obj h1{font-size:14px}}",
+  " #stage3d{flex:none;height:78vh;height:calc(100svh - 150px);min-height:380px}.side{position:fixed}.wrap>.hx{padding:8px 12px}.wrap>.hx h1{font-size:14px}}",
   // A phone (the engineer, 03.11.2026, a picture of the export on a phone: «Мобильную версию подправь» — the header,
   // the bar in three rows and the bar of the 3D over half of it, the scheme a strip under them): the header in a few
   // lines — the logo small beside the name, the company, the work and the date in one small line —; the bar in one row,
   // its buttons by their icons (the words in their titles); the bar of the 3D one row that scrolls sideways, its hints
   // of the mouse hidden (the help is in «Инструкция»); the 3D the rest of the screen.
-  "@media(max-width:760px){.wrap>.hx{gap:4px 10px;padding:6px 10px}.hx-co img{min-height:0;max-height:38px;max-width:96px}.hx-obj{flex:1 1 180px}",
-  " .wrap>.hx .hx-obj h1{font-size:12.5px;line-height:1.25;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}.hx-obj .addr{font-size:11.5px;margin-top:1px}",
-  " .hx-meta{flex:1 1 100%;text-align:left;font-size:11px;line-height:1.35}.hx-meta b{display:inline;font-size:11.5px;margin-right:6px}.hx-meta .wk{margin-right:6px}.hx-meta br{display:none}.hx-meta .made{display:inline;margin:0 0 0 6px}",
+  "@media(max-width:760px){.wrap>.hx{gap:2px;padding:8px 10px}.hx-co img{min-height:0;max-height:56px;max-width:150px}",
+  " .wrap>.hx h1{font-size:13px;line-height:1.25}.hx .addr{font-size:11.5px}.hx-date{font-size:12.5px}.fx{font-size:12px;padding:10px}",
   " .stage-bar{flex-wrap:nowrap;justify-content:flex-start;gap:5px;padding:5px 6px}.stage-bar button,.stage-bar label{padding:6px 8px;font-size:12.5px;white-space:nowrap}.stage-bar .lbl{display:none}",
   " .stage-bar #panel{margin-left:auto}#help{top:46px;right:6px;left:6px;width:auto;max-width:none}",
   " #stage3d .ir-three-toolbar{left:6px;right:6px;top:6px;min-height:0;padding:4px 5px;gap:4px;flex-wrap:nowrap;justify-content:flex-start;overflow-x:auto;scrollbar-width:none;border-radius:9px;background:#ffffffe6}",
@@ -425,13 +426,17 @@
  var workShort=function(t){var s=String(t||""),i=s.lastIndexOf(" · ");if(i<0)return s;var code=s.slice(i+3),m=/[-–.]([A-Za-zА-Яа-яЁё]{1,4}\d*(?:\.\d+)?)$/.exec(code);return m&&code.length>12?s.slice(0,i+3)+m[1]:s};
  function page(d,libs){
   var s=d.summary;
-  // Under the date in small letters — «Сделано в IR Project» (the engineer, 27.10.2026).
   // (the engineer, 03.11.2026: the logo at least 70 px high; the company's name where «Монтажная схема · Весь каркас»
   // stood; the pin of the address drawn, the name of the object smaller)
   var PIN='<svg class="pin" viewBox="0 0 24 24" width="14" height="14" aria-hidden="true"><path fill="currentColor" d="M12 2a7 7 0 0 0-7 7c0 5.2 7 13 7 13s7-7.8 7-13a7 7 0 0 0-7-7zm0 9.5A2.5 2.5 0 1 1 12 6.5a2.5 2.5 0 0 1 0 5z"/></svg>';
-  var head='<header class="hx"><div class="hx-co">'+(d.company.logo?'<img src="'+esc(d.company.logo)+'" alt="Логотип">':"")+'</div>'+
-   '<div class="hx-obj"><h1>'+esc(d.object.name||"Объект")+'</h1>'+(d.object.address?'<div class="addr">'+PIN+esc(d.object.address)+'</div>':"")+'</div>'+
-   '<div class="hx-meta">'+(d.company.name?'<b>'+esc(d.company.name)+'</b>':"")+(d.work?'<span class="wk">'+esc(d.work)+'</span><br>':"")+'Выгружено '+esc(d.date)+'<small class="made">Сделано в IR Project</small></div></header>';
+  // (the engineer, 18.11.2026: on top only the company's logo in the middle, under it the object's name, the address and
+  // the date without the time in bold — the company's name, the work and «Сделано в IR Project» gone from the header; after
+  // the scheme, at the very bottom, «IR Project» and the link to its page)
+  var day=String(d.date||"").split(",")[0].trim();
+  var head='<header class="hx">'+(d.company.logo?'<div class="hx-co"><img src="'+esc(d.company.logo)+'" alt="Логотип"></div>':"")+
+   '<h1>'+esc(d.object.name||"Объект")+'</h1>'+(d.object.address?'<div class="addr">'+PIN+esc(d.object.address)+'</div>':"")+
+   (day?'<div class="hx-date">'+esc(day)+'</div>':"")+'</header>';
+  var foot='<footer class="fx"><b>IR Project</b><a href="https://a-ts.kz/ir-project/" target="_blank" rel="noopener">a-ts.kz/ir-project</a></footer>';
   var pct=s.total?Math.round(s.mounted/s.total*100):0;
   var sum='<section class="sum"><div><span>Элементов на схеме</span><b>'+s.placed+'</b></div><div><span>Смонтировано</span><b class="ok">'+s.placedMounted+'</b></div><div><span>Частично</span><b class="partial">'+s.placedPartial+'</b></div>'+
    '<div><span>Не смонтировано</span><b class="wait">'+(s.placed-s.placedMounted-s.placedPartial)+'</b></div>'+(s.total?'<div><span>По ведомости марок</span><b>'+pct+'%</b> <small>'+s.mounted+' из '+s.total+' шт.</small><div class="bar"><i style="width:'+pct+'%"></i></div></div>':"")+'</section>';
@@ -454,7 +459,7 @@
    (new Set((d.elements||[]).map(function(c){return c.source_section||""})).size>1?'<div class="f">Разделы чертежей<div class="groups" id="sections"></div></div>':'')+'<label class="f">Статус<select id="status"><option value="all">Все</option><option value="mounted">Смонтированы</option><option value="partial">Частично</option><option value="planned">Не смонтированы</option></select></label>'+
    '<div class="row2"><label class="f">Отметка от, мм<input id="lmin" type="number" inputmode="numeric"></label><label class="f">до, мм<input id="lmax" type="number" inputmode="numeric"></label></div><div class="empty">На экране: <b id="cnt"></b></div></div>'+
    '<div class="box"><h3>Элементы</h3><input id="q" type="search" placeholder="Марка, наименование, ось" autocomplete="off"><div class="empty" id="found"></div><div class="list" id="list"></div></div>'+
-   '</aside></div></main>';
+   '</aside></div>'+foot+'</main>';
   return'<!doctype html><html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><script>'+inline(HEAD)+'</script>'+
    '<title>'+esc((d.object.name||"Объект")+" — монтажная схема")+'</title><style>'+libs.css+'\n'+PAGE_CSS+'</style></head><body>'+body+
    (libs.packed?'<script type="application/octet-stream" id="ir-pack">'+libs.packed+'</script><script>('+inline(UNPACK.toString())+')()</script></body></html>':

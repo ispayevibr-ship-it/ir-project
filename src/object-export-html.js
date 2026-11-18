@@ -1958,7 +1958,7 @@
    const safeJson=value=>JSON.stringify(value).replace(/</g,"\\u003c").replace(/\u2028/g,"\\u2028").replace(/\u2029/g,"\\u2029");
    if(schemePage){
     const EMBED_CSS=[
-     ".wrap>.hx,#bgBtn{display:none!important}",
+     ".wrap>.hx,.wrap>.fx,#bgBtn{display:none!important}",
      ":root{--bg:#f4f8fc;--card:#fff;--ink:#21435b;--muted:#6f879b;--line:#dce5ed;--accent:#246da7}",
      "body{font-family:Inter,'Segoe UI',Arial,sans-serif;color:var(--ink);background:var(--bg)}",
      ".stage-bar{background:#fff;padding:5px 10px;gap:6px}",
