@@ -209,7 +209,13 @@ function learn(list){
   if(re)learnedWords.push({t,re:new RegExp(re,"iu")})}
  return learnedWords.length
 }
+// «Стойка «а» гн.[180×80×5 у ворот под ригелем Рн», «Ригель над окном»: the opening after «у», «над», «под», «возле»,
+// «около», «для» is where the member stands, not what it is — the post had the kind «Ворота», another «Окно, витраж»
+// (the engineer, 18.11.2026, «и вид почему-то ворота»)
+const AT_OPENING=/(^|[\s,(])(?:у|возле|около|над|под|для|рядом\s+с)\s+(?:[^\s,()]+\s+)?(?:ворот|окн|окон|двер|витраж|про[её]м)[^\s,()]*/giu;
 function typeByWords(s){
+ const away=String(s).replace(AT_OPENING,"$1 ");
+ if(away!==s&&away.trim()&&!/нащельник|откос|обрамлени|отлив|доборн|фасонн/iu.test(s)){const t=typeByWords(away);if(t)return t}
  for(const l of learnedWords)if(l.re.test(s))return l.t;
  // "Ограждение площадки", "Ограждение лестницы" — a railing: the first word names the element.
  if(/^\s*(ограждени|перил|поручн)/iu.test(s))return byKey.get("railing");

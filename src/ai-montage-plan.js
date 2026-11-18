@@ -1929,6 +1929,22 @@ function buildPlan(draft,ai=null,heights={},opts={}){
  for(const p of draft.pages||[]){const j=jointNote(notesOf(p)),named=sheetNodes([p.context?.text||"",titlesOf(p)].join(" ")),views=calledOut(p);if(!j&&!named.length&&!views.length)continue;
   sheetJoint.set(p.page,{...(j||{bolt:null,cls:null,weld:false,text:""}),...(named.length?{named}:{}),...(views.length?{node_views:views}:{}),sheet:(p.sourceName||"")+" стр. "+(p.pdfPage||p.page)});
   if(j&&/неоговоренные/.test(j.text)&&!fileJoint.has(p.sourceName))fileJoint.set(p.sourceName,{...j,sheet:sheetJoint.get(p.page).sheet})}
+ // The sections of a scheme drawn on its own sheet («Разрез 1-1», «Разрез 2-2» by a plan of beams) naming a mark: each
+ // member of that mark takes the one whose length is its own (КМ1 л.34: Бл2 3000 between purlins — 1-1, plates on both
+ // sides; Бл2 2900 of the outer bays — 2-2, on an angle L140×10), or the only one naming it. The flags of the sections
+ // on the plan stand at one member each; the length says which the others are.
+ const ownCuts=new Map();
+ for(const p of draft.pages||[]){const sh=String(p.sheet?.stamp?.block?.sheet||"").trim();if(!sh)continue;
+  const list=(p.details?.views||[]).filter(v=>/^Разрез/u.test(v.title)&&(v.marks||[]).length).map(v=>({marks:v.marks.map(m=>String(m).replace(/\s+/gu,"")),
+   dims:(v.dims||[]).map(Number).filter(n=>n>=300),view:nodeViews.get((p.sourceName||"")+"|"+sh+"|"+v.title)||{title:v.title,sheet:(p.sourceName||"").replace(/\.pdf$/iu,"")+" л."+sh}}));
+  if(list.length)ownCuts.set(p.page,list)}
+ // (a member the plan puts in a section by its flag — section_view of src/ai-scheme-extract.js flagSections — takes that)
+ const cutFor=(page,mark,len,flag)=>{const l=ownCuts.get(page);if(!l)return null;const m=String(mark||"").replace(/\s+/gu,""),named=l.filter(c=>c.marks.includes(m));
+  const fl=flag&&l.find(c=>c.view.title===flag);if(fl)return fl.view;
+  if(!named.length)return null;const fit=named.filter(c=>len>0&&c.dims.some(d=>Math.abs(d-len)<=Math.max(30,len*.01)));
+  return fit.length===1?fit[0].view:named.length===1?named[0].view:null};
+ const withCut=(j,page,mark,len,flag)=>{const v=cutFor(page,mark,len,flag);if(!v)return j;const base=j||{bolt:null,cls:null,weld:false,text:""};
+  return{...base,node_views:[v,...(base.node_views||[]).filter(o=>o.title!==v.title||o.sheet!==v.sheet)].slice(0,8)}};
  // A sheet that names its nodes but not its bolts takes the bolts of the volume's notes.
  const joints=info=>{if(!info)return null;const s=sheetJoint.get(info.page),f=fileJoint.get(info.file);return s&&!s.text&&f?{...f,named:s.named}:s||f||null};
  const decisions=new Map((ai?.schemes||[]).map(s=>[s.page+":"+s.index,s]));
@@ -2025,6 +2041,7 @@ function buildPlan(draft,ai=null,heights={},opts={}){
   elements.push({key:"p"+c.info.page+"s"+c.info.index+"e"+q.i,mark:q.pl.mark,name:q.pl.name||type?.name||markCode(q.pl.mark)?.name||"",type_key:type?.key||"",type_name:type?.name||"",geometry_type:q.geometry,x_mm:q.x,y_mm:q.y,
    x2_mm:q.geometry==="column"?undefined:q.x2,y2_mm:q.geometry==="column"?undefined:q.y2,
    z0_mm:z0,z1_mm:z1,group,group_label:GROUPS[group],profile:q.cat?.profile||"",profile_standard:q.cat?.profile_standard||"",...(q.cat?.steel?{steel:q.cat.steel}:{}),doc:scopeOf(c.info.docType,catalog.multi?c.info.volume:""),length_mm:q.cat?.length_mm??null,
+   ...(()=>{const j=withCut(q.pl.joint||joints(c.info),c.info.page,q.pl.mark,q.geometry==="column"?0:Math.hypot(q.x2-q.x,q.y2-q.y),q.pl.section_view);return j||q.cat?.fasteners?{joint:withFasteners(j,q.cat?.fasteners)}:{}})(),
    levels,...fromDrawing(c,q.pl),scheme:c.info.title,confidence:"low",
    note:[...(q.pl.notes||[]),note,q.change?.note,...(q.guess||[])].filter(Boolean).join("; ")})
  };
@@ -2167,7 +2184,7 @@ function buildPlan(draft,ai=null,heights={},opts={}){
     x_mm:x,y_mm:y,x2_mm:point?undefined:x2,y2_mm:point?undefined:y2,...(geometry==="shell"||geometry==="plate"?{radius_mm:pl.radius_mm,inner_radius_mm:pl.inner_radius_mm,shell_open:pl.shell_open,...(pl.cone_rise_mm?{cone_rise_mm:pl.cone_rise_mm}:{}),...(pl.sector_deg>0?{sector_start_deg:pl.sector_start_deg,sector_deg:pl.sector_deg}:{})}:{}),...(pl.fitting_type?{fitting_type:pl.fitting_type,diameter_mm:pl.diameter_mm}:{}),...(pl.layout&&typeof pl.layout==="object"?{layout:pl.layout}:{}),
     z0_mm:geometry==="beam"&&!drawn&&!flightLevel?z1:z0,z1_mm:z1,group,group_label:GROUPS[group],
     // A verified scheme carries its own profiles and truss lattices.
-    profile:pl.profile||cat?.profile||"",profile_standard:pl.profile?"":cat?.profile_standard||"",...(pl.steel||cat?.steel?{steel:pl.steel||cat.steel}:{}),...(pl.truss?{truss:pl.truss.kind==="frame"&&(cat?.profile||cat?.parts?.rows?.length)?{...pl.truss,members:frameProfiles(pl.truss.members,cat)}:pl.truss}:{}),...(pl.nodes?{nodes:pl.nodes}:{}),...(pl.base&&typeof pl.base==="object"?{base:pl.base}:{}),...(Number(pl.rotation_deg)?{rotation_deg:Number(pl.rotation_deg)}:{}),...(pl.flat?{flat:true}:{}),...(pl.register_add?{register_add:String(pl.register_add).slice(0,300)}:{}),...(pl.register_kg>0?{register_kg:Number(pl.register_kg)}:{}),...(pl.deck?{deck:String(pl.deck).slice(0,80)}:{}),...(pl.joint||joints(c.info)||cat?.fasteners?{joint:withFasteners(pl.joint||joints(c.info),cat?.fasteners)}:{}),...(cat?.drill?{drill:cat.drill}:{}),...(cat?.cuts?{cuts:cat.cuts}:{}),...(cat?.parts?{parts:cat.parts}:{}),...(cat?.plates?{plates:cat.plates}:{}),...(cat?.place?{place:cat.place}:{}),...(cat?.bevels?{bevels:cat.bevels}:{}),doc:scopeOf(c.info.docType,catalog.multi?c.info.volume:""),length_mm:cat?.length_mm??null,levels:own?"Claude":local?local.from:"схема",...(!own&&local?.zeroBase?{z0_assumed:true}:{}),
+    profile:pl.profile||cat?.profile||"",profile_standard:pl.profile?"":cat?.profile_standard||"",...(pl.steel||cat?.steel?{steel:pl.steel||cat.steel}:{}),...(pl.truss?{truss:pl.truss.kind==="frame"&&(cat?.profile||cat?.parts?.rows?.length)?{...pl.truss,members:frameProfiles(pl.truss.members,cat)}:pl.truss}:{}),...(pl.nodes?{nodes:pl.nodes}:{}),...(pl.base&&typeof pl.base==="object"?{base:pl.base}:{}),...(Number(pl.rotation_deg)?{rotation_deg:Number(pl.rotation_deg)}:{}),...(pl.flat?{flat:true}:{}),...(pl.register_add?{register_add:String(pl.register_add).slice(0,300)}:{}),...(pl.register_kg>0?{register_kg:Number(pl.register_kg)}:{}),...(pl.deck?{deck:String(pl.deck).slice(0,80)}:{}),...(()=>{const j=withCut(pl.joint||joints(c.info),c.info.page,pl.mark,point?0:Math.hypot(x2-x,y2-y),pl.section_view);return j||cat?.fasteners?{joint:withFasteners(j,cat?.fasteners)}:{}})(),...(cat?.drill?{drill:cat.drill}:{}),...(cat?.cuts?{cuts:cat.cuts}:{}),...(cat?.parts?{parts:cat.parts}:{}),...(cat?.plates?{plates:cat.plates}:{}),...(cat?.place?{place:cat.place}:{}),...(cat?.bevels?{bevels:cat.bevels}:{}),doc:scopeOf(c.info.docType,catalog.multi?c.info.volume:""),length_mm:cat?.length_mm??null,levels:own?"Claude":local?local.from:"схема",...(!own&&local?.zeroBase?{z0_assumed:true}:{}),
     ...fromDrawing(c,pl),...(!c.info.page&&pl.sheet?{source_sheet:String(pl.sheet)}:{}),...(pl.section?{section:pl.section}:{}),scheme:c.info.title,confidence:pl.confidence,note:[...(pl.notes||[]),change?.note,...guess].filter(Boolean).join("; ")})
   });
   // Bracing and secondary members meet the beams of the same plan: their ends take those beams' levels.

@@ -285,6 +285,11 @@ function viewsOf(items,segments,W=0,H=0){
   if(ANGLE.test(s)){v.angles.add(s.replace(/\s/gu,""));continue}
   if(SIZE.test(s)){v.sizes.add(s.replace(/\s+/gu," "));continue}
   if(PLATE.test(s))v.plates.add(s);
+  // (a plate written by its thickness, the steel after a slash — КМ1 л.34 sections 1-1, 2-2: «t8/C245» with «с двух
+  //  сторон» under it, «t10» with «C245» under it)
+  const tp=/^t\s?=?\s?(\d{1,2}(?:[,.]\d)?)\s*(?:мм)?(?:\s*\/\s*([СC])\s?(\d{3}))?$/u.exec(s);
+  if(tp){const two=items.some(o=>o!==t&&/^с\s+двух\s+сторон/iu.test(o.str)&&Math.abs(o.c.x-t.c.x)<60&&o.c.y>t.c.y&&o.c.y-t.c.y<t.h*2.5);
+   v.plates.add("t"+tp[1]+(two?" с двух сторон":""));if(tp[3])v.steel.add("С"+tp[3]);continue}
   const pr=PROFILE.exec(" "+s);if(pr)v.profiles.add(pr[1].trim());
   const b=BOLT.exec(s);if(b&&!/кл\.?\s*$/iu.test(s))v.bolts.add(s.length<=40?s:b[1].replace(/\s/gu,""));
   // (a «по контуру» under «Клей герметик» — the glue's line, not a weld: АР ч.1 л.13 node 41)

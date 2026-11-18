@@ -69,7 +69,7 @@ const KIND_NAME={columns:"Колонна",fahwerk:"Стойка фахверка
 const TRUSS_KEYS=["span_mm","flip","base_mm","members","gusset_mm","panel","support","supports","post_pad_mm"];
 const trussOut=t=>{const o={};for(const k of TRUSS_KEYS)if(t[k]!==undefined&&t[k]!==null)o[k]=t[k];return o};
 const DRAWING_DETAILS=["joint","truss","nodes","base","column","parts","plates","cuts","drill","place","bevels","cross"];
-const ANALYZER="2026-11-17.13";
+const ANALYZER="2026-11-18.1";
 // АР (architecture) and ТХ (technology) sheets are read for context: Claude places what of them is mounted.
 // (КМД — one kind: the program tells its montage and assembly sheets apart, sheet by sheet — kmdSheetType; the two old
 // kinds of a file are still read, as the engineer's hint for its sheets that say nothing)

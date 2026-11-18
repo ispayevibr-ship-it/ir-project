@@ -611,8 +611,13 @@ function growLine(seed,segments,lines,skip){
  const a0=seed.a,len=dist(seed.a,seed.b),u={x:(seed.b.x-a0.x)/len,y:(seed.b.y-a0.y)/len};
  let tA=0,tB=len;
  const at=t=>({x:a0.x+u.x*t,y:a0.y+u.y*t});
+ // A thick member line does not go on into a thin line of half its width or less on the same line — an extension line
+ // to a dimension chain (КМ1 л.34: Бл2 of the outer bays, a channel 2900 long drawn thick, the thin extension line from
+ // its end up to the chain over the sheet — read as 6000 from row to row).
+ const sw0=Number(seed.w)||0;
  const piece=i=>{
   const s=segments[i],l=dist(s.a,s.b);if(l<1)return null;
+  if(sw0>=.9&&(Number(s.w)||0)>0&&(Number(s.w)||0)<=sw0*.5)return null;
   const v={x:(s.b.x-s.a.x)/l,y:(s.b.y-s.a.y)/l};
   const t1=(s.a.x-a0.x)*u.x+(s.a.y-a0.y)*u.y,t2=(s.b.x-a0.x)*u.x+(s.b.y-a0.y)*u.y;
   // (a line of dashes followed from a dash 8 pt long: its direction is known to a degree or so — far along, the line
@@ -812,6 +817,11 @@ function memberLine(t,target,segments,lines,skip,slant=false){
    // A label turned along a member is read along it first; its "leader" is usually a junction of lines.
    consider(i,(Math.abs(Number(t.angle)||0)>5?1e6:-1e6)-l)
   }
+  // A member drawn thick at the end of the leader goes before longer thin lines through the same point — a diagonal of
+  // bracing, an extension line to a dimension chain (КМ1 л.34: Бл2 of the upper tier, the leader ending on the channel
+  // drawn thick 2900 long, a brace and an extension line through it taken instead).
+  {const wOf=c=>Number(segments[c.i].w)||0,ws=found.map(wOf).filter(w=>w>0);
+   if(ws.length>1){const thin=Math.min(...ws);for(const c of found)if(wOf(c)>=.9&&wOf(c)>=thin*1.8)c.score-=1e5}}
   // An arrow drawn filled stops a few points short of the member: the leader carried on hits it.
   const ls=Number.isInteger(target.segment)?segments[target.segment]:null;
   if(!found.length&&ls){
@@ -1191,6 +1201,56 @@ function joinSplitMarks(texts){
   if(!b)continue;out[out.indexOf(a)]={...a,str:sa+" "+String(b.str).trim(),width:Math.max(Number(a.width)||0,Number(b.width)||0)};out.splice(out.indexOf(b),1)}
  return out
 }
+// Flags of sections on a plan (КМ1 л.34: «1», «2» by beams Бл2): a thick stroke filled (pieces of 1…2 pt across, 6…40 pt
+// along), a filled arrow at one end of it across, a digit or a letter by the arrow. The stroke lies along the cut — the
+// member next to it in the direction the arrow looks is the one cut. → [{name, vert, c, from, to, look}] in points.
+function sectionFlags(glyphs,texts){
+ const thin=(glyphs||[]).filter(b=>{const w=b.x1-b.x0,h=b.y1-b.y0;return Math.min(w,h)>=.8&&Math.min(w,h)<=2.2&&Math.max(w,h)>=2.5});
+ const strokes=[];
+ for(const b of thin){const vert=b.y1-b.y0>b.x1-b.x0;
+  const s=strokes.find(o=>o.vert===vert&&(vert?Math.abs(o.x0-b.x0)<.3&&Math.abs(o.x1-b.x1)<.3&&b.y0<=o.y1+.3&&b.y1>=o.y0-.3:Math.abs(o.y0-b.y0)<.3&&Math.abs(o.y1-b.y1)<.3&&b.x0<=o.x1+.3&&b.x1>=o.x0-.3));
+  if(s){s.x0=Math.min(s.x0,b.x0);s.y0=Math.min(s.y0,b.y0);s.x1=Math.max(s.x1,b.x1);s.y1=Math.max(s.y1,b.y1)}else strokes.push({x0:b.x0,y0:b.y0,x1:b.x1,y1:b.y1,vert})}
+ const arrows=(glyphs||[]).filter(b=>{const w=b.x1-b.x0,h=b.y1-b.y0,L=Math.max(w,h),S=Math.min(w,h);return L>=8&&L<=22&&S>=2.5&&S<=7});
+ const out=[];
+ for(const s of strokes){const len=s.vert?s.y1-s.y0:s.x1-s.x0;if(len<6||len>40)continue;
+  const ar=arrows.find(a=>s.vert?a.x1-a.x0>a.y1-a.y0&&(Math.abs(a.x0-s.x1)<1.2||Math.abs(a.x1-s.x0)<1.2)&&a.y1>=s.y0-1&&a.y0<=s.y1+1
+   :a.y1-a.y0>a.x1-a.x0&&(Math.abs(a.y0-s.y1)<1.2||Math.abs(a.y1-s.y0)<1.2)&&a.x1>=s.x0-1&&a.x0<=s.x1+1);
+  if(!ar)continue;
+  const cx=(ar.x0+ar.x1)/2,cy=(ar.y0+ar.y1)/2;
+  // («по 1» — the same as the section 1-1)
+  const d=(texts||[]).filter(t=>/^\s*(?:по\s*)?(?:\d{1,2}|[А-ЯЁа-яё])\s*$/u.test(String(t.str))&&!Number(t.angle)).map(t=>({t,d:Math.hypot(t.x+(t.width||0)/2-cx,t.y-(t.size||10)*.36-cy)})).filter(o=>o.d<=30).sort((a,b)=>a.d-b.d)[0];
+  if(!d)continue;
+  out.push({name:String(d.t.str).trim().replace(/^по\s*/u,""),vert:s.vert,c:s.vert?(s.x0+s.x1)/2:(s.y0+s.y1)/2,from:s.vert?s.y0:s.x0,to:s.vert?s.y1:s.x1,
+   look:s.vert?(ar.x0>=s.x1-1.2?-1:1):(ar.y0>=s.y1-1.2?-1:1)})}
+ return out
+}
+// The section a member of the plan is drawn in: the member by each flag (along its stroke, on the side its arrow looks,
+// up to 30 pt off) takes «Разрез N-N»; the members of its mark lying the same way in the same band (between the same
+// lines across) take it too; the rest of the mark — the section most of its flagged members have (КМ1 л.34: «2» by the
+// outer tier of Бл2 at Б and Л and by those over the row Е — 2-2 on an angle L140×10; «1» by the others — 1-1).
+function flagSections(placements,flags,toX,toY,scale){
+ if(!flags.length)return;
+ const along=q=>Math.abs(q.x2_mm-q.x_mm)<Math.abs(q.y2_mm-q.y_mm)?"v":"h",tol=30*scale,named=new Map();
+ for(const f of flags){
+  const at=f.vert?toX(f.c):toY(f.c),a=f.vert?toY(f.from):toX(f.from),b=f.vert?toY(f.to):toX(f.to),lo=Math.min(a,b),hi=Math.max(a,b);
+  // (the arrow looks −x on the sheet: the member is at smaller x; −y on the sheet is up — larger y in mm)
+  const way=f.vert?f.look:-f.look;
+  let best=null;
+  for(const q of placements){if(along(q)!==(f.vert?"v":"h"))continue;
+   const pos=f.vert?q.x_mm:q.y_mm,off=(pos-at)*way;if(off<-2*scale||off>15*scale)continue;
+   // (the stroke is an end of the cut: the member it cuts lies along it beside the stroke, before or after it along the
+   //  cut — КМ1 л.34, «2» 25 pt under the outer tier of Бл2 at Б and at Л)
+   const q0=f.vert?Math.min(q.y_mm,q.y2_mm):Math.min(q.x_mm,q.x2_mm),q1=f.vert?Math.max(q.y_mm,q.y2_mm):Math.max(q.x_mm,q.x2_mm);
+   const gap=hi<q0?q0-hi:lo>q1?lo-q1:0;if(gap>tol*1.5)continue;
+   const sc=gap+Math.abs(off)*.1;if(!best||sc<best.sc)best={q,sc}}
+  if(best)named.set(best.q,"Разрез "+f.name+"-"+f.name)}
+ const band=q=>along(q)+"|"+Math.round(Math.min(...(along(q)==="v"?[q.y_mm,q.y2_mm]:[q.x_mm,q.x2_mm]))/200)+"|"+Math.round(Math.max(...(along(q)==="v"?[q.y_mm,q.y2_mm]:[q.x_mm,q.x2_mm]))/200);
+ const byBand=new Map();for(const [q,v] of named)byBand.set(q.mark+"|"+band(q),v);
+ const most=new Map();for(const q of placements){const v=named.get(q)||byBand.get(q.mark+"|"+band(q));if(!v)continue;const m=most.get(q.mark)||new Map();m.set(v,(m.get(v)||0)+1);most.set(q.mark,m)}
+ for(const q of placements){const v=named.get(q)||byBand.get(q.mark+"|"+band(q))||(()=>{const m=most.get(q.mark);if(!m)return null;
+   const r=[...m].sort((x,y)=>y[1]-x[1]);return r.length===1||r[0][1]>r[1][1]?r[0][0]:null})();
+  if(v)q.section_view=v}
+}
 function extractScheme({segments=[],texts=[],glyphs=[],page=1,kinds=DEFAULT_KINDS}={}){
  texts=joinSplitMarks(texts);
  const aMarks=aMarksOn(texts),markIndex=markIndexOf(texts);
@@ -1354,7 +1414,8 @@ function extractScheme({segments=[],texts=[],glyphs=[],page=1,kinds=DEFAULT_KIND
    }
    return out
   };
-  const candX=[...candidates(xMm,dimsX),...(chain?chain.x.nodes:[]),...ticks(true,vAxes,xMm)],candY=[...candidates(yMm,dimsY),...(chain?chain.y.nodes.map(v=>-v):[]),...ticks(false,hAxes,yMm)];
+  const tickX=ticks(true,vAxes,xMm),tickY=ticks(false,hAxes,yMm);
+  const candX=[...candidates(xMm,dimsX),...(chain?chain.x.nodes:[]),...tickX],candY=[...candidates(yMm,dimsY),...(chain?chain.y.nodes.map(v=>-v):[]),...tickY];
   const snapDim=(mm,cand,tol)=>{let best=null;for(const c of cand){const d=Math.abs(c-mm);if(d<=tol&&(!best||d<best.d))best={mm:c,d}}return best};
   const lineTol=Math.max(40,scale*1.2);
   const exactLines=(orient,labelled,toMm,cand)=>secondaryLines(segments,bbox,orient,labelled)
@@ -1415,8 +1476,14 @@ function extractScheme({segments=[],texts=[],glyphs=[],page=1,kinds=DEFAULT_KIND
   const mids=pos=>pos.slice(1).map((v,i)=>(v+pos[i])/2);
   const memberX=[...candX,...mids(xMm)],memberY=[...candY,...mids(yMm)];
   const snapMm=(v,lines2,cand,tol=endTol)=>{
-   let best=null;for(const l of lines2){const d=Math.abs(l.mm-v);if(d<=tol&&(!best||d<best.d))best={mm:l.mm,d}}
-   if(best)return{mm:best.mm,exact:true};
+   let best=null;for(const l of lines2){const d=Math.abs(l.mm-v);if(d<=tol&&(!best||d<best.d))best={mm:l.mm,d,named:Boolean(l.name)}}
+   // A tick of a dimension chain within 3 pt goes before the sums of other sizes nearer and before a line of another
+   // member (КМ1 л.34: Бл2 drawn at 6572 — the chain ticks it at 6500, a sum of sizes at 6550 was taken; 29946 → 29900,
+   // not the line of the beam of the other tier at 30050).
+   const tk=cand===memberX?tickX:cand===memberY?tickY:null;let bt=null;
+   if(tk)for(const m of tk){const d=Math.abs(m-v);if(d<=Math.min(tol,3*scale)&&(!bt||d<bt.d))bt={mm:m,d}}
+   if(best&&(best.named||!bt||best.d<=bt.d))return{mm:best.mm,exact:true};
+   if(bt)return{mm:bt.mm,exact:true};
    const h=snapDim(v,cand,tol);return h?{mm:h.mm,exact:true}:{mm:Math.round(v/10)*10,exact:false}
   };
   // Across a straight member its line is where it is drawn, give or take its edge: an end may stop short of an axis by
@@ -1968,6 +2035,7 @@ function extractScheme({segments=[],texts=[],glyphs=[],page=1,kinds=DEFAULT_KIND
   if(planTitle)title=String(planTitle.str).trim();
   let roof=null;
   if(!group.local&&/^План\s+кровли/iu.test(title||"")){try{roof=roofPlan({texts,segments,bbox,toX,toY,target:t=>leaderTarget(t,segments,index,axisSegs,lines)})}catch(e){warnings.push("План кровли: "+e.message)}}
+  try{flagSections(placements,sectionFlags(glyphs,local),toX,toY,scale)}catch(e){warnings.push("Знаки разрезов: "+e.message)}
   schemes.push({title,bbox,scaleMmPerPt:Math.round(scale*1000)/1000,...(calibration?{calibration}:{}),...(otherAxes?{otherAxes}:{}),...(roof?{roof}:{}),
    axesX:vAxes.map(a=>a.name),axesY:hAxes.map(a=>a.name),spansX:sx.spans,spansY:sy.spans,
    sizeX:xMm[xMm.length-1],sizeY:yMm[yMm.length-1],
