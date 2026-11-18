@@ -278,8 +278,12 @@ function createMontage({database,documents,drafts,renderer,engine,knowledge=null
  }
  // Step 3 as the plan uses it: Claude's answer over a set with a checked entry of the knowledge base keeps the checked
  // tank (Claude's answer for РВС-700 had no courses, no roof layout and the stair offset taken for its depth).
+ // A set taken from the knowledge base at «Анализ» is read from the base again at each placement: the copy kept with the
+ // analysis was the base as it was that day, «Расставить заново» put back the old consoles Кр1–Кр5, the old cage of Л2
+ // after the set was corrected (the engineer, 18.11.2026 «почему-то все обновления которые ты делал сегодня в итоге где?»).
  function checkedResult(data){
-  const r=data.ai?.result||null;
+  let r=data.ai?.result||null;
+  if(data.ai?.source==="knowledge"&&base?.match)try{const docs=(data.source?.documents||[]).map(x=>({sha256:x.sha256,name:x.name})).filter(x=>x.sha256),known=docs.length?base.match(docs):[];if(known.length){const fresh=base.merged(known);if(fresh)r=fresh}}catch(_e){}
   try{return base?.withChecked?base.withChecked(r,data.source?.documents||[]):r}catch{return r}
  }
  // Everything the screen and the journal need, in one serialisable object.
