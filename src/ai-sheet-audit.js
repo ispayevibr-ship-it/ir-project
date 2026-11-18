@@ -24,7 +24,8 @@ const DIM=/^\d{1,6}\s*[*!]?$/u;
 // «1 (М1.11)», «3(КМ-5)», «2а (л.7)»: узел и лист, где он начерчен.
 const NODE_REF=/^(\d{1,3}[а-яa-z]?)\s*\(\s*(?:л\.?\s*)?([А-ЯЁA-Z]{0,4}[\s\-]?\d{1,3}(?:[.\-]\d{1,3})?)\s*\)$/u;
 const NODE_TITLE=/^Узел\s+([А-ЯЁA-Z]?\d{1,3}[а-яa-z]?)/u;
-const CUT=/^([А-ЯЁA-Z]|\d{1,2})\s*[-–—]\s*\1$/u;
+// (the letters of the cuts of a bracket's views are small: «а -а»…«д -д», КМ1 л.35)
+const CUT=/^([А-ЯЁA-Zа-яё]|\d{1,2})\s*[-–—]\s*\1$/u;
 const ALONG=/^по\s?(?:оси\s?|ряду\s?)?([А-ЯЁA-Z]{0,2}\d{0,3})$/u;
 const PROFILE=/(?:^|[^А-ЯЁа-яё])(?:\d{2,4}\s?[хx×]\s?\d{1,3}|[IШБКД]\d{2}|∟|□|Тр\.?|Гн\.?|L\d|⌀|Ø|\d{2,3}[БКШ]\d)/u;
 const WORDS=/[А-ЯЁа-яё]{3,}/u;
@@ -187,7 +188,7 @@ function auditSheet(geometry,page){
   if(node){let target=c;try{const tg=leaderTarget(t,segments,index,new Set(),lines());if(tg?.leader)target={x:tg.x,y:tg.y}}catch{}
    items.nodes.push({text:str,node:node[1],sheet:node[2].replace(/\s/gu,""),scheme:k,axes:axesAt(target),at:{x:Math.round(target.x*10)/10,y:Math.round(target.y*10)/10}});continue}
   const title=NODE_TITLE.exec(str);if(title){items.nodes.push({text:str,node:title[1],title:true,scheme:k});continue}
-  if(CUT.test(str)||/^(?:[А-ЯЁ]|\d{1,2})$/u.test(str)&&k===null){items.cuts.push({text:str,scheme:k});continue}
+  if(CUT.test(str)||/^(?:[А-ЯЁ]|\d{1,2})$/u.test(str)&&k===null||/^[а-д]$/u.test(str)&&k===null&&texts.some(o=>o!==t&&new RegExp("^"+str+"\\s*[-–—]\\s*"+str+"$","u").test(String(o.str).trim()))){items.cuts.push({text:str,scheme:k});continue}
   if(ALONG.test(str)){items.along.push({text:str,scheme:k});continue}
   const lv=LEVEL.exec(str)||(/^\+\d{4,5}$/u.test(str)?[str,(Number(str.slice(1))/1000).toFixed(3)]:null);
   // (a level inside a sentence of the notes — «За условную отметку 0,000 принят…» — is the note's, read in the whole text)

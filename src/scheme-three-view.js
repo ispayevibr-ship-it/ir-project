@@ -13,7 +13,7 @@ window.irThreeSchemeView=(function irThreeModule(){
  // ускорить построение схемы?» — «да»). It is raised by scripts/scheme-model-digest.js, never by hand: the script builds
  // the checked schemes with this file and raises the number when what would be kept for any of them differs from the
  // record (knowledge/quality/model-digest.json); scripts/scheme-pack.js refuses a pack made without it.
- var MODEL_BUILD=77;
+ var MODEL_BUILD=78;
  var token=0,active=null,loadPromise=null,cameraMemory={};
  // Bundled with the app (works offline); the CDN is only a fallback for an incomplete hot update.
  var sources=[
@@ -5194,16 +5194,26 @@ window.irThreeSchemeView=(function irThreeModule(){
     var pe=c.ft==="panel"?panelExt.get(String(c.id)):null;if(pe&&(pe[0]||pe[1])&&L+pe[0]+pe[1]>.05){var pu=new T.Vector3((b.x-a.x)/L,0,(b.z-a.z)/L);a=a.clone().sub(pu.clone().multiplyScalar(pe[0]));b=b.clone().add(pu.clone().multiplyScalar(pe[1]));L+=pe[0]+pe[1]}
     // (a gate, a door: from its sill up; its height its fd or, for a gate, what its record gives)
     line.push({c:c,a:a,b:b,L:L,u:new T.Vector3((b.x-a.x)/L,0,(b.z-a.z)/L),y0:Math.min(a.y,b.y),y1:Math.min(a.y,b.y)+h})});
-   cornerFill.forEach(function(f){
+   faceSeamN=0;cornerFill.forEach(function(f){
     var sk=(meshesById.get(f.id)||[]).filter(function(m){return m.isMesh&&!m.userData.seam})[0];if(!sk)return;
     var P=toWorld(f.x,f.y,(f.z0+f.z1)/2),Q=toWorld(f.x+f.ux*1000,f.y+f.uy*1000,(f.z0+f.z1)/2),u=Q.clone().sub(P);u.y=0;if(u.lengthSq()<1e-9)return;u.normalize();
     var up=new T.Vector3(0,1,0),hs=f.ends?f.ends.map(function(e){return fillTop(e[0],e[1])}):null;
-    if(hs&&hs.every(function(h){return h>f.z0+100})){var z1=Math.max(hs[0],hs[1]);P.y+=(z1-f.z1)/2000;f={id:f.id,g:f.g,t:f.t,z0:f.z0,z1:z1,hs:hs}}else hs=null;
+    if(hs&&hs.every(function(h){return h>f.z0+100})){var z1=Math.max(hs[0],hs[1]);P.y+=(z1-f.z1)/2000;f={id:f.id,g:f.g,t:f.t,z0:f.z0,z1:z1,hs:hs,face:f.face}}else hs=null;
+    // (by the existing building — АР ч.2 л.26 узел 15: the panel of the drawing ends where the layout ends it, Пс-64 240
+    // at 01+250 by row К; the seam of 125 mm to the face of the цех ММА is not a piece of panel the drawing has not —
+    // the engineer, 18.11.2026 «не ставь элементы от себя, нужно чтобы понятно было что это за сэндвич, в дальнейшем
+    // объемы же считать» —: it is foamed and closed by the flashing of the node over both faces, a sheet 1.5 mm at each
+    // face of the wall, by the heights of the wall (faceSeam, data-face-seams); the cap of the parapet over it — capToFace)
+    if(f.face){var nS=new T.Vector3().crossVectors(u,up);[-1,1].forEach(function(sg){var sg2=new T.BoxGeometry(f.g/1000,(f.z1-f.z0)/1000,.0015);
+      if(hs){var sp2=sg2.attributes.position,cy2=(f.z0+f.z1)/2000;for(var si=0;si<sp2.count;si++)if(sp2.getY(si)>0)sp2.setY(si,(sp2.getX(si)<0?hs[0]:hs[1])/1000-cy2);sp2.needsUpdate=true;sg2.computeBoundingBox();sg2.computeBoundingSphere()}
+      var sm=new T.Mesh(sg2,sk.material);sm.position.copy(P).addScaledVector(nS,sg*(f.t/2000-.00075));sm.quaternion.setFromRotationMatrix(new T.Matrix4().makeBasis(u,up,nS));
+      sm.userData.memberId=f.id;sm.userData.fixed=true;sm.userData.footing=true;sm.userData.faceSeam=true;steel.add(sm);allMeshes.push(sm)});faceSeamN++;return}
     var fg=new T.BoxGeometry(f.g/1000,(f.z1-f.z0)/1000,f.t/1000);
     if(hs){var fp=fg.attributes.position,cy=(f.z0+f.z1)/2000;for(var fi=0;fi<fp.count;fi++)if(fp.getY(fi)>0)fp.setY(fi,(fp.getX(fi)<0?hs[0]:hs[1])/1000-cy);fp.needsUpdate=true;fg.computeBoundingBox();fg.computeBoundingSphere()}
     var m=new T.Mesh(fg,sk.material);
     m.position.copy(P);m.quaternion.setFromRotationMatrix(new T.Matrix4().makeBasis(u,up,new T.Vector3().crossVectors(u,up)));
     m.userData.memberId=f.id;m.userData.fixed=true;m.userData.footing=true;m.userData.masonry=true;m.userData.clad=true;steel.add(m);allMeshes.push(m)});
+   if(root)root.setAttribute("data-face-seams",String(faceSeamN));
    if(root)root.setAttribute("data-face-fill-up",String(faceFillUp));if(root)root.setAttribute("data-gable-to-wall",String(gableToWall));
    // A band of windows ending short of the wall across as drawn — ОК-4 of the wall О10 by the step wall of the roof of the
    // annex О8–О10, moved 635 mm onto the face of its girts (wallLines): a slit of 500 mm by the height of the band, the
@@ -7401,7 +7411,7 @@ window.irThreeSchemeView=(function irThreeModule(){
   }
   var roofSide=new Map(),stepCapN=0,stepSeatN=0;
   var panelExt=new Map();
-  var cornerFill=[],faceFillUp=0;
+  var cornerFill=[],faceFillUp=0,faceSeamN=0;
   function panelCorners(list){
    panelExt.clear();var walls=[],cells=new Map(),C=3000;
    list.forEach(function(c){
@@ -7517,7 +7527,7 @@ window.irThreeSchemeView=(function irThreeModule(){
      if(opens.some(function(o){if(Math.min(o.z1,best.z1)-Math.max(o.z0,best.z0)<50)return false;var s0=(o.a.x-E.x)*out.x+(o.a.y-E.y)*out.y,s1=(o.b.x-E.x)*out.x+(o.b.y-E.y)*out.y,of=Math.abs((o.a.x-E.x)*out.y-(o.a.y-E.y)*out.x);
       return of<400&&Math.max(s0,s1)>5&&Math.min(s0,s1)<best.g-5}))return;
      if(best.face&&best.z1>best.z0)faceFillUp++;
-     cornerFill.push({id:w.id,x:E.x+out.x*best.g/2,y:E.y+out.y*best.g/2,ux:out.x,uy:out.y,g:best.g,z0:best.z0,z1:best.z1,t:w.t,ends:best.face?[[w.id,k],[w.id,k]]:undefined})})})
+     cornerFill.push({id:w.id,x:E.x+out.x*best.g/2,y:E.y+out.y*best.g/2,ux:out.x,uy:out.y,g:best.g,z0:best.z0,z1:best.z1,t:w.t,face:best.face,ends:best.face?[[w.id,k],[w.id,k]]:undefined})})})
    // A slit of 15…300 mm left in one line over a gate or a door — the panel over the opening ends short of the panel from the
    // plinth beside, a post of the frame of the opening stands in the gap, its face a few mm into the plane of the wall (Пс-102
    // over the gate В-6 beside Пс-97: the post Ст1 □180×5 15 mm in): closed with a filler of the facing 40 mm thinner than the
@@ -15415,6 +15425,44 @@ window.irThreeSchemeView=(function irThreeModule(){
   // top (the foot steps of Пс-67 at 47 850…48 200 down to the bottom of the gutter at +20,08 hung under the lower roof) —
   // cut at the roof's top, off when nothing stays above it. scrapsOut(true) only counts — the check of the model.
   var scrapsN=[0,0];
+  // The end cap of a gutter under a wall across its end — down to the foot of that wall as it stands after every cut: the
+  // cap was made up to the foot of the panel itself, +20,873 at К/О3, while the feet of the step wall over the lower roof
+  // (its fillers by 50 mm, cornerClose) came down to +20,335…+20,418 — the cap stood 455 mm up the face of the wall, a grey
+  // plate twice as high as at В/О3 (+20,505). The engineer, 18.11.2026 «почему пластина больше чем на другой стороне в
+  // высоту». At points along the cap: the lowest foot of a piece of a wall in its plane over that point; the cap up to the
+  // highest of them — no slit left, nothing over the wall (gutterCapsDown, data-gutter-caps).
+  var capsDownN=0;
+  function gutterCapsDown(){capsDownN=0;var caps=[],walls=[];
+   allMeshes.forEach(function(m){var u=m.userData||{};if(!m.isMesh||!m.parent||u.edges||u.seam||!m.geometry)return;
+    if(u.gutterCap){caps.push(m);return}
+    var c=dataById.get(String(u.memberId));if(u.gutter||u.tl||!c||c.ft!=="panel"||!c.lay||c.lay.panel==="roof")return;
+    m.updateMatrixWorld(true);var b=new T.Box3().setFromObject(m);if(!b.isEmpty())walls.push(b)});
+   caps.forEach(function(m){var g=m.geometry,P=g.parameters;if(!P||!(P.height>.06))return;m.updateMatrixWorld(true);var b=new T.Box3().setFromObject(m);
+    var ax=(b.max.x-b.min.x)<(b.max.z-b.min.z)?"x":"z",al=ax==="x"?"z":"x",s0=b.min[al],s1=b.max[al],top=b.max.y,bot=b.min.y,nt=bot+.05;
+    var on=walls.filter(function(w){return w.min[ax]<b.max[ax]+.004&&w.max[ax]>b.min[ax]-.004&&w.max[al]>s0+.002&&w.min[al]<s1-.002&&w.min.y<top-.01&&w.min.y>bot-.01&&w.max.y>w.min.y+.01});if(!on.length)return;
+    for(var i=0;i<=20;i++){var q=s0+.003+(s1-s0-.006)*i/20,lo=top;on.forEach(function(w){if(w.min[al]<=q&&w.max[al]>=q)lo=Math.min(lo,w.min.y)});nt=Math.max(nt,lo)}
+    if(!(nt<top-.01))return;var hh=nt-bot,ng=new T.BoxGeometry(P.width,hh,P.depth);g.dispose();m.geometry=ng;m.position.y+=(hh-P.height)/2;capsDownN++});
+   if(root)root.setAttribute("data-gutter-caps",String(capsDownN))}
+  // The cap of a parapet over the seam to the existing building (faceSeam): the strips of the cap run on over the seam to
+  // the face of the building, its end plate at the end of the panel taken off — the cap ends at the wall of the цех ММА
+  // (узел 15), not 125 mm short of it over an open seam (the engineer, 18.11.2026 «Из-за него сверху парапет не до конца
+  // закрывается») — capToFace, data-cap-to-face.
+  var capFaceN=0;
+  function capToFace(){capFaceN=0;var seams=[];allMeshes.forEach(function(m){if(m.isMesh&&m.parent&&m.userData.faceSeam){m.updateMatrixWorld(true);seams.push(new T.Box3().setFromObject(m))}});if(!seams.length)return;
+   var F=[];seams.forEach(function(b){if(!F.some(function(o){return o.intersectsBox(b.clone().expandByScalar(.15))&&o.union(b)}))F.push(b.clone())});
+   var caps=[],seenC=new Set();var addC=function(m){var u=m.userData||{};if(!seenC.has(m)&&m.isMesh&&!m.isBatchedMesh&&!m.isInstancedMesh&&m.parent&&(u.tl&&u.profile||u.capEnd)&&m.geometry){seenC.add(m);caps.push(m)}};allMeshes.forEach(addC);scene.traverse(addC);meshesById.forEach(function(l){l.forEach(addC)});
+   F.forEach(function(b){var ax=(b.max.x-b.min.x)>(b.max.z-b.min.z)?"x":"z",cr=ax==="x"?"z":"x",done=false;
+    caps.forEach(function(m){if(!m.parent)return;m.updateMatrixWorld(true);var cb=new T.Box3().setFromObject(m);if(cb.min.y<b.max.y-.2||cb.min.y>b.max.y+.08||cb.max[cr]<b.min[cr]-.12||cb.min[cr]>b.max[cr]+.12)return;
+     var nearLo=Math.abs(cb.min[ax]-b.max[ax])<.03,nearHi=Math.abs(cb.max[ax]-b.min[ax])<.03;if(!nearLo&&!nearHi)return;
+     if(m.userData.capEnd){if(cb.max[ax]-cb.min[ax]<.01){m.parent.remove(m);done=true}return}
+     if(cb.max[ax]-cb.min[ax]<.3)return;
+     var g=m.geometry;if(!g.boundingBox)g.computeBoundingBox();var gs=g.boundingBox.getSize(new T.Vector3()),la=gs.x>=gs.y&&gs.x>=gs.z?"x":gs.y>=gs.z?"y":"z";
+     var L=b.max[ax]-b.min[ax],k=m.clone();k.geometry=g.clone();var sc=new T.Vector3(1,1,1);sc[la]=L/(gs[la]*m.scale[la]||1);
+     var c0=g.boundingBox.getCenter(new T.Vector3());k.geometry.translate(-c0.x,-c0.y,-c0.z);k.geometry.scale(sc.x,sc.y,sc.z);
+     var want=c0.clone().applyMatrix4(m.matrixWorld);want[ax]=(b.min[ax]+b.max[ax])/2;k.position.copy(m.parent.worldToLocal(want));m.parent.add(k);
+     allMeshes.push(k);done=true});
+    if(done)capFaceN++});
+   if(root)root.setAttribute("data-cap-to-face",String(capFaceN))}
   function scrapsOut(count){var gone=0,clip=0,list=[];
    var walls=new Map(),roofs=[],every=new Set(allMeshes);scene.traverse(function(m){if(m.isMesh)every.add(m)});
    every.forEach(function(m){var u=m.userData||{},c=dataById.get(String(u.memberId));if(!m.isMesh||m.isBatchedMesh||m.isInstancedMesh||!m.parent||u.edges||!c||c.ft!=="panel"||!c.lay||!m.geometry||!m.geometry.attributes||!m.geometry.attributes.position)return;
@@ -17050,11 +17098,13 @@ window.irThreeSchemeView=(function irThreeModule(){
    try{gutterUnderRoof()}catch(e){if(window.console)console.warn("gutterUnderRoof",e&&e.stack||e)}
    try{scrapsOut()}catch(e){if(window.console)console.warn("scrapsOut",e&&e.stack||e)}
    try{seamTrim()}catch(e){if(window.console)console.warn("seamTrim",e&&e.stack||e)}
+   try{gutterCapsDown()}catch(e){if(window.console)console.warn("gutterCapsDown",e&&e.stack||e)}
    // (and every piece of a panel cut away by any step above — out of the lists, not only out of the scene: dropPiece)
    var gone=0;elems.forEach(function(c){if(!c.id||c.ft!=="panel")return;var l=meshesById.get(String(c.id));if(!l)return;for(var i=l.length-1;i>=0;i--)if(l[i].isMesh&&!l[i].parent&&!l[i].userData.edges){var m=l[i];l.splice(i,1);var ai=allMeshes.indexOf(m);if(ai>=0)allMeshes.splice(ai,1);gone++}});
    root.setAttribute("data-panel-gone",String(gone));
    try{returnEnds()}catch(e){if(window.console)console.warn("returnEnds",e&&e.stack||e)}
    try{cutLines()}catch(e){if(window.console)console.warn("cutLines",e&&e.stack||e)}
+   try{capToFace()}catch(e){if(window.console)console.warn("capToFace",e&&e.stack||e)}
    root.setAttribute("data-panel-cuts",panelCutsN+"/"+Math.round(performance.now()-t0)+"ms");root.setAttribute("data-cut-outline",cutRectN+"/"+cutFillN+"/"+cutBackN);root.setAttribute("data-cut-recentred",String(recentred))
   }
   // The lines of a panel cut round the steel: only its real edges — not where one piece of it lies against another piece

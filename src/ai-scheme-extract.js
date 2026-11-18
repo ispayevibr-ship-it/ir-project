@@ -13,11 +13,11 @@ const AXIS_LABEL=/^(?:[А-ЯЁA-Z]{0,2}\d{1,3}[а-яa-z]?|[А-ЯЁA-Z]{1,2})(?:\
 // (a Latin letter that looks Cyrillic in an axis name — «I», «I1» of the axes И, И1 of the existing building on АР ч.1 л.5
 // ИР-71535, «B», «K» exported from CAD —: the Cyrillic axis; «I» is И, «J» is Й (between И2 and К on the plan АР ч.1 л.10,
 // as ISO 9 writes them): there is no Latin axis on a Russian drawing)
-const AXIS_LOOK={A:"А",B:"В",C:"С",E:"Е",H:"Н",I:"И",J:"Й",K:"К",M:"М",P:"Р",T:"Т",X:"Х"};
+const AXIS_LOOK={A:"А",B:"В",C:"С",E:"Е",H:"Н",I:"И",J:"Й",K:"К",M:"М",O:"О",P:"Р",T:"Т",X:"Х"};
 const {roofPlan}=require("./ai-roof-plan");
 const axisName=str=>String(str).trim().replace(/^[OО0](?=\d)/u,"О");
 // (only on a sheet whose axes are Cyrillic: a grid of Latin axes «A», «B», «C» stays Latin)
-const cyrAxis=s=>String(s).replace(/^[ABCEHIJKMPTX]{1,2}(?=\d|\/|$)/u,m=>[...m].map(c=>AXIS_LOOK[c]).join(""));
+const cyrAxis=s=>String(s).replace(/^[ABCEHIJKMOPTX]{1,2}(?=\d|\/|$)/u,m=>[...m].map(c=>AXIS_LOOK[c]).join(""));
 // Upper-case codes ("СВ3") and mixed-case ones ("Сгф3", "Фс1").
 const MARK_LABEL=/^([А-ЯЁA-Z]{1,3}|[А-ЯЁA-Z][а-яё]{1,2})(\d{1,4})(?:[-.]\d{1,3})?[а-я]?$/u;
 // Sheet references (М1.4) and section names are not shipping marks.
@@ -223,6 +223,9 @@ function groupSchemes(axes){
  // to one or two axes each way (О7 and Б crossing): kept as «local», a scheme only with its title and dimensions (below).
  return[...groups.values()].filter(g=>g.some(a=>a.orient==="V")&&g.some(a=>a.orient==="H"))
   .filter(g=>{const nv=g.filter(a=>a.orient==="V").length,nh=g.filter(a=>a.orient==="H").length;if(nv>=2&&nh>=2)return true;
+   // A plan along one row of the grid (КМ1 л.35: «Схема расположения элементов крепления … по оси Л» — О3…О8 crossing Л,
+   // К and М bubbles only marking the way): a strip of the main grid, its axes named — read like a plan.
+   if(nv>=3&&nh===1){g.strip=true;return true}
    // A long run of axes with one crossing line is a wall elevation or a detail of the main grid, not a small structure.
    g.local=true;return nv<=2&&nh<=2})
 }
@@ -1235,21 +1238,26 @@ function sectionFlags(glyphs,texts){
 // outer tier of Бл2 at Б and Л and by those over the row Е — 2-2 on an angle L140×10; «1» by the others — 1-1).
 function flagSections(placements,flags,toX,toY,scale){
  if(!flags.length)return;
- const along=q=>Math.abs(q.x2_mm-q.x_mm)<Math.abs(q.y2_mm-q.y_mm)?"v":"h",tol=30*scale,named=new Map();
+ // (a member standing at a point — a bracket at a shaft, КМ1 л.35 «Кр 4, Кр 5» — is cut by a flag either way)
+ const pnt=q=>!Number.isFinite(q.x2_mm)||!Number.isFinite(q.y2_mm);
+ const along=q=>pnt(q)?"p":Math.abs(q.x2_mm-q.x_mm)<Math.abs(q.y2_mm-q.y_mm)?"v":"h",tol=30*scale,named=new Map();
+ const ends=q=>pnt(q)?[q.x_mm,q.x_mm,q.y_mm,q.y_mm]:[q.x_mm,q.x2_mm,q.y_mm,q.y2_mm];
  for(const f of flags){
   const at=f.vert?toX(f.c):toY(f.c),a=f.vert?toY(f.from):toX(f.from),b=f.vert?toY(f.to):toX(f.to),lo=Math.min(a,b),hi=Math.max(a,b);
   // (the arrow looks −x on the sheet: the member is at smaller x; −y on the sheet is up — larger y in mm)
   const way=f.vert?f.look:-f.look;
   let best=null;
-  for(const q of placements){if(along(q)!==(f.vert?"v":"h"))continue;
-   const pos=f.vert?q.x_mm:q.y_mm,off=(pos-at)*way;if(off<-2*scale||off>15*scale)continue;
+  for(const q of placements){if(along(q)!=="p"&&along(q)!==(f.vert?"v":"h"))continue;
+   const half=(Number(q.box_mm)||0)/2,pos=f.vert?q.x_mm:q.y_mm,off=(pos-at)*way;if(off<-2*scale||off>15*scale+half)continue;
+   const [x0,x1,y0,y1]=ends(q);
    // (the stroke is an end of the cut: the member it cuts lies along it beside the stroke, before or after it along the
    //  cut — КМ1 л.34, «2» 25 pt under the outer tier of Бл2 at Б and at Л)
-   const q0=f.vert?Math.min(q.y_mm,q.y2_mm):Math.min(q.x_mm,q.x2_mm),q1=f.vert?Math.max(q.y_mm,q.y2_mm):Math.max(q.x_mm,q.x2_mm);
+   const q0=f.vert?Math.min(y0,y1):Math.min(x0,x1),q1=f.vert?Math.max(y0,y1):Math.max(x0,x1);
    const gap=hi<q0?q0-hi:lo>q1?lo-q1:0;if(gap>tol*1.5)continue;
-   const sc=gap+Math.abs(off)*.1;if(!best||sc<best.sc)best={q,sc}}
-  if(best)named.set(best.q,"Разрез "+f.name+"-"+f.name)}
- const band=q=>along(q)+"|"+Math.round(Math.min(...(along(q)==="v"?[q.y_mm,q.y2_mm]:[q.x_mm,q.x2_mm]))/200)+"|"+Math.round(Math.max(...(along(q)==="v"?[q.y_mm,q.y2_mm]:[q.x_mm,q.x2_mm]))/200);
+   const sc=gap+Math.abs(off-half)*.1;if(!best||sc<best.sc)best={q,sc}}
+  // (one label of several marks «Кр 1, Кр 2, Кр 3» by its leader — КМ1 л.35 — is one place: all of them)
+  if(best){const pt=best.q.sheet_point_pt;for(const q of placements)if(q===best.q||pt&&q.sheet_point_pt&&Math.abs(q.sheet_point_pt.x-pt.x)<.5&&Math.abs(q.sheet_point_pt.y-pt.y)<.5&&along(q)===along(best.q))named.set(q,"Разрез "+f.name+"-"+f.name)}}
+ const band=q=>{const [x0,x1,y0,y1]=ends(q),v=along(q)==="v"?[y0,y1]:[x0,x1];return along(q)+"|"+Math.round(Math.min(...v)/200)+"|"+Math.round(Math.max(...v)/200)};
  const byBand=new Map();for(const [q,v] of named)byBand.set(q.mark+"|"+band(q),v);
  const most=new Map();for(const q of placements){const v=named.get(q)||byBand.get(q.mark+"|"+band(q));if(!v)continue;const m=most.get(q.mark)||new Map();m.set(v,(m.get(v)||0)+1);most.set(q.mark,m)}
  for(const q of placements){const v=named.get(q)||byBand.get(q.mark+"|"+band(q))||(()=>{const m=most.get(q.mark);if(!m)return null;
@@ -1628,6 +1636,31 @@ function extractScheme({segments=[],texts=[],glyphs=[],page=1,kinds=DEFAULT_KIND
    // Only a slanted leader from a level label: line junctions next to a label look like a symbol too.
    // So does the leader of a mark whose letters tell no kind to a post drawn as a small square (ГПЭС АБК: «В152» at a
    // post of a partition, its square on the dashed outline of the partition).
+   // (the frame of a bracket is divided across by its members: the smallest box at the leader is one cell of it; the
+   //  frame runs on as far as both its sides do — the longest common run of the two side lines through the cell)
+   const frameBox=o=>{if(!o)return null;const run=(vert,c,a,b)=>{const segs=segments.filter(q=>vert?Math.abs(q.a.x-c)<1.2&&Math.abs(q.b.x-c)<1.2:Math.abs(q.a.y-c)<1.2&&Math.abs(q.b.y-c)<1.2)
+      .map(q=>vert?[Math.min(q.a.y,q.b.y),Math.max(q.a.y,q.b.y)]:[Math.min(q.a.x,q.b.x),Math.max(q.a.x,q.b.x)]).sort((p,q)=>p[0]-q[0]);
+     let lo=a,hi=b,grown=true;while(grown){grown=false;for(const [p,q] of segs){if(p<=hi+1.5&&q>hi){hi=q;grown=true}if(q>=lo-1.5&&p<lo){lo=p;grown=true}}}return[lo,hi]};
+    const [v0,v1]=run(true,o.x0,o.y0,o.y1),[u0,u1]=run(true,o.x1,o.y0,o.y1),[h0,h1]=run(false,o.y0,o.x0,o.x1),[g0,g1]=run(false,o.y1,o.x0,o.x1);
+    const ys=[Math.max(v0,u0),Math.min(v1,u1)],xs=[Math.max(h0,g0),Math.min(h1,g1)];
+    return ys[1]-ys[0]-(o.y1-o.y0)>=xs[1]-xs[0]-(o.x1-o.x0)?{x0:o.x0,x1:o.x1,y0:ys[0],y1:ys[1]}:{x0:xs[0],x1:xs[1],y0:o.y0,y1:o.y1}};
+   // A bracket of a duct (КМ1 л.35 «Кр 1, Кр 2, Кр 3», «Кр 4, Кр 5») drawn on the plan as the box of its frame round the
+   // shaft, the leader ending at a corner or a side of the box: the bracket is the middle line of the box along its
+   // longer side, full length (the console from the wall out past the shaft), its place the nearest written size
+   // within half the box (the chain «1150», «850», «2360» to the axis of the shaft), not the side the leader touches.
+   // («Кр» on a scheme of the fastening of ducts or of brackets only: a porch «Кр 4» or a stringer «Кр1» has its own box.)
+   if(target.leader&&/^Кр[вк]?\d/u.test(mark)&&/воздуховод|кронштейн/iu.test(title||"")&&!indexed){const o=frameBox(outlineOf(segments,target,60,b=>Math.min(b.x1-b.x0,b.y1-b.y0)*scale>=300)[0]);
+    const w=o&&(o.x1-o.x0)*scale,h=o&&(o.y1-o.y0)*scale;
+    if(o&&Math.min(w,h)>=300&&Math.max(w,h)<=4000&&Math.max(w,h)>=Math.min(w,h)*1.15){const vert=h>w,cx=(o.x0+o.x1)/2,cy=(o.y0+o.y1)/2;
+     const mid=vert?(()=>{const g=toX(cx),hit=snapDim(g,candX,w/2);return hit?hit.mm:g})():(()=>{const g=toY(cy),hit=snapDim(g,candY,h/2);return hit?hit.mm:g})();
+     const a0=vert?toY(o.y1):toX(o.x0),a1=vert?toY(o.y0):toX(o.x1);
+     placements.push({mark,...(under?{name:under}:{}),geometry_type:"beam",kind_label:KIND_NAMES.beam,box_mm:Math.round(Math.min(w,h)/10)*10,
+      sheet_point_pt:{x:Math.round(textFrame(t).c.x*10)/10,y:Math.round(textFrame(t).c.y*10)/10},page,
+      ...(vert?{x_mm:mid,y_mm:a0,x2_mm:mid,y2_mm:a1}:{x_mm:a0,y_mm:mid,x2_mm:a1,y2_mm:mid}),
+      axis_x:nearestName(linesX,cx),axis_y:nearestName(linesY,cy),confidence:"medium",
+      notes:["Кронштейн по контуру рамки у шахты: середина рамки, место по размеру цепочки"]});
+     tips.set(placements[placements.length-1],{x:target.x,y:target.y});continue}
+   }
    let symbol=postAt&&ruledKind!=="beam"?postAt:target.leader&&target.diagonal&&Math.abs(Number(t.angle)||0)<5&&(ruledKind==="column"||!ruledKind)&&columnSymbol(target,segments,index,ruledKind||indexed?false:"closed");
    // A slanted leader beside a straight stroke from the label (an extension line of a size) ending at such a square.
    if(!symbol&&!postAt&&target.slant&&Math.abs(Number(t.angle)||0)<5&&(ruledKind==="column"||!ruledKind&&!indexed)){const at=columnSymbol(target.slant,segments,index,ruledKind?false:"closed");
@@ -2045,7 +2078,7 @@ function extractScheme({segments=[],texts=[],glyphs=[],page=1,kinds=DEFAULT_KIND
    axesX:vAxes.map(a=>a.name),axesY:hAxes.map(a=>a.name),spansX:sx.spans,spansY:sy.spans,
    sizeX:xMm[xMm.length-1],sizeY:yMm[yMm.length-1],
    secondaryX:linesX.filter(l=>!l.name).map(l=>l.mm),secondaryY:linesY.filter(l=>!l.name).map(l=>l.mm),
-   placements,...(bases.length?{bases}:{}),...(footprints.length?{footprints}:{}),...(group.local?{local:true}:{}),...(group.framed?{framed:{w_mm:group.framed.w_mm,h_mm:group.framed.h_mm,levels_mm:titleLevels(title),extent:extentOf(placements,group.framed)}}:{}),warnings})
+   placements,...(bases.length?{bases}:{}),...(footprints.length?{footprints}:{}),...(group.local?{local:true}:{}),...(group.strip?{strip:true}:{}),...(group.framed?{framed:{w_mm:group.framed.w_mm,h_mm:group.framed.h_mm,levels_mm:titleLevels(title),extent:extentOf(placements,group.framed)}}:{}),warnings})
  }
  schemes.sort((a,b)=>a.bbox.x0-b.bbox.x0);
  return{page,schemes}

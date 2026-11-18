@@ -462,6 +462,9 @@ function buildCatalog(draft,ai=null){
    const k=markKey(scope,r.mark);if(!votes.has(k))votes.set(k,{scope,mark:r.mark,beam:new Map(),post:new Map(),ridge:new Map(),span:new Map(),where:new Set()});
    const v=votes.get(k),add=(map,key)=>map.set(key,(map.get(key)||0)+1);
    if(Number.isFinite(r.beam_mm))add(v.beam,r.beam_mm);
+   // (one section showing the mark at several levels of the same place — КМ1 л.35 1-1: Кр2 at +8,400, +11,250, +16,750
+   //  of the shaft — stands at each of them)
+   if(Number.isFinite(r.beam_mm)){const sk=where(p)+"|"+r.section;(v.stack||(v.stack=new Map())).set(sk,[...(v.stack.get(sk)||[]),r.beam_mm])}
    if(Number.isFinite(r.ridge_mm))add(v.ridge,[r.beam_mm,r.ridge_mm,r.ridge_t,r.ridge_len_mm].join("|"));
    if(Number.isFinite(r.z0_mm)&&Number.isFinite(r.z1_mm))add(v.post,r.z0_mm+"|"+r.z1_mm);
    if(Array.isArray(r.span_mm)&&r.span_mm[1]-r.span_mm[0]>=1000)add(v.span,r.span_mm.join("|"));
@@ -476,6 +479,8 @@ function buildCatalog(draft,ai=null){
   for(const key of [...v.post.keys()]){const [z0,z1]=key.split("|").map(Number);if(z0>1000&&e.length_mm>0&&z1-z0<e.length_mm*0.6)v.post.delete(key)}
   const beam=mode(v.beam),post=mode(v.post);
   if(beam!==undefined)e.section_beam_mm=beam;
+  {const st=[...(v.stack?.values()||[])].map(l=>[...new Set(l)].sort((a,b)=>a-b)).filter(l=>l.length>=2&&l.every((z,i)=>!i||z-l[i-1]>=500)).sort((a,b)=>b.length-a.length)[0];
+   if(st)e.section_stack_mm=st}
   // A beam broken at the ridge: ends, ridge level, ridge position along it and its length in the section.
   const ridge=mode(v.ridge);
   if(ridge!==undefined&&v.ridge.get(ridge)>=(v.beam.get(beam)||0)/2){const [end,z,t,len]=ridge.split("|").map(Number);e.section_beam_mm=end;e.section_ridge={z,t,len}}
@@ -2015,7 +2020,9 @@ function buildPlan(draft,ai=null,heights={},opts={}){
    place:typeof heights[key]?.place==="boolean"?heights[key].place:true,reason:"Определено Claude по листам — проверьте положение",docType:s.docType,manual:false,z0_mm:null,z1_mm:null};
   schemeInfo.push(info);if(info.place)candidates.push({scheme:s,info,decision:null})
  }
- const placed=candidates.filter(c=>c.scheme.kind==="tank"||c.scheme.kind==="verified"||c.scheme.kind==="elevation"&&(c.scheme.axesX?.length||0)+(c.scheme.axesY?.length||0)>=3||c.scheme.axesX?.length>=2&&c.scheme.axesY?.length>=2||c.scheme.local&&c.scheme.axesX?.length>=1&&c.scheme.axesY?.length>=1);
+ const placed=candidates.filter(c=>c.scheme.kind==="tank"||c.scheme.kind==="verified"||c.scheme.kind==="elevation"&&(c.scheme.axesX?.length||0)+(c.scheme.axesY?.length||0)>=3||c.scheme.axesX?.length>=2&&c.scheme.axesY?.length>=2||c.scheme.local&&c.scheme.axesX?.length>=1&&c.scheme.axesY?.length>=1
+  // A strip of the main grid along one row (КМ1 л.35: brackets of the ducts at row Л), its axes named.
+  ||c.scheme.strip&&c.scheme.axesX?.length+c.scheme.axesY?.length>=4&&Math.min(c.scheme.axesX?.length||0,c.scheme.axesY?.length||0)===1);
  // Sheets of a tank that gave none say what they lack (a scan of a montage scheme without the diameter).
  const gap=!tank&&!ver?tankGap(draft.pages||[]):null;
  if(!placed.length)return{grid:null,elements:[],skipped,schemes:schemeInfo,ready:false,problems:["Нет схем для расстановки",...(gap?[gap]:[])],catalog};
@@ -2076,7 +2083,19 @@ function buildPlan(draft,ai=null,heights={},opts={}){
   let missing=0;
   const off=merged.offsets.get(c.scheme),changes=new Map((c.decision?.changes||[]).map(x=>[x.i,x]));
   const pending=[],first=elements.length;
-  c.scheme.placements.forEach((pl,i)=>{
+  // A beam of a plan without levels of its own whose section shows it at several levels of the same place (the brackets
+  // of a duct shaft, КМ1 л.35: Кр2 at +8,400, +11,250, +16,750) is one element at each of them.
+  const stackOf=pl=>{if(pl.geometry_type!=="beam"||Number.isFinite(pl.z0_mm)||c.scheme.kind==="verified"||c.scheme.kind==="ar"||Number.isFinite(c.scheme.levelNotes?.z1_mm))return null;
+   const st=catalog.get(markKey(scopeOf(c.info.docType,catalog.multi?c.info.volume:""),pl.mark))?.section_stack_mm;return st?.length>=2?st:null};
+  // A bracket placed by the frame of its plan (one frame for «Кр 1, Кр 2, Кр 3»): as long as the view of its own mark
+  // («Элемент Кр1» 1260 of the frame 2460), from the end at the wall — the end nearer its row of axes.
+  const boxLen=pl=>{if(!(pl.box_mm>0)||!Number.isFinite(pl.x2_mm))return pl;const L=catalog.get(markKey(scopeOf(c.info.docType,catalog.multi?c.info.volume:""),pl.mark))?.length_mm;
+   const run=Math.hypot(pl.x2_mm-pl.x_mm,pl.y2_mm-pl.y_mm);if(!(L>300&&L<run-50))return pl;
+   const vert=Math.abs(pl.x2_mm-pl.x_mm)<Math.abs(pl.y2_mm-pl.y_mm),rows=cumulative(vert?c.scheme.spansY||[]:c.scheme.spansX||[]);
+   const gap=v=>Math.min(...(rows.length?rows:[0]).map(r=>Math.abs(r-v))),a=vert?pl.y_mm:pl.x_mm,b=vert?pl.y2_mm:pl.x2_mm;
+   const [n,f]=gap(a)<=gap(b)?[a,b]:[b,a],e=Math.round(n+Math.sign(f-n)*L);
+   return vert?{...pl,y_mm:n,y2_mm:e}:{...pl,x_mm:n,x2_mm:e}};
+  c.scheme.placements.map(boxLen).flatMap(pl=>{const st=stackOf(pl);return st?st.map(z=>({...pl,z0_mm:z,z1_mm:z,levels_from:"разрез (одна из отметок марки)"})):[pl]}).forEach((pl,i)=>{
    const change=changes.get(i);
    if(change&&change.keep===false){skipped.push({mark:pl.mark,page:c.info.page,reason:change.note||"Исключено ИИ"});return}
    // A member whose place is given by another section (a platform standing on the concrete of АР): not placed

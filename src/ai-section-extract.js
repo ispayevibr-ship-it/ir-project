@@ -192,13 +192,16 @@ function extractSections({segments=[],texts=[]}={},sink=null){
  // A row of bubbles belongs to the title just above it; rows without a readable title are views of their own.
  for(const r of rows){
   const above=titles.filter(t=>t.y<r.y&&r.y-t.y<900&&t.x>=r.x0&&t.x<=r.x1&&!rows.some(o=>o!==r&&o.y>t.y&&o.y<r.y&&o.x0<=t.x+200&&o.x1>=t.x-200));
-  r.view=above.sort((a,b)=>b.y-a.y)[0]||r
+  r.view=above.sort((a,b)=>b.y-a.y)[0]||r;
+  // (two sections side by side over one row of bubbles read as one — КМ1 л.35 «1-1» and «2-2», each with its «А Б В»:
+  //  a text goes to the nearer of the titles on that line)
+  if(r.view!==r)r.views=above.filter(t=>Math.abs(t.y-r.view.y)<=30)
  }
  const keys=[...titles,...rows.filter(r=>r.view===r)];
  const views=new Map(keys.map(s=>[s,{levels:[],marks:[]}]));
  for(const t of texts){
   const str=String(t.str).trim(),box=textBox(t);
-  const row=ownerBelow(rows,box.cx,box.cy),owner=row?row.view:ownerOf(titles,box.cx,box.cy);if(!owner)continue;
+  const row=ownerBelow(rows,box.cx,box.cy),owner=row?(row.views?.length>1?row.views.reduce((p,q)=>Math.abs(q.x-box.cx)<Math.abs(p.x-box.cx)?q:p):row.view):ownerOf(titles,box.cx,box.cy);if(!owner)continue;
   const mm=Math.abs(t.angle||0)<10?levelOf(str):null;
   // «+9,175 ось» is the level of the members' axis; «-0,400 низ оп.пл.», «+9,595 низ прогона» are of something else.
   const note=mm!==null?str.replace(/^[+\-−±]?\d{1,2}[,.]\d{3}\s*/u,""):"";
@@ -258,7 +261,11 @@ function extractSections({segments=[],texts=[]}={},sink=null){
      for(const sg2 of segments)for(const [p2,q2] of [[sg2.a,sg2.b],[sg2.b,sg2.a]])if(sg2!==sg&&Math.hypot(p2.x-far.x,p2.y-far.y)<=1&&q2.y<far.y-3&&Math.abs(q2.y-p2.y)>Math.abs(q2.x-p2.x)*0.3)far=q2;
      if(!up||far.y<up.y)up=far
     }
-    if(up){const on=horiz.find(h=>Math.abs(h.y-up.y)<=4&&h.x0<=up.x+3&&h.x1>=up.x-3);beam={d:0,y:on?on.y:up.y}}
+    // (a leader ending at a small symbol on the member — the clip of a bracket on the wall, КМ1 л.35 «Кр1», 7 pt under
+    //  its line at +5,400 — takes the written level within 10 pt, not the symbol)
+    if(up){const on=horiz.find(h=>Math.abs(h.y-up.y)<=4&&h.x0<=up.x+3&&h.x1>=up.x-3);
+     const lv=on?null:view.levels.filter(l=>!l.note&&Math.abs(l.y-up.y)<=10&&l.x<up.x).sort((p,q)=>Math.abs(p.y-up.y)-Math.abs(q.y-up.y))[0];
+     beam={d:0,y:on?on.y:lv?lv.y:up.y}}
     else if(down)beam={d:0,y:down.y}
    }
    // A pitched member (a beam broken at the ridge): sloped lines just over or under the label, nearer than a level one.
