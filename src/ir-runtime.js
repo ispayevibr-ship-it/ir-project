@@ -2097,20 +2097,38 @@ const fittingSection=c=>c.ft==="flight"||c.ft==="ladder"||c.ft==="deck"?(c.fd>0?
   catch(_e){let a=0;for(let i=0;i<text.length;i++)a=(a*31+text.charCodeAt(i))|0;return text.length+":"+a}
  }
  const autoLinkOk=()=>frameMode&&activeScheme==="all"&&Boolean(window.irSchemeHtmlExport)&&typeof irProject!=="undefined"&&Boolean(irProject?.ai?.invoke);
- function autoLinkLater(){clearTimeout(autoLinkTimer);if(autoLinkOk())autoLinkTimer=setTimeout(autoLinkNow,AUTO_LINK_WAIT)}
+ // (one timer at a time, not put off by each drawing: the scheme draws itself anew often — a timer moved at each drawing
+ // may never come; the first check 5 s after the scheme opened; the mark on the button put back after the drawing)
+ let autoLinkFirst=true,autoLinkLast=null;
+ function autoLinkLater(){
+  if(autoLinkLast)setTimeout(()=>autoLinkMark(autoLinkLast[0],autoLinkLast[1],true),0);
+  if(autoLinkTimer||!autoLinkOk())return;
+  autoLinkTimer=setTimeout(()=>{autoLinkTimer=0;autoLinkNow()},autoLinkFirst?5e3:AUTO_LINK_WAIT);autoLinkFirst=false
+ }
  async function autoLinkNow(){
   if(autoLinkBusy||!autoLinkOk()||!document.getElementById("schemeShareLink"))return;
   autoLinkBusy=true;
   try{
    const data=await exportSchemeData();if(!data)return;
    const sig=await schemeDigest(data);let last="";try{last=localStorage.getItem(autoLinkKey(data.objectId))||""}catch(_e){}
-   if(last===sig)return;
+   if(last===sig){autoLinkMark("✓","Схема по ссылке такая же, как в программе"+autoLinkWhen(data.objectId));return}
    const info=await irProject.ai.invoke("ai-settings:server-report-link",{objectId:data.objectId,kind:"scheme"});
-   if(!info?.link)return;
+   if(!info?.link){autoLinkMark("","Ссылки на схему ещё нет — нажмите, чтобы сделать; потом она будет обновляться сама"+(info?.error?" · "+info.error:""));return}
+   autoLinkMark("…","Отправляю схему по ссылке…");
    const html=await window.irSchemeHtmlExport.build(data);
    await irProject.ai.invoke("ai-settings:server-report-share",{objectId:data.objectId,objectName:data.object.name,label:data.object.short||data.object.name,title:"Монтажная схема, "+(data.object.name||"Объект"),html,kind:"scheme"});
-   try{localStorage.setItem(autoLinkKey(data.objectId),sig)}catch(_e){}
-  }catch(_e){}finally{autoLinkBusy=false}
+   try{localStorage.setItem(autoLinkKey(data.objectId),sig);localStorage.setItem(autoLinkKey(data.objectId)+".at",new Date().toISOString())}catch(_e){}
+   autoLinkMark("✓","Схема по ссылке обновлена сама"+autoLinkWhen(data.objectId))
+  }catch(error){
+   // (the engineer sees why it did not go — on the button and in the log of the window; 18.11.2026 the link stayed old with no word why)
+   const why=String(error?.message||error).replace(/^Error invoking remote method '[^']+': (Error: )?/,"");
+   autoLinkMark("⚠","Ссылка не обновилась сама: "+why);try{console.warn("autoLink",error)}catch(_e){}
+  }finally{autoLinkBusy=false}
+ }
+ function autoLinkWhen(id){let at="";try{at=localStorage.getItem(autoLinkKey(id)+".at")||""}catch(_e){}const d=at?new Date(at):null;return d&&!isNaN(d)?" — "+d.toLocaleString("ru-RU",{day:"2-digit",month:"2-digit",hour:"2-digit",minute:"2-digit"}):""}
+ function autoLinkMark(sign,text,again){
+  if(!again)autoLinkLast=[sign,text];const b=document.getElementById("schemeShareLink");if(!b||b.disabled)return;
+  b.textContent="🔗 Ссылка"+(sign?" "+sign:"");b.title=text+". Нажмите — ссылка и окно с ней."
  }
  let pickerCollator=null;
  function pickerRecords(){

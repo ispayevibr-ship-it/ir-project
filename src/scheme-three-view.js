@@ -13,7 +13,7 @@ window.irThreeSchemeView=(function irThreeModule(){
  // ускорить построение схемы?» — «да»). It is raised by scripts/scheme-model-digest.js, never by hand: the script builds
  // the checked schemes with this file and raises the number when what would be kept for any of them differs from the
  // record (knowledge/quality/model-digest.json); scripts/scheme-pack.js refuses a pack made without it.
- var MODEL_BUILD=71;
+ var MODEL_BUILD=72;
  var token=0,active=null,loadPromise=null,cameraMemory={};
  // Bundled with the app (works offline); the CDN is only a fallback for an incomplete hot update.
  var sources=[
@@ -594,6 +594,8 @@ window.irThreeSchemeView=(function irThreeModule(){
    shape.absarc(-w-ri2,-h+fb+ri2,ri2,0,-Math.PI/2,cw);shape.lineTo(-bb2,-h+fb);shape.closePath()
   }
   geo=new T.ExtrudeGeometry(shape,{depth:1,steps:1,bevelEnabled:false,curveSegments:sec.shape==="round"?16:rf>0?5:1});
+  // (an angle: its legs in the geometry — x 0…b with the thickness y 0…t, y 0…h with x 0…t — for angleBacksAll)
+  if(sec.shape==="angle"&&!sec.bent)geo.userData.angleL=[sec.b/1000,sec.h/1000,sec.t/1000];
   geo.computeVertexNormals();cache.set(key,geo);return geo
  }
  // A bent open section by its middle line: from the start [x, y, heading] straight runs ["L", length] and 90° bends
@@ -14898,7 +14900,7 @@ window.irThreeSchemeView=(function irThreeModule(){
    var e1=gen[0].ld.clone(),e2=gen[1].ld.clone().sub(e1.clone().multiplyScalar(gen[1].ld.dot(e1)));if(e2.lengthSq()<1e-4)return null;e2.normalize();
    var th=Math.acos(Math.max(-1,Math.min(1,gen[0].ld.dot(gen[1].ld)))),best=null;
    for(var k=1;k<n;k++)[0,1].forEach(function(sw){var A=[pts[0][0]-pts[k][0],pts[0][1]-pts[k][1]],Bv=[pts[n][0]-pts[k][0],pts[n][1]-pts[k][1]];if(sw){var t=A;A=Bv;Bv=t}
-    var la=Math.hypot(A[0],A[1]),lb=Math.hypot(Bv[0],Bv[1]),ga=gen[0].ll*1000,gb=gen[1].ll*1000;if(la<40||lb<40||la<.6*ga||la>3.2*ga||lb<.6*gb||lb>3.2*gb)return;
+    var la=Math.hypot(A[0],A[1]),lb=Math.hypot(Bv[0],Bv[1]),ga=gen[0].ll*1000,gb=gen[1].ll*1000;if(la<Math.min(40,.6*ga)||lb<Math.min(40,.6*gb)||la<.6*ga||la>3.2*ga||lb<.6*gb||lb>3.2*gb)return;
     var aA=Math.atan2(A[1],A[0]),aB=Math.atan2(Bv[1],Bv[0]),ph=Math.abs(wrap(aB-aA)),df=Math.abs(ph-th)*180/Math.PI;if(df>25)return;
     var sc=df+30*Math.abs(Math.log((la/lb)/(ga/gb)));if(!best||sc<best.sc-1e-6)best={sc:sc,k:k,sw:sw,mir:wrap(aB-aA)<0}});
    // (each side of the bend turned by its longest shelf onto its shelf of the plan — the angle of the sketch is not that
@@ -16475,6 +16477,10 @@ window.irThreeSchemeView=(function irThreeModule(){
    var gone=[];
    elems.forEach(function(c){if(c.ft!=="trim"||!c.id||!c.lay||!/^(abutment|existing)$/.test(c.lay.trim))return;
     (meshesById.get(String(c.id))||[]).forEach(function(m){if(!m.isMesh||!m.parent||m.userData.seam||m.userData.edges)return;m.updateMatrixWorld(true);var b=new T.Box3().setFromObject(m),ax=b.max.x-b.min.x>=b.max.z-b.min.z?"x":"z",nx=ax==="x"?"z":"x",L=b.max[ax]-b.min[ax];if(L<.05)return;
+     // (a trim up the joint — our wall ending at the panels of the existing building, узел 31 —: its length is up, the shelf
+     // across it is not «a piece along no wall»; its second shelf of 160 mm was taken away and a strip 30 × 2 mm stood 12 m
+     // high at 01/В — the engineer 18.11.2026 «покажи как программа показывает этот элемент»)
+     if(b.max.y-b.min.y>2*L)return;
      // (the walls at it together — panels a metre each —: at it along a third of its length at least)
      var iv=[];wb.forEach(function(w){var a0=Math.max(w.min[ax],b.min[ax]),a1=Math.min(w.max[ax],b.max[ax]);if(a1-a0<.01)return;if(w.max.y<b.min.y-.01||w.min.y>b.max.y+.01)return;if(w.min[nx]-b.max[nx]<.02&&b.min[nx]-w.max[nx]<.02)iv.push([a0,a1])});
      iv.sort(function(p,q){return p[0]-q[0]});var cov=0,cur=-Infinity;iv.forEach(function(v){var a0=Math.max(v[0],cur);if(v[1]>a0)cov+=v[1]-a0;cur=Math.max(cur,v[1])});var ok=cov>=.3*L;
@@ -16804,7 +16810,7 @@ window.irThreeSchemeView=(function irThreeModule(){
    // (the boxes of the panels as they stand: a cut by the outline does not put the panel back where another panel is —
    // the end of Пс-88 in the corner with Пс-39 cut away by the box of Рс-2 before, steps of the outline left in Пс-39)
    var pAll=[];allMeshes.forEach(function(m){var u=m.userData||{},c=dataById.get(String(u.memberId));if(!m.isMesh||!m.parent||u.seam||u.edges||u.lod||!(u.partition||c&&c.ft==="panel"))return;
-    m.updateWorldMatrix(true,false);var b=new T.Box3().setFromObject(m).expandByScalar(-.0015);if(!b.isEmpty())pAll.push({id:String(u.memberId),b:b})});
+    m.updateWorldMatrix(true,false);var b=new T.Box3().setFromObject(m).expandByScalar(-.0015);if(m.geometry&&!m.geometry.boundingBox)m.geometry.computeBoundingBox();if(!b.isEmpty())pAll.push({id:String(u.memberId),b:b,m:m,gb:m.geometry&&m.geometry.boundingBox?m.geometry.boundingBox.clone().expandByScalar(-.0015):null})});
    panels.forEach(function(pm){
     // (the box of the panel as it stands now, not the one kept from before a step moved its points — a top let down under
     // the roof by 2 mm left the old box: the panel was cut as the old box, its top back up 2 mm; the model taken from the
@@ -16817,7 +16823,10 @@ window.irThreeSchemeView=(function irThreeModule(){
     if(cOff>1e-6){g=g.clone();g.translate(-c0[0],-c0[1],-c0[2]);g.computeBoundingBox();g.computeBoundingSphere();var sh0=new T.Vector3(c0[0]*pm.scale.x,c0[1]*pm.scale.y,c0[2]*pm.scale.z).applyQuaternion(pm.quaternion);
      pm.geometry=g;pm.position.add(sh0);pm.updateMatrixWorld(true);gb=g.boundingBox;c0=[0,0,0];recentred++}
     var th=h[0]<=h[1]&&h[0]<=h[2]?0:h[1]<=h[2]?1:2,isPart=Boolean(pm.userData.partition);var pc=dataById.get(String(pm.userData.memberId)),isRoof=Boolean(pc&&pc.lay&&pc.lay.panel==="roof");if(h[th]>(isPart?.3:.2))return;
-    pm.updateWorldMatrix(true,false);box.setFromObject(pm);inv.copy(pm.matrixWorld).invert();var me=box.clone().expandByScalar(-.0015),pid=String(pm.userData.memberId),nb=pAll.filter(function(q){return q.id!==pid&&q.b.intersectsBox(me)}).map(function(q){return q.b}),mw=pm.matrixWorld.clone();
+    pm.updateWorldMatrix(true,false);box.setFromObject(pm);inv.copy(pm.matrixWorld).invert();var me=box.clone().expandByScalar(-.0015),pid=String(pm.userData.memberId),nb=pAll.filter(function(q){return q.id!==pid&&q.b.intersectsBox(me)}),mw=pm.matrixWorld.clone();
+    // (the neighbours the panel really lies into — by their own boxes in their own axes)
+    var nbO=nb.filter(function(q){if(!q.gb||!q.m)return true;var qi=new T.Matrix4().copy(q.m.matrixWorld).invert(),lb=new T.Box3(),gq=pm.geometry.boundingBox;if(!gq){pm.geometry.computeBoundingBox();gq=pm.geometry.boundingBox}
+     for(var c9=0;c9<8;c9++)lb.expandByPoint(new T.Vector3(c9&1?gq.max.x:gq.min.x,c9&2?gq.max.y:gq.min.y,c9&4?gq.max.z:gq.min.z).applyMatrix4(mw).applyMatrix4(qi));return lb.intersectsBox(q.gb)});
     var seen=new Set(),holes=[];
     for(var i=Math.floor(box.min.x/C);i<=Math.floor(box.max.x/C);i++)for(var j=Math.floor(box.min.y/C);j<=Math.floor(box.max.y/C);j++)for(var k=Math.floor(box.min.z/C);k<=Math.floor(box.max.z/C);k++)(cells.get(key(i,j,k))||[]).forEach(function(o){
      if(seen.has(o))return;seen.add(o);var b=o.b;if(o.fin&&isRoof)return;
@@ -16848,7 +16857,13 @@ window.irThreeSchemeView=(function irThreeModule(){
      if(!H[2]||!H[2].length||w<.006||hg<.006){cuts.push(H);return}
      // (steel going on past the edge of the panel — at its end, by the corner with the next wall, at the joint with the
      // next panel — cut by its box: the steps of the outline at the end of Пс-88 in the corner with Пс-39, wallCross and gapClose then run into them)
-     if(nb.length){var wb=new T.Box3();for(var c8=0;c8<8;c8++)wb.expandByPoint(new T.Vector3(c8&1?hi[0]:lo[0],c8&2?hi[1]:lo[1],c8&4?hi[2]:lo[2]).applyMatrix4(mw));if(nb.some(function(b){return b.intersectsBox(wb)})){cuts.push(H);return}
+     if(nb.length){var wb=new T.Box3();for(var c8=0;c8<8;c8++)wb.expandByPoint(new T.Vector3(c8&1?hi[0]:lo[0],c8&2?hi[1]:lo[1],c8&4?hi[2]:lo[2]).applyMatrix4(mw));
+      // (the neighbour by its own box in its own axes, not by its box in the world: the box of a sloped roof panel in the world
+      // takes in the top of the wall under it, and every steel there was cut by its box — the light square round the angle
+      // L125×9 of Л2 at 08/Е, the engineer 18.11.2026 «ОПЯТЬ ЩЕЛИ!!!»)
+      var nIn=function(q){if(!q.b.intersectsBox(wb))return false;if(!q.gb||!q.m)return true;var qi=new T.Matrix4().copy(q.m.matrixWorld).invert(),lb=new T.Box3();
+       for(var c9=0;c9<8;c9++)lb.expandByPoint(new T.Vector3(c9&1?hi[0]:lo[0],c9&2?hi[1]:lo[1],c9&4?hi[2]:lo[2]).applyMatrix4(mw).applyMatrix4(qi));return lb.intersectsBox(q.gb)};
+      if(nb.some(nIn)){cuts.push(H);return}
 }
      // (at the edge of a roof panel — the angle of the ladder Л2 at the edge of Пк-1 — by its box, as before; walls by the outline)
      if(isRoof&&edgeSides(lo[A],hi[A],lo[B],hi[B])){cuts.push(H);return}
@@ -16859,7 +16874,7 @@ window.irThreeSchemeView=(function irThreeModule(){
      if(n>=.97*k.length){cuts.push(H);return}
      // (by a few looser rects only in a wall panel lying into no neighbour: their lines slice the overlap of Пс-88 with Пс-39
      // into strips; on a roof the angle of the ladder Л2 in Пк-1 is cut by its outline, as before)
-     var rs=rectCover(k,nx,ny,3),loose=false;if(!rs&&!nb.length&&!isRoof){rs=rectLoose(k,nx,ny);loose=!!rs}
+     var rs=rectCover(k,nx,ny,3),loose=false;if(!rs&&!nbO.length&&!isRoof){rs=rectLoose(k,nx,ny);loose=!!rs}
      // (a few rects over more than the steel — the rounded root of an angle: the corner block — and the panel put back
      // in the block round the outline of the steel, as round a sloped piece: the cut follows the rounding)
      if(rs){if(loose){H.loose=true;fills.push(H)}H.r=rs.map(function(r){return[lo[A]+r[0]*s,lo[B]+r[2]*s,lo[A]+r[1]*s,lo[B]+r[3]*s]});
@@ -17014,11 +17029,46 @@ window.irThreeSchemeView=(function irThreeModule(){
      g.userData=g.userData||{};g.userData.outline=new Float32Array(out);edgeCache.delete(g)})});
    root.setAttribute("data-cut-lines",nP+"/"+nD+"/"+Math.round(performance.now()-t0)+"ms")
   }
+  // An angle is held by the back of its leg only, everywhere (the engineer, 18.11.2026: «сварка уголка может быть только к
+  // стенке задней уголка», «УГОЛОК СТАВИТСЯ И ВАРИТСЯ ТОЛЬКО СТЕНКОЙ К чему-то», and again «что я говорил насчет уголков?»
+  // at a snapshot of angles standing on the steel by the edge of a leg). The rules by places (angleBacks, ladderStringers)
+  // turned the consoles and the brackets of the ladders; this one is for every single angle of the built model: an angle
+  // whose leg edge touches other steel along its length (rays of 4 mm out of the edge at 5 points from 15 to 85 % of its
+  // length, two of them on steel) while neither leg back touches anything is mirrored across the middle of that leg — the
+  // touching leg stays where it is, the other leg comes over to the steel with its back on it, in the same box
+  // (data-angle-backs-all). Pairs on a gusset, the angles of trusses and bolted angles have their backs on the steel and
+  // stay as they are.
+  var angleFlipN=0,angleFlipIds=[];
+  function angleBacksAll(){
+   angleFlipN=0;angleFlipIds=[];var C=1,grid=new Map(),cands=[],B=new T.Box3(),key=function(i,j,k){return i+"|"+j+"|"+k};
+   steelMeshes(function(o,mid){var oc=dataById.get(mid);if(!oc||oc.ft==="panel"||oc.ft==="trim"||oc.ft==="building"||oc.ft==="masonry")return;
+    var u=o.userData||{};if(u.wood||u.node||u.hole||u.shell||u.weld||u.duct||!o.geometry||!o.geometry.attributes||!o.geometry.attributes.position)return;
+    o.updateWorldMatrix(true,false);B.setFromObject(o);if(B.isEmpty())return;
+    for(var i=Math.floor(B.min.x/C);i<=Math.floor(B.max.x/C);i++)for(var j=Math.floor(B.min.y/C);j<=Math.floor(B.max.y/C);j++)for(var k=Math.floor(B.min.z/C);k<=Math.floor(B.max.z/C);k++){var q=key(i,j,k);if(!grid.has(q))grid.set(q,[]);grid.get(q).push(o)}
+    var L=o.geometry.userData&&o.geometry.userData.angleL;if(L&&!u.lod)cands.push({o:o,L:L,mid:mid,box:B.clone()})});
+   var ray=new T.Raycaster(),P=new T.Vector3(),D=new T.Vector3(),N3=new T.Matrix3(),EPS=.0005,REACH=.004,ZS=[.15,.3,.5,.7,.85];
+   cands.forEach(function(cd){
+    var o=cd.o,b=cd.L[0],h=cd.L[1],t=cd.L[2],W=o.matrixWorld,near=new Set();
+    var bx=cd.box.clone().expandByScalar(.01);
+    for(var i=Math.floor(bx.min.x/C);i<=Math.floor(bx.max.x/C);i++)for(var j=Math.floor(bx.min.y/C);j<=Math.floor(bx.max.y/C);j++)for(var k=Math.floor(bx.min.z/C);k<=Math.floor(bx.max.z/C);k++){var g=grid.get(key(i,j,k));if(g)g.forEach(function(m){if(m!==o)near.add(m)})}
+    if(!near.size)return;var list=[];near.forEach(function(m){B.setFromObject(m);if(B.intersectsBox(bx))list.push(m)});if(!list.length)return;
+    N3.getNormalMatrix(W);
+    // (hits of rays out of the face: the start just inside the angle, the direction its normal in the world)
+    var hits=function(px,py,nx,ny){var n=0;ZS.forEach(function(z){P.set(px-nx*EPS,py-ny*EPS,z).applyMatrix4(W);D.set(nx,ny,0).applyMatrix3(N3).normalize();ray.set(P,D);ray.near=0;ray.far=REACH+EPS;if(ray.intersectObjects(list,false).length)n++});return n};
+    if(hits(b/2,0,0,-1)||hits(0,h/2,-1,0)||hits(b*.85,0,0,-1)||hits(0,h*.85,-1,0))return;
+    var tx=hits(b,t/2,1,0),ty=hits(t/2,h,0,1);if(tx<2&&ty<2)return;
+    var M=tx>=ty?new T.Matrix4().makeTranslation(b,0,0).multiply(new T.Matrix4().makeScale(-1,1,1)):new T.Matrix4().makeTranslation(0,h,0).multiply(new T.Matrix4().makeScale(1,-1,1));
+    o.updateMatrix();o.matrix.multiply(M);o.matrix.decompose(o.position,o.quaternion,o.scale);o.updateMatrixWorld(true);
+    angleFlipN++;if(angleFlipIds.length<400)angleFlipIds.push(cd.mid)});
+   if(root){root.setAttribute("data-angle-backs-all",String(angleFlipN));root.__irAngleFlips=angleFlipIds}
+   return angleFlipN
+  }
   function lowerGround(){
    // (the boxes of the pieces as they stand: a step of the building that moved the points of a piece and kept its old box
    // left that box for every later step — the model taken from the disk has none and finds the box anew, so the two
    // openings of the same scheme went different ways from here: the gable trim by О3, 93 members — 18.11.2026)
    var gSeen=new Set();allMeshes.forEach(function(m){var g=m&&m.geometry;if(!g||gSeen.has(g)||!g.attributes||!g.attributes.position)return;gSeen.add(g);g.computeBoundingBox();g.computeBoundingSphere()});
+   try{angleBacksAll()}catch(e){if(window.console)console.warn("angleBacksAll",e&&e.stack||e)}
    buildDucts();porchSheets();lapSheets();try{profileClear()}catch(e){if(window.console)console.warn("profileClear",e&&e.stack||e)}plinthClear();try{trimPlumbEnds()}catch(e){if(window.console)console.warn("trimPlumbEnds",e&&e.stack||e)}gableClear();try{seatTrims()}catch(e){if(window.console)console.warn("seatTrims",e&&e.stack||e)}eaveGutters();abutOverGutters();plinthWalls();[stepTopsUnder,stepFeetOnRoof,wallTopsUp,capCorners,wallGapFills,cornerTrimTops,abutMissing,abutCorners,gutterEndCaps,tierUnderAbutment,toiletCubicles,revealMiters,profileClear,cornerClose,footTrims,roofOverWall,cornerUpPost,abutSeat,trimStandOff,trimUncross,gutterUnderRoof,stubTrims,gableReturns,screwsFind].forEach(function(f){try{f()}catch(e){if(window.console)console.warn(f.name,e&&e.stack||e)}});roofDrains();try{trimsOutOfGutters()}catch(e){if(window.console)console.warn("trimsOutOfGutters",e&&e.stack||e)}buildingTexts();
    var low=0;elems.forEach(function(c){var z=Math.min(number(c.z0),c.geometryType==="column"?number(c.z0):number(c.z2));if(z<low)low=z});
    var y=Math.min(0,low/1000+.12);ground.position.y=y;dims.position.y=y;
