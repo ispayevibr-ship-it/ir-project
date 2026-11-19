@@ -1948,7 +1948,9 @@
    // data gathered as by the «HTML» button (src/scheme-page.js, exportData) and its page built by the same code.
    let schemePage="";if(keys.includes("scheme"))await bar.step(.62,"Монтажная схема — элементы, узлы, болты");
    if(keys.includes("scheme")&&typeof window.irSchemePage==="function"&&window.irSchemeHtmlExport?.build){
-    try{const data=await window.irSchemePage(id,{exportData:true});if(data){data.shots=[];if(selection.underContractor)data.company={name:"",logo:""};schemePage=await window.irSchemeHtmlExport.build(data)}}
+    // (the company of the scheme — the report's own brand: the general contractor's under his flag, else ours; the sign
+    // in 3D with it — the engineer, 19.11.2026; never the box of the scheme's own «HTML» button)
+    try{const data=await window.irSchemePage(id,{exportData:true});if(data){data.shots=[];data.company={name:String(companyHeader.brandName||""),logo:String(companyHeader.brandLogo||"")};schemePage=await window.irSchemeHtmlExport.build(data)}}
     catch(error){console.warn("Object HTML: the exported scheme was not built",error);schemePage=""}
    }
    await bar.step(.88,"Сборка страниц отчёта");

@@ -55,7 +55,7 @@
   ":root{--bg:#eef2f7;--card:#fff;--ink:#17233a;--muted:#5d6b80;--line:#dbe3ee;--accent:#1f5fbf;--ok:#1f8a4c;--part:#c98a0b;--wait:#7a8699;color-scheme:light}",
   "*{box-sizing:border-box}html,body{margin:0}html.js,html.js body{height:100%}body{background:var(--bg);color:var(--ink);font:14px/1.4 'Segoe UI',system-ui,-apple-system,sans-serif}",
   ".hx{display:flex;flex-direction:column;align-items:center;text-align:center;gap:3px;padding:12px 20px;background:var(--card);border-bottom:1px solid var(--line)}",
-  ".hx-co img{display:block;min-height:70px;max-height:90px;max-width:240px;object-fit:contain}",
+  ".hx-co img{display:block;max-height:54px;max-width:150px;object-fit:contain}",
   ".hx h1{margin:4px 0 0;font-size:15px;line-height:1.25;max-width:900px}.hx .pin{flex:none;color:#1f5fbf}.hx .addr{color:var(--muted);font-size:13px}.hx .pin{vertical-align:-2px;margin-right:4px}",
   ".hx-date{font-weight:700;font-size:14px;color:var(--ink)}",
   ".fx{position:absolute;right:12px;bottom:10px;z-index:11;padding:4px 10px;border-radius:8px;background:var(--card);border:1px solid var(--line);font-size:13px;font-weight:700;color:var(--accent);text-decoration:none;opacity:.92}",
@@ -102,7 +102,7 @@
   // lines — the logo small beside the name, the company, the work and the date in one small line —; the bar in one row,
   // its buttons by their icons (the words in their titles); the bar of the 3D one row that scrolls sideways, its hints
   // of the mouse hidden (the help is in «Инструкция»); the 3D the rest of the screen.
-  "@media(max-width:760px){.wrap>.hx{gap:2px;padding:8px 10px}.hx-co img{min-height:0;max-height:56px;max-width:150px}",
+  "@media(max-width:760px){.wrap>.hx{gap:2px;padding:8px 10px}.hx-co img{max-height:40px;max-width:110px}",
   " .wrap>.hx h1{font-size:13px;line-height:1.25}.hx .addr{font-size:11.5px}.hx-date{font-size:12.5px}.fx{font-size:12px;right:8px;bottom:8px}",
   " .stage-bar{flex-wrap:nowrap;justify-content:flex-start;gap:5px;padding:5px 6px}.stage-bar button,.stage-bar label{padding:6px 8px;font-size:12.5px;white-space:nowrap}.stage-bar .lbl{display:none}",
   " .stage-bar #panel{margin-left:auto}#help{top:46px;right:6px;left:6px;width:auto;max-width:none}",
@@ -200,7 +200,7 @@
    var els=shown();
    window.irThreeSchemeView.render($("stage3d"),{objectId:"export:"+D.objectId,axesX:D.axesX,axesY:D.axesY,spanX:D.spanX,spanY:D.spanY,gridDirX:D.gridDirX,gridDirY:D.gridDirY,
     gridX:D.gridX,gridY:D.gridY,elements:els,selected:S.sel,maxZ:els.reduce(function(m,c){return Math.max(m,c.z0,c.z2,c.mz||0)},0),
-    colorMode:S.color,showLabels:S.labels,showDimensions:S.dims,background:S.bg,canEdit:false,marks:[],report:true,nodeCrops:D.nodeCrops||null,specs:D.specs||[],works:D.works||[],work:D.work||"",
+    colorMode:S.color,showLabels:S.labels,showDimensions:S.dims,background:S.bg,canEdit:false,marks:[],report:true,company:D.company||null,nodeCrops:D.nodeCrops||null,specs:D.specs||[],works:D.works||[],work:D.work||"",
     onColorModeChange:function(m){S.color=m;draw3d()},onSelect:function(id){S.sel=String(id||"");details();list()},onFirstPaint:firstPaint,onProgress:building});
    $("cnt").textContent=els.length+" из "+D.elements.length
   }
@@ -506,6 +506,10 @@
  // (src/object-export-html.js shows this same page in its «Монтажная схема»: a change here is there too).
  async function build(d){
   // (a company given — the report of the object «под подрядчика»: without the own name and logo)
+  // (under the general contractor's flag — the box of the «HTML» button, remembered for the object: the link and its
+  // auto-update follow the last choice — the engineer, 19.11.2026 «в выгрузке отдельно схемы поставь Под флагом
+  // генподрядчика, если галочка стоит то логотип и название генподрядчика»)
+  if((!d.company||typeof d.company!=="object")&&flagOf(d.objectId)){var gc=await contractorOf(d.objectId);if(gc&&gc.name)d.company=gc}
   if(!d.company||typeof d.company!=="object"){var company=await window.irProject.company.get().catch(function(){return{}});
    d.company={name:String(company&&company.name||""),logo:await logoOf(company)}}
   d.date=new Date().toLocaleString("ru-RU",{day:"2-digit",month:"2-digit",year:"numeric",hour:"2-digit",minute:"2-digit"});
@@ -527,7 +531,40 @@
   try{libs.packed=await gzip64(payload(d,libs))}catch(_e){libs.packed=""}
   return page(d,libs)
  }
+ // The general contractor of the object: the name of the object's card and its logo (object-meta general_contractor_logo).
+ async function contractorOf(id){
+  try{
+   var o=await window.irProject.data.objects.get(id),name=String(o&&o.general_contractor||"").trim();if(!name)return null;
+   var rows=await window.irProject.data.forObject(id).section("object-meta").list().catch(function(){return[]});
+   var row=(Array.isArray(rows)?rows:[]).filter(function(r){return r&&r.record_type==="general_contractor_logo"})[0];
+   return{name:name,logo:await logoOf({logo:row&&row.data&&row.data.file_path||""})}
+  }catch(_e){return null}
+ }
+ var flagKey=function(id){return"irSchemeUnderContractor:"+String(id||"")};
+ function flagOf(id){try{return localStorage.getItem(flagKey(id))==="1"}catch(_e){return false}}
+ function flagSet(id,on){try{if(on)localStorage.setItem(flagKey(id),"1");else localStorage.removeItem(flagKey(id))}catch(_e){}}
+ // The box before saving: «Под флагом Генподрядчика» — as in the export of the object (src/object-export-html.js).
+ function askFlag(d,gc){
+  return new Promise(function(resolve){
+   var dlg=document.createElement("dialog");dlg.className="ir-scheme-flag";
+   dlg.style.cssText="border:0;border-radius:14px;padding:0;max-width:440px;width:calc(100% - 32px);box-shadow:0 18px 50px rgba(0,0,0,.28);font:14px/1.45 system-ui,sans-serif;color:#1f3448";
+   dlg.innerHTML='<div style="padding:18px 20px 6px"><h2 style="margin:0 0 6px;font-size:17px">Выгрузка монтажной схемы в HTML</h2></div>'+
+    '<div style="margin:6px 20px 14px;padding:12px 14px;border:1px solid #d7e5f0;border-radius:10px;background:#f4f9fd"><label style="display:flex;gap:10px;align-items:center;font-weight:700;color:#214a68;cursor:pointer"><input type="checkbox" data-under-contractor style="width:17px;height:17px"'+(flagOf(d.objectId)?" checked":"")+'><span>Под флагом Генподрядчика</span></label>'+
+    '<p style="margin:6px 0 0 27px;font-size:12px;color:#69879b">В шапке и на щите в 3D — логотип и название генподрядчика «'+esc(gc.name)+'» вместо нашей компании.</p></div>'+
+    '<div style="display:flex;justify-content:flex-end;gap:9px;padding:12px 20px;border-top:1px solid #e3ebf1"><button type="button" data-cancel>Отмена</button><button type="button" data-ok style="background:#236da6;color:#fff;border:1px solid #236da6;border-radius:8px;padding:6px 14px">Выгрузить HTML</button></div>';
+   document.body.appendChild(dlg);var res=null;
+   dlg.addEventListener("close",function(){dlg.remove();resolve(res)},{once:true});
+   dlg.querySelector("[data-cancel]").addEventListener("click",function(){dlg.close()});
+   dlg.querySelector("[data-ok]").addEventListener("click",function(){res={under:dlg.querySelector("[data-under-contractor]").checked};dlg.close()});
+   dlg.showModal()
+  })
+ }
  async function save(d){
+  if(!d.company||typeof d.company!=="object"){
+   var gc=await contractorOf(d.objectId);
+   if(gc&&gc.name){var ans=await askFlag(d,gc);if(!ans)return null;flagSet(d.objectId,ans.under);if(ans.under)d.company=gc}
+   else flagSet(d.objectId,false)
+  }
   var html=await build(d);
   return window.irProject.reportExport.html(html,safeFile((d.object.name||"Объект")+" — монтажная схема — "+d.title)+".html")
  }
