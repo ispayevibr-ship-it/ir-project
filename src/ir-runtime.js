@@ -1250,6 +1250,20 @@ const irSchemeLoading=(()=>{
  return{begin,cardHtml,setBar}
 })();
 window.irSchemePage=async function(objectId,opts){
+ // Схема всегда своим окном (инженер 20.11.2026 «так и подвисает программа когда схема грузится»): вкладки окна
+ // программы — один процесс, схема, которая читает тысячи элементов и строит 3D во вкладке, держала все вкладки. Из
+ // вкладки окна программы схема открывается в окне со своим процессом (1.12.230, ai-settings:window-open — одно окно на
+ // схему объекта), во вкладке — короткая плашка; «Открыть здесь» — по-старому, в этой вкладке до её закрытия.
+ if(!(opts&&opts.exportData)){let top=null;try{top=window.top}catch(e){}
+  const here=(()=>{try{return sessionStorage.getItem("irSchemeHere")===location.hash}catch(e){return false}})();
+  if(top&&top!==window&&top.irTabWindow&&!/[?&](own=1|detached=)/.test(top.location.search)&&!here){
+   const app=document.getElementById("app"),route=location.hash.slice(1);
+   try{top.irTabWindow.open(route)}catch(e){}
+   if(app){app.innerHTML='<div class="scheme-own-window-note" role="status"><b>Монтажная схема открыта в отдельном окне</b><span>Пока она строится, программа работает.</span><div><button type="button" class="scheme-grid-button" data-own-again>Показать окно схемы</button><button type="button" class="scheme-grid-button" data-own-here>Открыть здесь</button><button type="button" class="scheme-grid-button" data-own-back>← К объекту</button></div></div>';
+    app.querySelector("[data-own-again]").onclick=()=>{try{top.irTabWindow.open(route)}catch(e){}};
+    app.querySelector("[data-own-here]").onclick=()=>{try{sessionStorage.setItem("irSchemeHere",location.hash)}catch(e){}window.irSchemePage(objectId,opts)};
+    app.querySelector("[data-own-back]").onclick=()=>{location.hash="/objects/object/"+String(objectId||"")}}
+   return}}
  // (the 3D modules come with the scheme — src/lazy-modules.js; asked at once, while the data are read)
  const lazy3d=typeof window.irLazy==="function"?window.irLazy("scheme").catch(()=>null):null;
  const oid=String(objectId||"");if(!oid)return;

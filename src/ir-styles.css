@@ -1699,6 +1699,9 @@ html[data-theme="dark"] .scheme-lock-button.on,body.dark .scheme-lock-button.on{
 /* Режим редактирования (20.11.2026): кнопка включения и полоса «Сохранить / Отмена» в шапке схемы */
 .scheme-edit-on{border-color:#7aa7e0;color:#1f5aa6}.scheme-edit-state{display:inline-flex;align-items:center;gap:6px;padding:3px 6px 3px 10px;border:1px solid #7aa7e0;border-radius:9px;background:#eef5ff;color:#1f4f8f;font-size:9px}.scheme-edit-state b{font-size:10px;white-space:nowrap}.scheme-edit-state small{color:#56739a;white-space:nowrap}.scheme-edit-state .ok{background:#1f6fd1;border-color:#1f6fd1;color:#fff}.scheme-edit-state .ok:disabled{opacity:.5}
 html[data-theme="dark"] .scheme-edit-state,body.dark .scheme-edit-state{background:#18263a;border-color:#3d5f8f;color:#bcd6ff}html[data-theme="dark"] .scheme-edit-state small,body.dark .scheme-edit-state small{color:#8fa9cc}html[data-theme="dark"] .scheme-edit-on,body.dark .scheme-edit-on{color:#9cc3ff;border-color:#3d5f8f}
+/* Схема в отдельном окне (20.11.2026): плашка во вкладке */
+.scheme-own-window-note{display:flex;flex-direction:column;align-items:flex-start;gap:8px;max-width:560px;margin:40px auto;padding:18px 20px;border:1px solid #d6e2f2;border-radius:12px;background:#f6f9fe;color:#1f3b63;font-size:11px}.scheme-own-window-note b{font-size:13px}.scheme-own-window-note span{color:#56739a}.scheme-own-window-note div{display:flex;flex-wrap:wrap;gap:6px}
+html[data-theme="dark"] .scheme-own-window-note,body.dark .scheme-own-window-note{background:#18263a;border-color:#3d5f8f;color:#cfe0ff}
 
 
 /* #39: src/section-action-buttons.css */
