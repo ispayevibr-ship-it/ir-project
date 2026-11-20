@@ -1249,6 +1249,8 @@ const irSchemeLoading=(()=>{
  });
  return{begin,cardHtml,setBar}
 })();
+// (прежняя страница вкладки — схема, открытая своим окном, возвращает вкладку туда, где она была)
+(()=>{let cur=location.hash;window.addEventListener("hashchange",()=>{if(location.hash!==cur){window.__irPrevRoute=cur;cur=location.hash}})})();
 window.irSchemePage=async function(objectId,opts){
  // Схема всегда своим окном (инженер 20.11.2026 «так и подвисает программа когда схема грузится»): вкладки окна
  // программы — один процесс, схема, которая читает тысячи элементов и строит 3D во вкладке, держала все вкладки. Из
@@ -1259,10 +1261,9 @@ window.irSchemePage=async function(objectId,opts){
   if(top&&top!==window&&top.irTabWindow&&!/[?&](own=1|detached=)/.test(top.location.search)&&!here){
    const app=document.getElementById("app"),route=location.hash.slice(1);
    try{top.irTabWindow.open(route)}catch(e){}
-   if(app){app.innerHTML='<div class="scheme-own-window-note" role="status"><b>Монтажная схема открыта в отдельном окне</b><span>Пока она строится, программа работает.</span><div><button type="button" class="scheme-grid-button" data-own-again>Показать окно схемы</button><button type="button" class="scheme-grid-button" data-own-here>Открыть здесь</button><button type="button" class="scheme-grid-button" data-own-back>← К объекту</button></div></div>';
-    app.querySelector("[data-own-again]").onclick=()=>{try{top.irTabWindow.open(route)}catch(e){}};
-    app.querySelector("[data-own-here]").onclick=()=>{try{sessionStorage.setItem("irSchemeHere",location.hash)}catch(e){}window.irSchemePage(objectId,opts)};
-    app.querySelector("[data-own-back]").onclick=()=>{location.hash="/objects/object/"+String(objectId||"")}}
+   // (без промежуточной плашки — инженер 20.11.2026 «просто отдельным окном открывай»: вкладка остаётся там, где была)
+   if(app)app.innerHTML="";
+   {const prev=window.__irPrevRoute,back=prev&&prev!==location.hash&&!/\/scheme(?:$|[/?])/.test(prev)?prev:"#/objects/object/"+String(objectId||"");try{location.replace(location.href.split("#")[0]+back)}catch(e){location.hash=back}}
    return}}
  // (the 3D modules come with the scheme — src/lazy-modules.js; asked at once, while the data are read)
  const lazy3d=typeof window.irLazy==="function"?window.irLazy("scheme").catch(()=>null):null;
@@ -1317,18 +1318,60 @@ window.irSchemePage=async function(objectId,opts){
  const schemeApi={
   list:()=>editStage?Promise.resolve(editStage.rows.slice()):realApi.list(),
   get:id=>editStage?Promise.resolve(editStage.rows.find(r=>sameId(r.id,id))||null):typeof realApi.get==="function"?realApi.get(id):realApi.list().then(l=>arr(l).find(r=>sameId(r.id,id))||null),
-  create:p=>{if(!editStage)return realApi.create(p);const rec={...clone(p),id:"edit"+(++editStage.n)};editStage.rows=[rec,...editStage.rows];editStage.ops.push({op:"create",id:rec.id,p:clone(p)});paintEditState();return Promise.resolve(rec)},
-  update:(id,p)=>{if(!editStage)return realApi.update(id,p);let rec=null;editStage.rows=editStage.rows.map(r=>sameId(r.id,id)?(rec={...r,...clone(p),id:r.id}):r);editStage.ops.push({op:"update",id,p:clone(p)});paintEditState();return Promise.resolve(rec)},
-  remove:id=>{if(!editStage)return realApi.remove(id);editStage.rows=editStage.rows.filter(r=>!sameId(r.id,id));editStage.ops.push({op:"remove",id});paintEditState();return Promise.resolve(true)}
+  create:p=>{if(!editStage)return realApi.create(p);const rec={...clone(p),id:"edit"+(++editStage.n)};editStage.rows=[rec,...editStage.rows];editStage.ops.push({op:"create",id:rec.id,p:clone(p),at:Date.now()});editStage.redo=[];paintEditState();return Promise.resolve(rec)},
+  update:(id,p)=>{if(!editStage)return realApi.update(id,p);let rec=null;editStage.rows=editStage.rows.map(r=>sameId(r.id,id)?(rec={...r,...clone(p),id:r.id}):r);editStage.ops.push({op:"update",id,p:clone(p),at:Date.now()});editStage.redo=[];paintEditState();return Promise.resolve(rec)},
+  remove:id=>{if(!editStage)return realApi.remove(id);editStage.rows=editStage.rows.filter(r=>!sameId(r.id,id));editStage.ops.push({op:"remove",id,at:Date.now()});editStage.redo=[];paintEditState();return Promise.resolve(true)}
  };
  // (an element added and removed in the same session is not written at all; ids of added ones inside later records —
  // a fix of an added trim — are replaced by the ids the base gives)
  const stageOps=list=>{const dropped=new Set(list.filter(o=>o.op==="remove"&&/^edit\d+$/.test(String(o.id))).map(o=>String(o.id)));
   return list.filter(o=>!dropped.has(String(o.id))&&!(o.p&&dropped.size&&[...dropped].some(k=>JSON.stringify(o.p).includes('"'+k+'"'))))};
  const mapIds=(p,map)=>p==null?p:JSON.parse(JSON.stringify(p).replace(/"(edit\d+)"/g,(m,k)=>map.has(k)?JSON.stringify(map.get(k)):m));
- function paintEditState(){const n=editStage?stageOps(editStage.ops).length:0;
+ function paintEditState(){const info=editInfo3d(),n=(editStage?stageOps(editStage.ops).length:0)+info.n;
   const b=document.getElementById("schemeEditSave");if(b){b.textContent=n?`Сохранить (${n})`:"Сохранить";b.disabled=!n}
-  const w=document.getElementById("schemeEditWord");if(w)w.textContent=n?`Правок: ${n}`:"Правок нет"}
+  const w=document.getElementById("schemeEditWord");if(w)w.textContent=n?`Правок: ${n}`:"Правок нет";
+  const u=document.getElementById("schemeEditUndo");if(u)u.disabled=!(info.undo||editStage?.ops.length);
+  const r=document.getElementById("schemeEditRedo");if(r)r.disabled=!(info.redo||editStage?.redo?.length);
+  document.body?.classList.toggle("scheme-editing",editOn)}
+ // Режим редактирования на всё окно (инженер 20.11.2026 «убирается все лишнее, как в программах других сделано»): сверху
+ // тонкая полоса — правок, ↶ Отменить, ↷ Повторить, Сохранить, Выйти без сохранения; слева инструменты значками (Esc —
+ // «Выбрать»), справа карточка выбранного, внизу виды и разделы КМ/АР — панель 3D. Инструмент нажимает кнопку режима
+ // в карточке выбранного (как меню правой кнопки), без выбранного — недоступен.
+ const editInfo3d=()=>{try{return window.irThreeSchemeView?.editInfo?.()||{n:0,undo:0,redo:0,at:0}}catch(e){return{n:0,undo:0,redo:0,at:0}}};
+ const EDIT_TOOLS=[["select","Выбрать (Esc)","↖"],["add","Добавить элемент","＋"],["-"],["move","Двигать","✥",["[data-edit-move]","[data-trim-mode='whole']"]],["pull","Тянуть край","⇥",["[data-edit-pull]"]],["line","Срезать по линии","✂",["[data-trim-line]","[data-panel-mode='line']"]],["rect","Вырез прямоугольником","▭",["[data-panel-mode='rect']"]],["mitre","Сделать угол","◿",["[data-trim-corner]"]],["over","Этот поверх","⧉",["[data-trim-over]"]],["-"],["back","Показать позади","⤓",["[data-order-step='-1']"]],["front","Показать поверх","⤒",["[data-order-step='1']"]],["-"],["hide","Убрать кусок","⌫",["[data-trim-hide]"]],["delete","Удалить элемент","🗑",["[data-scheme-delete]"]]];
+ function editTopHtml(){return`<div class="scheme-edit-top" role="toolbar" aria-label="Режим редактирования"><b>✎ Редактирование</b><small id="schemeEditWord">Правок нет</small><button type="button" id="schemeEditUndo" title="Отменить последнюю правку (Ctrl+Z)" disabled>↶ Отменить</button><button type="button" id="schemeEditRedo" title="Повторить (Ctrl+Y)" disabled>↷ Повторить</button><span class="scheme-edit-gap"></span><button type="button" class="ok" id="schemeEditSave" disabled>Сохранить</button><button type="button" id="schemeEditCancel">Выйти без сохранения</button></div>`}
+ function editToolsHtml(){return`<nav class="scheme-edit-tools" aria-label="Инструменты">${EDIT_TOOLS.map(t=>t[0]==="-"?"<hr>":`<button type="button" data-edit-tool="${t[0]}" title="${esc(t[1])}" aria-label="${esc(t[1])}">${t[2]}</button>`).join("")}</nav>`}
+ const toolBtn=t=>{const box=document.getElementById("schemeDetails");if(!box||!t[3])return null;for(const q of t[3]){const b=box.querySelector(q);if(b&&!b.disabled)return b}return null};
+ function paintTools(){const nav=document.querySelector(".scheme-edit-tools");if(!nav)return;const kind=window.irThreeSchemeView?.editMode?.()||"";
+  nav.querySelectorAll("[data-edit-tool]").forEach(b=>{const t=EDIT_TOOLS.find(x=>x[0]===b.dataset.editTool);
+   b.disabled=Boolean(t[3])&&!toolBtn(t);b.classList.toggle("on",t[0]==="select"?(!kind||kind==="select"):t[0]===kind)})}
+ function editTool(id){const V=window.irThreeSchemeView,t=EDIT_TOOLS.find(x=>x[0]===id);if(!t)return;
+  if(id==="select"){try{V?.editStart?.("select")}catch(e){}paintTools();return}
+  if(id==="add"){if(V?.startPlacement)V.startPlacement();else openEditor();return}
+  toolBtn(t)?.click();setTimeout(paintTools,60)}
+ // (↶ — последняя правка: мышью в 3D — шагом 3D, на месте; добавление, удаление, правка в окне — список схемы назад)
+ const applyOp=(rs,o)=>o.op==="create"?[{...clone(o.p),id:o.id},...rs]:o.op==="update"?rs.map(r=>sameId(r.id,o.id)?{...r,...clone(o.p),id:r.id}:r):rs.filter(r=>!sameId(r.id,o.id));
+ function editReplay(){editStage.rows=editStage.ops.reduce(applyOp,clone(editStage.snap));rows=clone(editStage.rows);
+  if(selectedId&&!allRecords().some(x=>sameId(x.id,selectedId)))selectedId="";paintEditState();refreshAfterMemberChange()}
+ function editUndo(){if(!editStage)return;const V=window.irThreeSchemeView,info=editInfo3d(),op=editStage.ops.at(-1);
+  if(info.undo&&(!op||info.at>=(op.at||0))){V.editUndo();paintEditState();if(selectedId)renderDetails();return}
+  if(!op)return;editStage.redo=editStage.redo||[];editStage.redo.push(editStage.ops.pop());editReplay()}
+ function editRedo(){if(!editStage)return;const V=window.irThreeSchemeView,info=editInfo3d();
+  if(info.redo){V.editRedo();paintEditState();if(selectedId)renderDetails();return}
+  if(!editStage.redo?.length)return;editStage.ops.push(editStage.redo.pop());editReplay()}
+ let editKeysOn=false,toolsSeen=null;
+ function bindEditLayout(){
+  if(!editOn){document.body.classList.remove("scheme-editing");return}
+  const tb=document.querySelector(".window-titlebar");let h=0;try{if(tb&&getComputedStyle(tb).display!=="none")h=Math.round(tb.getBoundingClientRect().bottom)}catch(e){}
+  document.body.style.setProperty("--scheme-edit-top",h+"px");
+  document.getElementById("schemeEditUndo")?.addEventListener("click",editUndo);document.getElementById("schemeEditRedo")?.addEventListener("click",editRedo);
+  document.querySelectorAll("[data-edit-tool]").forEach(b=>b.addEventListener("click",()=>editTool(b.dataset.editTool)));
+  const box=document.getElementById("schemeDetails");if(box&&toolsSeen?.box!==box){toolsSeen?.o?.disconnect();const o=new MutationObserver(()=>paintTools());o.observe(box,{childList:true,subtree:true});toolsSeen={box,o}}
+  paintTools();
+  if(!editKeysOn){editKeysOn=true;document.addEventListener("keydown",e=>{if(!editOn||e.target?.closest?.("input,textarea,select,[contenteditable]"))return;
+   if(e.key==="Escape"&&!document.querySelector("dialog[open]")){editTool("select")}
+   else if((e.ctrlKey||e.metaKey)&&!e.shiftKey&&(e.key==="z"||e.key==="я"||e.code==="KeyZ")){e.preventDefault();editUndo()}
+   else if((e.ctrlKey||e.metaKey)&&(e.key==="y"||e.code==="KeyY"||e.shiftKey&&e.code==="KeyZ")){e.preventDefault();editRedo()}})}}
  function editEnter(){if(!canWrite()||editOn)return;editOn=true;editStage=newStage();draw()}
  async function editLeave(save){
   if(!editOn)return;const V=window.irThreeSchemeView;
@@ -1347,10 +1390,10 @@ window.irSchemePage=async function(objectId,opts){
    if(selectedId&&!allRecords().some(x=>sameId(x.id,selectedId)))selectedId=map.has(String(selectedId))?String(map.get(String(selectedId))):"";
    if(ops.length&&document.querySelector("#schemeCanvas .ir-three-root")){draw();try{V?.rebuild?.()}catch(e){}}else draw();
    return}
-  try{V?.editCancel?.()}catch(e){}
-  const had=editStage?editStage.ops.length:0;if(had&&!confirm(`Отменить все правки (${stageOps(editStage.ops).length})? Схема вернётся как была до режима редактирования.`)){restoreKeyboardAfterConfirm();return}
+  const n3=editInfo3d().n,had=(editStage?editStage.ops.length:0)+n3;if(had&&!confirm(`Выйти без сохранения? Правки (${stageOps(editStage?.ops||[]).length+n3}) не запишутся, схема вернётся как была до режима редактирования.`)){restoreKeyboardAfterConfirm();return}
   if(had)restoreKeyboardAfterConfirm();
-  if(had)rows=editStage.snap;editStage=null;editOn=false;
+  try{V?.editCancel?.()}catch(e){}
+  if(editStage?.ops.length)rows=editStage.snap;editStage=null;editOn=false;
   if(selectedId&&!allRecords().some(x=>sameId(x.id,selectedId)))selectedId="";
   draw()}
  // (clearing, «Вернуть», «Удалённые» go through the main program straight to the base: only without unsaved edits)
@@ -2210,7 +2253,7 @@ const fittingSection=c=>c.ft==="flight"||c.ft==="ladder"||c.ft==="deck"?(c.fd>0?
    onSelect:id=>{selectedId=id;renderDetails()},
    // (the right click on a member: the actions of its card in a menu at the cursor — the engineer, 20.11.2026)
    onContextMenu:canEdit()?at=>contextMenu(at):null,
-   onEditMode:()=>{if(selectedId)renderDetails()},
+   onEditMode:()=>{if(selectedId)renderDetails();paintTools()},onEditCount:()=>{paintEditState();paintTools()},
    onAdd:()=>{if(canEdit()&&activeWorkId)openEditor()},
    // (a trim chosen by its mark — «Нщ» — is built by its own profile on the face of the panel, as the other trims, not as
    // a beam of the form: the template — the trim clicked on, if of that mark, else the first of that mark; the engineer,
@@ -3405,11 +3448,11 @@ const fittingSection=c=>c.ft==="flight"||c.ft==="ladder"||c.ft==="deck"?(c.fd>0?
   const shownNow=columns();
   if(selectedId&&!shownNow.some(c=>c.id===selectedId))selectedId="";
   const s=stats(),mp=statusCounts(),works=enabledWorks(),currentWork=works.find(w=>w.id===activeWorkId)||null,workOptions='<option value="__frame__" '+(frameMode?'selected':'')+'>Все виды работ вместе</option>'+works.map(w=>'<option value="'+esc(w.id)+'" '+(!frameMode&&w.id===activeWorkId?'selected':'')+'>'+esc(w.name)+(w.code?' · '+esc(w.code):'')+'</option>').join(""),groupOptions=schemeGroups().map(g=>`<option value="${esc(g.key)}" ${g.key===activeScheme?"selected":""}>${esc(g.label)} · ${g.marks} марок · ${g.placed} элементов</option>`).join(""),editActions=canEdit()?`<button type="button" class="scheme-grid-button" id="schemeGridConfig">⚙ Параметры сетки</button>${irProject.ai?.invoke?`<button type="button" class="scheme-grid-button danger" id="schemeClear" ${s.total?"":"disabled"} title="Удалить все элементы схемы; копия сохраняется">Очистить схему</button>${prelimLive().length?`<button type="button" class="scheme-grid-button danger" id="schemeClearPrelim" title="Удалить все предварительные элементы — определённые по чертежам не полностью (бледные). Смонтированные остаются. Следующая расстановка их заново не ставит. Копия сохраняется — их можно вернуть кнопкой «Вернуть».">Удалить все предварительные (${prelimLive().length})</button>`:""}${leftovers().length?`<button type="button" class="scheme-grid-button danger" id="schemeClearMissing" title="Удалить элементы, которых нет в новом анализе чертежей, — остатки прежних расстановок. Смонтированные и изменённые вами остаются. Копия сохраняется — их можно вернуть кнопкой «Вернуть».">Убрать «нет в анализе» (${leftovers().length})</button>`:""}${schemeSnapshot?`<button type="button" class="scheme-grid-button" id="schemeRestore" title="Вернуть элементы, удалённые очисткой ${esc(new Date(schemeSnapshot.at).toLocaleString("ru-RU"))}">↺ Вернуть (${schemeSnapshot.count})</button>`:""}${`<button type="button" class="scheme-grid-button" id="schemeTrash" title="Удалённое со схемы за последние 7 дней: элементы, марки целиком, сетки, очистки — можно вернуть">🗑 Удалённые${schemeTrashCount?" ("+schemeTrashCount+")":""}</button>`}`:""}${!frameMode&&activeWorkId?`<button type="button" class="scheme-grid-button" id="schemeNewView">＋ Добавить сетку</button>${activeView()?`<button type="button" class="scheme-grid-button" id="schemeEditView">Изменить</button><button type="button" class="scheme-grid-button danger" id="schemeDeleteView">Удалить сетку</button>`:""}`:""}`:"",lockWho=lockRow?[lockRow.data?.by,lockRow.data?.at?new Date(lockRow.data.at).toLocaleString("ru-RU",{day:"2-digit",month:"2-digit",year:"numeric",hour:"2-digit",minute:"2-digit"}):""].filter(Boolean).join(", "):"",
-   editAction=canWrite()?(editOn?`<span class="scheme-edit-state" role="status"><b>✎ Режим редактирования</b><small id="schemeEditWord">Правок нет</small><button type="button" class="scheme-grid-button ok" id="schemeEditSave" disabled>Сохранить</button><button type="button" class="scheme-grid-button" id="schemeEditCancel">Отмена</button></span>`:`<button type="button" class="scheme-grid-button scheme-edit-on" id="schemeEditOn" title="Включить правку схемы: правки видны сразу, записываются кнопкой «Сохранить»">✎ Режим редактирования</button>`):"",
+   editAction=canWrite()?(editOn?"":`<button type="button" class="scheme-grid-button scheme-edit-on" id="schemeEditOn" title="Включить правку схемы: правки видны сразу, записываются кнопкой «Сохранить»">✎ Режим редактирования</button>`):"",
    lockAction=mayEdit()&&!editOn?(lockRow?`<button type="button" class="scheme-grid-button scheme-lock-button on" id="schemeLock" aria-pressed="true" title="Снять запрет: схему снова можно менять вручную и расстановкой по чертежам">🔓 Разрешить редактирование</button>`:`<button type="button" class="scheme-grid-button scheme-lock-button" id="schemeLock" aria-pressed="false" title="Запретить любые изменения схемы — вручную, расстановкой по чертежам и автоматически — пока запрет не снимут">🔒 Запретить к редактированию</button>`):"",
    lockBanner=lockRow?`<div class="scheme-lock-banner" role="status">🔒 <b>Схема запрещена к редактированию</b>${lockWho?`<span>${esc(lockWho)}</span>`:""}<small>Изменения вручную, расстановка по чертежам и автоматические изменения не вносятся, пока запрет не снимут.</small></div>`:"",
    emptyOverlay=activeWorkId?(s.total?"":`<div class="scheme-empty-overlay"><b>Схема пока пустая</b><span>Нажмите «Добавить элемент» и выберите марку для этой монтажной схемы${window.irAiRecognitionPage?" или загрузите чертежи в «ИИ-распознавание»":""}.</span></div>`):`<div class="scheme-empty-overlay"><b>Монтажная схема не включена</b><span>Откройте «Виды работ» и включите галочку «Нужна монтажная схема» у нужного вида работ.</span></div>`;
-  app.innerHTML=`<div class="scheme-page">
+  app.innerHTML=`<div class="scheme-page${editOn?" scheme-editing":""}">${editOn?editTopHtml():""}
    <div class="scheme-head"><button class="back" id="schemeBack">← Назад</button><div><h1>Монтажная схема</h1><p>${esc(object.name||"")}${frameMode?"":currentWork?` · ${esc(currentWork.name)}`:""} · ${esc(activeGroup().label)}</p></div><div class="scheme-head-actions">${window.irAiRecognitionPage?`<a class="scheme-grid-button scheme-ai-button" id="schemeAiRecognition" href="#/objects/object/${esc(oid)}/ai-recognition" title="Загрузить чертежи КМ / КМД / АР и расставить элементы на этой схеме">ИИ-распознавание</a>`:""}<label class="scheme-type-select-wrap work"><span>Режим / вид работ</span><select id="schemeWorkSelect">${workOptions}</select></label><label class="scheme-type-select-wrap"><span>Схема</span><select id="schemeTypeSelect" ${frameMode||activeWorkId?"":"disabled"}>${groupOptions}</select></label>${editAction}${editActions}${lockAction}${ownWindowAction()}</div></div>${lockBanner}
    <details class="scheme-data" id="schemeDataPanel" ${dataPanelOpen?"open":""}><summary><b>Данные схемы</b><small>оси ${fmt(spanX)} × ${fmt(spanY)} мм · на схеме ${s.total} · готовность ${mp.pct}% · смонтировано ${fmt(mp.mounted)} из ${fmt(mp.total)} шт.</small><span class="scheme-data-act"><i class="when-open">Скрыть</i><i class="when-closed">Показать</i></span></summary>
    <div class="scheme-summary">
@@ -3444,7 +3487,7 @@ const fittingSection=c=>c.ft==="flight"||c.ft==="ladder"||c.ft==="deck"?(c.fd>0?
      <span class="scheme-visible-counter">На экране: <b>${shownNow.length}</b> из ${s.total}</span>
     </div>
    </section>
-   <div class="scheme-workspace ${sidePanelOpen?"":"side-off"}">
+   <div class="scheme-workspace ${sidePanelOpen?"":"side-off"}">${editOn?editToolsHtml():""}
     <section class="scheme-stage scheme-three-stage ${previewFullscreen?"scheme-preview-fullscreen":""}" id="schemePreviewStage" aria-label="Предпросмотр монтажной схемы" data-scheme-background="${currentBackground()}" data-scheme-contrast="${backgroundIsDark()?"dark":"light"}" style="--scheme-custom-background:${currentCustomBackground()}">
      <div class="scheme-stage-toolbar"><div class="scheme-preview-title"><b>Монтажная схема · ${esc(activeGroup().label)}</b><span>${s.total} элементов · 3D</span></div>
       <div class="scheme-toolbar-actions"><button type="button" id="schemeExportHtml" class="scheme-fullscreen-toggle" title="Выгрузить монтажную схему в HTML: 3D, фильтры, карточки элементов — без редактирования">⇩ HTML</button><button type="button" id="schemeShareLink" class="scheme-fullscreen-toggle" title="Ссылка на эту монтажную схему: открывается в браузере и на телефоне без программы — только просмотр">🔗 Ссылка</button><button type="button" id="schemeFullscreenToggle" class="scheme-fullscreen-toggle" title="${previewFullscreen?"Закрыть полноэкранный просмотр":"Предпросмотр схемы на весь экран"}">${previewFullscreen?"✕ Закрыть":"⛶ На весь экран"}</button><button type="button" id="schemeBackgroundToggle" class="scheme-background-toggle" aria-pressed="${backgroundIsDark()}" title="${backgroundIsDark()?"Светлый фон":"Тёмный фон"}" aria-label="${backgroundIsDark()?"Светлый фон":"Тёмный фон"}">${backgroundIcon()}</button><button type="button" id="schemeToggleLabels" class="${labelsVisible?"on":""}" title="Показать марки элементов">Подписи</button><button type="button" id="schemeToggleDimensions" class="${dimensionsVisible?"on":""}" title="Показать межосевые размеры сетки">Размеры</button></div>
@@ -3500,7 +3543,7 @@ const fittingSection=c=>c.ft==="flight"||c.ft==="ladder"||c.ft==="deck"?(c.fd>0?
   document.getElementById("schemeClearMissing")?.addEventListener("click",()=>direct(clearMissing));
   document.getElementById("schemeClearPrelim")?.addEventListener("click",()=>direct(clearPreliminary));
   document.getElementById("schemeLock")?.addEventListener("click",toggleLock);
-  document.getElementById("schemeEditOn")?.addEventListener("click",editEnter);document.getElementById("schemeEditSave")?.addEventListener("click",()=>editLeave(true));document.getElementById("schemeEditCancel")?.addEventListener("click",()=>editLeave(false));paintEditState();
+  document.getElementById("schemeEditOn")?.addEventListener("click",editEnter);document.getElementById("schemeEditSave")?.addEventListener("click",()=>editLeave(true));document.getElementById("schemeEditCancel")?.addEventListener("click",()=>editLeave(false));bindEditLayout();paintEditState();
   document.getElementById("schemeOwnWindow")?.addEventListener("click",()=>{try{window.top.irTabWindow.open(location.hash.slice(1))}catch(e){}});
   renderScene();renderDetails();bindGridEditor();bindEditor();bindViewManager()
  }

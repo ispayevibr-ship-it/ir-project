@@ -15716,7 +15716,8 @@ function byCreation(list){if(!Array.isArray(list))return list;var key=function(c
    invalidate();
    if(e.target&&e.target.closest&&e.target.closest("dialog"))return;
    if(e.key==="Escape"&&placing){cancelPlacement();e.preventDefault()}
-   else if(e.key==="Escape"&&editSess){editCancel();e.preventDefault()}
+   // (in the page's mode of editing Esc only leaves the tool — «Выбрать», the edits stay)
+   else if(e.key==="Escape"&&editSess){if(P.editGlobal)editStart("select");else editCancel();e.preventDefault()}
    else if(e.key==="Escape"&&copySource){cancelCopy();e.preventDefault()}
    else if(e.key==="Enter"&&placing&&placePanel.contains(document.activeElement)&&document.activeElement.dataset.place!=="search")savePlacement()
   }
@@ -15802,17 +15803,32 @@ X.all.forEach(function(f){var u=f.o.userData||{},c=dataById.get(f.id);if(f.o===o
   function onPanelPlane(e,d){screenRay(e);var pl=new T.Plane().setFromNormalAndCoplanarPoint(d.wn,d.p0),q=new T.Vector3();return raycaster.ray.intersectPlane(pl,q)?q:null}
   function rectCorners(d,B){var up=new T.Vector3(0,1,0),wn=d.wn,u=Math.abs(wn.dot(up))>.99?new T.Vector3(1,0,0):up.clone().cross(wn).normalize(),v=wn.clone().cross(u).normalize(),A=d.p0,du=B.clone().sub(A).dot(u),dv=B.clone().sub(A).dot(v);
    return[A,A.clone().addScaledVector(u,du),A.clone().addScaledVector(u,du).addScaledVector(v,dv),A.clone().addScaledVector(v,dv),A].map(function(w){var q=fromWorld(w);return{x:q.x,y:q.y,z:q.z}})}
-  function panelSend(f){if(editSess)editSnap(f);trimFix(f,(P.trimFixes||[]).concat([f]));if(editSess){editSess.pending.push(f);paintEditBar();return}try{Promise.resolve(P.onTrimFix(f)).catch(function(){})}catch(x){}}
+  function panelSend(f){if(editSess){editSnap(f);stepIn(f);editSess.redo=[]}trimFix(f,(P.trimFixes||[]).concat([f]));if(editSess){editSess.pending.push(f);paintEditBar();return}try{Promise.resolve(P.onTrimFix(f)).catch(function(){})}catch(x){}}
   // ---- The mode of editing: the changes are seen at once and kept here; «Сохранить» — written as the engineer's fixes,
   // «Отмена» — the pieces as they were before the mode (each member touched kept as it stood before its first change)
   var editSess=null,editBar=null;
-  var EDIT_WORD={move:"Двигать",pull:"Тянуть край",line:"Срезать по линии",rect:"Вырез прямоугольником",mitre:"Сделать угол",over:"Поверх соседнего"};
+  var EDIT_WORD={select:"Выбрать",move:"Двигать",pull:"Тянуть край",line:"Срезать по линии",rect:"Вырез прямоугольником",mitre:"Сделать угол",over:"Поверх соседнего"};
   function editSnap(f){if(!editSess)return;var ids=[String(f.member_id||"")];if(f.member2)ids.push(String(f.member2));if(!ids[0]){var m0=fixTarget(f);if(m0)ids[0]=String(m0.userData.memberId)}
-   ids.forEach(function(id){if(!id||editSess.snaps.has(id))return;var l=(meshesById.get(id)||[]).slice();
-    editSess.snaps.set(id,{list:l,ms:l.filter(function(m){return m.isMesh}).map(function(m){return{m:m,g:m.geometry,p:m.position.clone(),q:m.quaternion.clone(),s:m.scale.clone(),par:m.parent,ud:Object.assign({},m.userData),v:m.visible}}),
-     bolts:boltList.filter(function(b){return b&&String(b.id||"")===id&&b.at&&b.at.clone}).map(function(b){return{b:b,at:b.at.clone()}})})})}
+   ids.forEach(function(id){if(!id||editSess.snaps.has(id))return;editSess.snaps.set(id,snapOf(id))})}
+  function fixIds(f){var ids=[String(f.member_id||"")];if(f.member2)ids.push(String(f.member2));if(!ids[0]){var m0=fixTarget(f);if(m0)ids[0]=String(m0.userData.memberId)}return ids.filter(Boolean)}
+  function snapOf(id){var l=(meshesById.get(id)||[]).slice();
+   return{list:l,ms:l.filter(function(m){return m.isMesh}).map(function(m){return{m:m,g:m.geometry,p:m.position.clone(),q:m.quaternion.clone(),s:m.scale.clone(),par:m.parent,ud:Object.assign({},m.userData),v:m.visible}}),
+    bolts:boltList.filter(function(b){return b&&String(b.id||"")===id&&b.at&&b.at.clone}).map(function(b){return{b:b,at:b.at.clone()}})}}
+  function snapBack(sn,id){var keep=new Set(sn.ms.map(function(x){return x.m}));
+   (meshesById.get(id)||[]).forEach(function(m){if(m.isMesh&&!keep.has(m)){if(m.parent)m.parent.remove(m);var i=allMeshes.indexOf(m);if(i>=0)allMeshes.splice(i,1);i=rayTargets.indexOf(m);if(i>=0)rayTargets.splice(i,1)}});
+   sn.ms.forEach(function(x){var m=x.m;if(m.parent&&m.parent!==x.par)m.parent.remove(m);m.geometry=x.g;m.position.copy(x.p);m.quaternion.copy(x.q);m.scale.copy(x.s);m.userData=x.ud;if(x.par&&!m.parent)x.par.add(m);m.visible=x.v;m.updateMatrixWorld(true)});
+   sn.bolts.forEach(function(x){x.b.at.copy(x.at)});meshesById.set(id,sn.list.slice())}
+  // (each edit of the mode a step with its members as they stood before it — «↶ Отменить» lays them back and takes the fix
+  // out, «↷ Повторить» lays it again; no rebuilding: the engineer 20.11.2026 «как в программах других сделано»)
+  function stepIn(f){if(!editSess)return;var sn=new Map();fixIds(f).forEach(function(id){sn.set(id,snapOf(id))});editSess.steps.push({f:f,sn:sn,at:Date.now()})}
+  function fixesOut(f){var k=fixKeyOf(f);unsavedFixes=unsavedFixes.filter(function(q){return q!==f&&fixKeyOf(q)!==k});P.trimFixes=(P.trimFixes||[]).filter(function(q){return q!==f&&fixKeyOf(q)!==k});
+   appliedFixes=P.trimFixes.slice();builtFixKey=JSON.stringify(P.trimFixes);built=signature(P.elements)}
+  function editUndo(){if(!editSess||!editSess.steps.length)return 0;var st=editSess.steps.pop();st.sn.forEach(snapBack);
+   var i=editSess.pending.lastIndexOf(st.f);if(i>=0)editSess.pending.splice(i,1);fixesOut(st.f);editSess.redo.push(st.f);
+   try{rebatch()}catch(e){}pickOf=null;lit=null;try{paintHighlight()}catch(e){}invalidate();paintEditBar();return 1}
+  function editRedo(){if(!editSess||!editSess.redo.length)return 0;var f=editSess.redo.pop(),keep=editSess.redo;stepIn(f);trimFix(f,(P.trimFixes||[]).concat([f]));editSess.pending.push(f);editSess.redo=keep;paintEditBar();return 1}
   function editStart(kind){if(P.report||typeof P.onTrimFix!=="function"||!EDIT_WORD[kind])return"";
-   if(!editSess)editSess={kind:kind,snaps:new Map(),pending:[]};else editSess.kind=kind;
+   if(!editSess)editSess={kind:kind,snaps:new Map(),pending:[],steps:[],redo:[]};else editSess.kind=kind;
    panelMode=kind==="line"||kind==="rect"?kind:"pull";cutPts=[];rectDrag=null;formPreview(null);
    if(kind!=="mitre"&&kind!=="over"){pairMode="";pairA=null}
    renderer.domElement.title="";paintEditBar();return kind}
@@ -15821,16 +15837,13 @@ X.all.forEach(function(f){var u=f.o.userData||{},c=dataById.get(f.id);if(f.o===o
    // (one after the other — the page adds each to its list after it is written)
    return list.reduce(function(pr,f){return pr.then(function(){try{return Promise.resolve(P.onTrimFix(f)).catch(function(){})}catch(x){}})},Promise.resolve()).then(function(){return list.length})}
   function editCancel(){if(!editSess)return 0;var sess=editSess,n=sess.pending.length,gone=new Set(sess.pending.map(fixKeyOf));
-   sess.snaps.forEach(function(sn,id){var keep=new Set(sn.ms.map(function(x){return x.m}));
-    (meshesById.get(id)||[]).forEach(function(m){if(m.isMesh&&!keep.has(m)){if(m.parent)m.parent.remove(m);var i=allMeshes.indexOf(m);if(i>=0)allMeshes.splice(i,1);i=rayTargets.indexOf(m);if(i>=0)rayTargets.splice(i,1)}});
-    sn.ms.forEach(function(x){var m=x.m;if(m.parent&&m.parent!==x.par)m.parent.remove(m);m.geometry=x.g;m.position.copy(x.p);m.quaternion.copy(x.q);m.scale.copy(x.s);m.userData=x.ud;if(x.par&&!m.parent)x.par.add(m);m.visible=x.v;m.updateMatrixWorld(true)});
-    sn.bolts.forEach(function(x){x.b.at.copy(x.at)});meshesById.set(id,sn.list.slice())});
+   sess.snaps.forEach(snapBack);
    unsavedFixes=unsavedFixes.filter(function(f){return!gone.has(fixKeyOf(f))});P.trimFixes=(P.trimFixes||[]).filter(function(f){return!gone.has(fixKeyOf(f))});appliedFixes=P.trimFixes.slice();builtFixKey=JSON.stringify(P.trimFixes);built=signature(P.elements);
    editEnd();if(sess.stale){built="";try{update(P)}catch(e){}return n}try{rebatch()}catch(e){}pickOf=null;lit=null;try{paintHighlight()}catch(e){}invalidate();return n}
   function paintEditBar(){if(!editBar){editBar=document.createElement("div");editBar.className="ir-three-edit-bar";editBar.setAttribute("data-edit-bar","");
     editBar.innerHTML='<span data-edit-word></span><button type="button" class="ok" data-edit-save>Сохранить</button><button type="button" data-edit-cancel>Отмена</button>';
     editBar.querySelector("[data-edit-save]").onclick=function(){editSave()};editBar.querySelector("[data-edit-cancel]").onclick=function(){editCancel()};root.appendChild(editBar)}
-   editBar.hidden=!editSess;root.setAttribute("data-edit-mode",editSess?editSess.kind:"");if(!editSess)return;
+   editBar.hidden=!editSess||Boolean(P.editGlobal);root.setAttribute("data-edit-mode",editSess?editSess.kind:"");try{if(typeof P.onEditCount==="function")P.onEditCount()}catch(x){}if(!editSess)return;
    // (in the page's «Режим редактирования» the mode only hands its edits to the page, which keeps them until «Сохранить» — «Готово»)
    editBar.querySelector("[data-edit-save]").textContent=P.editGlobal?"Готово":"Сохранить";
    editBar.querySelector("[data-edit-word]").textContent="Режим правки: "+EDIT_WORD[editSess.kind]+(editSess.pending.length?" · изменений "+editSess.pending.length:"")}
@@ -16217,7 +16230,9 @@ X.all.forEach(function(f){var u=f.o.userData||{},c=dataById.get(f.id);if(f.o===o
   // (the engineer, 09.11.2026: «смотрел прогон, нажал на крестик и отчет опять пишет загрузка»). There the same members
   // in the same order are the same scheme; in the program — by their text, as before.
   var builtRefs=null,builtFixKey="[]",builtTexts=null,appliedFixes=[],unsavedFixes=[];
-  function fixKeyOf(f){f=f||{};var r=function(v){return v===undefined||v===null||v===""?"":Math.round(number(v))};return[String(f.action||""),String(f.member_id||""),r(f.x),r(f.y),r(f.z),r(f.lo),r(f.hi),r(f.dx),r(f.dy),r(f.dz),String(f.member2||"")].join("|")}
+  // (the key by the ends as written, not as stopped on the model — fixStop keeps them in lo0/hi0: the same list from the page
+  // looked like another one, and the whole scheme was built again; and «↶ Отменить» was never local)
+  function fixKeyOf(f){f=f||{};var r=function(v){return v===undefined||v===null||v===""?"":Math.round(number(v))};return[String(f.action||""),String(f.member_id||""),r(f.x),r(f.y),r(f.z),r(f.lo0!==undefined?f.lo0:f.lo),r(f.hi0!==undefined?f.hi0:f.hi),r(f.dx),r(f.dy),r(f.dz),String(f.member2||"")].join("|")}
   function fixesIn(list){list=Array.isArray(list)?list.slice():[];var ks=new Set(list.map(fixKeyOf));unsavedFixes=unsavedFixes.filter(function(f){return!ks.has(fixKeyOf(f))});return list.concat(unsavedFixes)}
   // (each member's text as given, before the building wrote into it — a porch moved with its wall, the parts of a card: by
   // these an element added or deleted by hand is told from a changed scheme)
@@ -16268,7 +16283,7 @@ X.all.forEach(function(f){var u=f.o.userData||{},c=dataById.get(f.id);if(f.o===o
    // it stands, no rebuilding: a fix of a trim rebuilt the whole scheme, the list coming back from the page a moment later
    // before the fix was written — the engineer 20.11.2026 «Перестроение 3D-схемы 86 % · Обрезка сэндвича» on one trim)
    if(!P.report){var inF=fixesIn(P.trimFixes),aK=new Set(appliedFixes.map(fixKeyOf)),iK=inF.map(fixKeyOf),iS=new Set(iK);
-    if(iS.size===aK.size&&iK.every(function(k){return aK.has(k)}))P.trimFixes=appliedFixes;
+    if(iS.size===aK.size&&iK.every(function(k){return aK.has(k)})){P.trimFixes=appliedFixes;builtFixKey=JSON.stringify(appliedFixes)}
     else if(iS.size>aK.size&&iS.size-aK.size<=20&&Array.from(aK).every(function(k){return iS.has(k)})&&memberBuilder&&built){
      // (a fix written elsewhere — laid on the model as it stands)
      inF.forEach(function(f){if(aK.has(fixKeyOf(f)))return;try{fixStop(f)}catch(e){}try{applyFix(f)}catch(e){}});P.trimFixes=inF;appliedFixes=inF.slice();builtFixKey=JSON.stringify(inF);try{rebatch()}catch(e){}}
@@ -16278,6 +16293,9 @@ X.all.forEach(function(f){var u=f.o.userData||{},c=dataById.get(f.id);if(f.o===o
    // «один элемент удалил и вся схема перестраивается»)
    // (and an element added by hand — built alone and merged, the rest as it stands: the engineer, 20.11.2026 «и пошло
    // поехало, минуту ждать» on one trim added)
+   // (the same members and fixes given again as new objects — the building wrote into the old ones, so their text differs
+   // from the signature: nothing changed, nothing built — the page drawn again rebuilt the whole scheme)
+   if(sig!==built&&fixKey===prevFix&&prevTexts&&Array.isArray(P.elements)&&P.elements.length===prevTexts.size&&P.elements.every(function(n){var w=n&&n.id!=null&&prevTexts.get(String(n.id));return w&&sameAs(w,n)})){built=sig;root.setAttribute("data-same",String(P.elements.length))}
    looseN=[];
    if(sig!==built&&fixKey===prevFix&&memberBuilder){var added=addedOnly(prevTexts,P.elements);if(added&&added.length&&addLocal(added)){built=sig;root.setAttribute("data-added",String(added.length));if(looseN.length)try{restyle(looseN);rebatch()}catch(e){}}}
    looseN=[];
@@ -16569,7 +16587,7 @@ X.all.forEach(function(f){var u=f.o.userData||{},c=dataById.get(f.id);if(f.o===o
    else setView("iso");
    showLight();frame()
   }
-  built=signature(P.elements);builtRefs=(P.elements||[]).slice();builtTexts=textsOf(P.elements);builtFixKey=JSON.stringify(P.trimFixes||[]);appliedFixes=(P.trimFixes||[]).slice();if(editSess){editSess.snaps=new Map();editSess.stale=editSess.pending.length>0}
+  built=signature(P.elements);builtRefs=(P.elements||[]).slice();builtTexts=textsOf(P.elements);builtFixKey=JSON.stringify(P.trimFixes||[]);appliedFixes=(P.trimFixes||[]).slice();if(editSess){editSess.snaps=new Map();editSess.steps=[];editSess.redo=[];editSess.stale=editSess.pending.length>0}
   if(typeof P.onProgress==="function"){
    // (the model kept on the disk looked for first — the page waits for it, its updates held as while building)
    if(mcEnabled()){building={next:null};var sig0=built;try{P.onProgress(.02,"Модель с диска")}catch(e){}
@@ -19973,7 +19991,7 @@ X.all.forEach(function(f){var u=f.o.userData||{},c=dataById.get(f.id);if(f.o===o
   // a model taken anew: the engineer's ends made before the stop went 51 mm into Пк-12 by 08 — the abutment 11900)
   function fixStop(f){
    if(f&&f.action==="ends"&&!f.free&&/^[xyz]$/.test(String(f.ax))){var m0=fixTarget(f);if(m0){var sp=pieceSpan(m0),dd={o:m0,kind:editKind(m0),id:String(f.member_id||m0.userData.memberId),ax:f.ax,lo:pieceAxis(m0,f.ax).lo,hi:pieceAxis(m0,f.ax).hi,pt:{x:number(f.x),y:number(f.y),z:number(f.z)},X:null};
-    dd.end="hi";var r1=dragStop(dd,number(f.hi));if(r1.stop){f.hi=r1.v;f.stop=r1.stop}dd.end="lo";var r0=dragStop(dd,number(f.lo));if(r0.stop){f.lo=r0.v;f.stop=r0.stop}}}
+    dd.end="hi";var r1=dragStop(dd,number(f.hi));if(r1.stop){if(f.hi0===undefined)f.hi0=f.hi;f.hi=r1.v;f.stop=r1.stop}dd.end="lo";var r0=dragStop(dd,number(f.lo));if(r0.stop){if(f.lo0===undefined)f.lo0=f.lo;f.lo=r0.v;f.stop=r0.stop}}}
   }
   function trimFix(f,list){
    // (typed in the card: the end pulled out stops at the first trim or roof on its way, as by the mouse — dragStop)
@@ -20541,7 +20559,7 @@ X.all.forEach(function(f){var u=f.o.userData||{},c=dataById.get(f.id);if(f.o===o
    try{out.parts=e.enc(derivedParts)}catch(x){out.parts="!"}
    return JSON.stringify(out).replace(/,"id":\d+/g,"").replace(/\{"R":\d+\}/g,'"R"').replace(/\{"MT":\d+\}/g,'"MT"').replace(/\{"G":\d+\}/g,'"G"').replace(/\{"T":"[A-Za-z0-9]+","b":\d+\}/g,'"B"')
   }
-  return{host:host,key:key,root:root,bolts:boltsForCheck,update:update,metalDetail:function(){var d=[];metalOf(d);return d},setSpecs:function(r){specList=Array.isArray(r)?r:[];specAsked=true;metalRows=null;if(metalEl&&!metalEl.hidden)metalPaint()},modelText:modelText,camAt:function(){return camera.position.toArray().concat(controls.target.toArray())},formPreview:formPreview,pickInfo:pickInfo,trimFix:trimFix,setDragWhole:setDragWhole,dragWhole:function(){return dragWhole},setPanelMode:setPanelMode,panelMode:function(){return panelMode},setPairMode:setPairMode,editStart:editStart,editSave:editSave,editCancel:editCancel,editMode:function(){return editSess?editSess.kind:""},rebuild:function(){built="";update(P)},focus:focus,look:look,startCopy:startCopy,startPlacement:startPlacement,nodes:nodeList,openNode:openNode,snapshots:snapshots,card:card,lightPart:lightPart,
+  return{host:host,key:key,root:root,bolts:boltsForCheck,update:update,metalDetail:function(){var d=[];metalOf(d);return d},setSpecs:function(r){specList=Array.isArray(r)?r:[];specAsked=true;metalRows=null;if(metalEl&&!metalEl.hidden)metalPaint()},modelText:modelText,camAt:function(){return camera.position.toArray().concat(controls.target.toArray())},formPreview:formPreview,pickInfo:pickInfo,trimFix:trimFix,setDragWhole:setDragWhole,dragWhole:function(){return dragWhole},setPanelMode:setPanelMode,panelMode:function(){return panelMode},setPairMode:setPairMode,editStart:editStart,editSave:editSave,editCancel:editCancel,editUndo:editUndo,editRedo:editRedo,editInfo:function(){return editSess?{n:editSess.pending.length,undo:editSess.steps.length,redo:editSess.redo.length,at:editSess.steps.length?editSess.steps[editSess.steps.length-1].at:0}:{n:0,undo:0,redo:0,at:0}},editMode:function(){return editSess?editSess.kind:""},rebuild:function(){built="";update(P)},focus:focus,look:look,startCopy:startCopy,startPlacement:startPlacement,nodes:nodeList,openNode:openNode,snapshots:snapshots,card:card,lightPart:lightPart,
    dispose:function(){
     cameraMemory[memoryKey]={position:camera.position.clone(),target:controls.target.clone(),up:camera.up.clone()};
     alive=false;clearExplode();cancelCopy();cancelPlacement();if(raf)cancelAnimationFrame(raf);if(awayTimer)clearTimeout(awayTimer);
@@ -20585,5 +20603,5 @@ X.all.forEach(function(f){var u=f.o.userData||{},c=dataById.get(f.id);if(f.o===o
   formPreview:function(p){return call("formPreview",p)},
   pickInfo:function(){return call("pickInfo")||null},
   trimFix:function(f,l){return call("trimFix",f,l)},
-  setDragWhole:function(v){return call("setDragWhole",v)},dragWhole:function(){return Boolean(call("dragWhole"))},setPanelMode:function(v){return call("setPanelMode",v)},panelMode:function(){return call("panelMode")||"pull"},setPairMode:function(v){return call("setPairMode",v)},editStart:function(v){return call("editStart",v)},editSave:function(){return call("editSave")},editCancel:function(){return call("editCancel")},rebuild:function(){return call("rebuild")},editMode:function(){return call("editMode")||""}}
+  setDragWhole:function(v){return call("setDragWhole",v)},dragWhole:function(){return Boolean(call("dragWhole"))},setPanelMode:function(v){return call("setPanelMode",v)},panelMode:function(){return call("panelMode")||"pull"},setPairMode:function(v){return call("setPairMode",v)},editStart:function(v){return call("editStart",v)},editSave:function(){return call("editSave")},editCancel:function(){return call("editCancel")},editUndo:function(){return call("editUndo")||0},editRedo:function(){return call("editRedo")||0},editInfo:function(){return call("editInfo")||{n:0,undo:0,redo:0,at:0}},rebuild:function(){return call("rebuild")},editMode:function(){return call("editMode")||""}}
 })();

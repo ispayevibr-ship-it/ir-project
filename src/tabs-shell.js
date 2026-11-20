@@ -58,9 +58,16 @@
   const key=route==="/objects"?"objects":match?(match[1]||"object"):"objects";
   return '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'+(iconPaths[key]||iconPaths.object)+'</svg>'
  }
+ // Открытие на прежнем месте (инженер 20.11.2026 «если программу открываю где-то через полчаса, то открывается на главной
+ // странице, а не где находился когда вышел»): вкладки и окна схем, закрытые не позже 30 минут назад, открываются снова,
+ // позже — главная страница. at — время последней записи (раз в минуту и при закрытии), open — окно программы открыто;
+ // окна схем своим процессом (own=1) отмечают себя в OWN_KEY: закрытое при открытой программе — убирается из списка.
+ const OWN_KEY="ir-project-own-windows",RESTORE_MS=30*60000,isOwn=params.get("own")==="1";let closing=false;
+ const ownRead=()=>{try{return JSON.parse(localStorage.getItem(OWN_KEY)||"{}")||{}}catch{return{}}};
+ const ownWrite=o=>{try{localStorage.setItem(OWN_KEY,JSON.stringify(o))}catch{}};
  const save=()=>{
   if(restoring)return;
-  const state={active:activeId,tabs:order.map(id=>{const t=frames.get(id);return{id,route:t?.route||"/objects"}}).filter(x=>x.route)};
+  const state={active:activeId,at:Date.now(),open:!closing,tabs:order.map(id=>{const t=frames.get(id);return{id,route:t?.route||"/objects"}}).filter(x=>x.route)};
   try{localStorage.setItem(storeKey,JSON.stringify(state))}catch{}
  };
  function notify(text){/* Bottom status bar removed; preserve nonvisual status call sites. */}
@@ -752,13 +759,21 @@
  const initialHash=location.hash.slice(1);
  let previous=null;try{previous=JSON.parse(localStorage.getItem(storeKey)||"null")}catch{}
  restoring=true;
+ const ownWas=isDetached?{}:ownRead(),lastAt=Math.max(Number(previous?.at)||0,...Object.values(ownWas).map(v=>Number(v?.at)||0)),
+  fresh=!previous?.at||Date.now()-lastAt<RESTORE_MS;
+ if(!isDetached){ownWrite({});if(fresh)setTimeout(()=>{for(const[r,v]of Object.entries(ownWas))if(routeValid(r)&&Date.now()-(Number(v?.at)||0)<RESTORE_MS)openWindow(r)},1500)}
  if(routeValid(initialHash))createTab(initialHash,true);
- else if(!isDetached&&Array.isArray(previous?.tabs)&&previous.tabs.length){
+ else if(!isDetached&&fresh&&Array.isArray(previous?.tabs)&&previous.tabs.length){
   for(const item of previous.tabs.slice(0,MAX_TABS))createTab(item.route,false,item.id&&/^[a-z0-9-]{1,80}$/i.test(item.id)?item.id:null);
   if(order.length)selectTab(frames.has(previous.active)?previous.active:order[0])
  }
  if(!order.length)createTab("/objects");
  restoring=false;save();
+ if(!isDetached){setInterval(save,60000);window.addEventListener("pagehide",()=>{closing=true;save()})}
+ else if(isOwn){const ownRoute=cleanRoute(initialHash);
+  const mark=()=>{const o=ownRead();o[ownRoute]={at:Date.now()};ownWrite(o)};mark();setInterval(mark,30000);
+  window.addEventListener("pagehide",()=>{let main=null;try{main=JSON.parse(localStorage.getItem("ir-project-tabs-v1")||"null")}catch{}
+   const o=ownRead();if(main?.open)delete o[ownRoute];else o[ownRoute]={at:Date.now()};ownWrite(o)})}
  // (the window is kept open over unsaved changes — and asks: a refusal without a question looked like a dead button)
  let closeAsked=false;
  window.addEventListener("beforeunload",event=>{
