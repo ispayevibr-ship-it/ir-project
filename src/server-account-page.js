@@ -494,7 +494,7 @@
     <div class="ir-acc-st" data-st></div>
     <div class="ir-so-list" data-list><div class="ir-so-empty">Загружаем…</div></div>
     <div class="ir-acc-note">На сайт уходят: название, заказчик, генподрядчик, адрес, статус, годы, виды работ с объёмами (у объекта в работе — смонтировано по ежедневным отчётам), фото объекта и до 30 фотографий. Финансы, письма, акты, схемы и отчёты не уходят. Объект без отметки после отправки убирается с сайта.</div></div>
-   <div class="ir-acc-foot"><button type="button" class="ir-acc-btn link" data-open>Открыть сайт a-ts.kz</button><span class="grow"></span><button type="button" class="ir-acc-btn" data-close>Закрыть</button><button type="button" class="ir-acc-btn main" data-go>Отправить на сайт</button></div>`);
+   <div class="ir-acc-foot"><button type="button" class="ir-acc-btn link" data-open>Открыть сайт a-ts.kz</button><span class="grow"></span><button type="button" class="ir-acc-btn" data-close>Закрыть</button><button type="button" class="ir-acc-btn" data-booklet title="PDF-буклет фирмы по отмеченным объектам">Буклет</button><button type="button" class="ir-acc-btn main" data-go>Отправить на сайт</button></div>`);
   const $=q=>d.querySelector(q),st=$("[data-st]"),list=$("[data-list]"),go=$("[data-go]"),prog=$("[data-prog]");
   const bad=e=>{st.className="ir-acc-st err";st.textContent=errText(e)};
   let objects=[],onSite=new Set(),chosen=new Set(),tab="all",q="",heroN=new Map();
@@ -536,6 +536,17 @@
   $("[data-open]").onclick=()=>call("ai-settings:server-open-site",{}).catch(bad);
   const setProg=(pct,title,sub,cls="")=>{prog.hidden=false;prog.className="ir-so-prog"+(cls?" "+cls:"");$("[data-pb]").style.width=Math.max(0,Math.min(100,pct)).toFixed(1)+"%";
    $("[data-pp]").textContent=Math.round(pct)+"%";$("[data-pt]").textContent=title;$("[data-ps]").textContent=sub||""};
+  // Буклет фирмы PDF по отмеченным объектам (просьба инженера 20.11.2026, company-booklet.js)
+  $("[data-booklet]").onclick=async()=>{
+   const b=$("[data-booklet]"),ids=objects.filter(o=>chosen.has(Number(o.id)));
+   if(!ids.length){st.className="ir-acc-st err";st.textContent="Отметьте объекты для буклета";return}
+   if(!window.irBooklet){bad(Error("Буклет не загружен — перезапустите программу"));return}
+   b.disabled=true;st.textContent="";
+   try{const data=[];for(const [i,o] of ids.entries()){setProg(i/ids.length*50,"Буклет: собираем объекты…",(i+1)+" из "+ids.length+" — "+(o.name||""));data.push(await siteObjectData(o,i+1))}
+    const r=await irBooklet.make(data,{onProgress:(i,n,name)=>setProg(50+i/n*45,"Буклет: фото объектов…",(i+1)+" из "+n+" — "+(name||""))});
+    setProg(100,r?"Буклет сохранён":"Буклет не сохранён",r?.path||"","ok")}
+   catch(e){setProg(100,"Буклет не получился",errText(e),"err")}
+   b.disabled=false};
   if(siteSending){go.disabled=true;setProg(0,"Идёт отправка на сайт…","Окно можно закрыть — по окончании будет уведомление.")}
   go.onclick=async()=>{
    const ids=objects.filter(o=>chosen.has(Number(o.id))).map(o=>o.id);
