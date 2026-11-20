@@ -99,7 +99,59 @@
 .A3 h2{font-size:15pt;font-weight:900;margin:1mm 0 5mm;line-height:1.15}.cust{list-style:none;margin:0;padding:0;max-height:120mm;overflow:hidden}
 .cust li{font-size:8pt;font-weight:600;padding:1.9mm 0;border-bottom:1px solid rgba(255,255,255,.1);display:flex;gap:2.5mm;align-items:center}
 .cust li:before{content:"";flex:none;width:1.6mm;height:1.6mm;background:var(--or);transform:rotate(45deg)}
-.A3 .q{position:absolute;left:9mm;right:9mm;bottom:12mm;font-size:8pt;line-height:1.5;color:#c9ced5}.A3 .q b{color:#fff}`;
+.A3 .q{position:absolute;left:9mm;right:9mm;bottom:12mm;font-size:8pt;line-height:1.5;color:#c9ced5}.A3 .q b{color:#fff}
+.lay2 .L{left:auto;right:0}.lay2 .L:before{left:auto;right:0;clip-path:polygon(0 0,100% 0,100% 100%)}.lay2 .L .in{left:10mm;right:11mm}
+.lay2 .R{left:0;right:100mm}.lay2 .band{clip-path:polygon(0 0,100% 30%,100% 100%,0 100%);background:linear-gradient(260deg,var(--or),var(--or2))}
+.lay2 .logo{right:auto;left:10mm}.lay2 .circles{left:auto;right:10mm;flex-direction:row-reverse}.lay2 .c{margin-right:0;margin-left:-5mm}
+.lay2 .info{right:auto;left:10mm;text-align:left}
+.lay3{background:#1d2228}.lay3 .ph{position:absolute;inset:0;background:#3a4047 center 45%/cover no-repeat}
+.lay3 .shade{position:absolute;inset:0;background:linear-gradient(90deg,rgba(18,21,25,.86),rgba(18,21,25,.55) 42%,rgba(18,21,25,0) 70%),linear-gradient(0deg,rgba(18,21,25,.7),rgba(18,21,25,0) 45%)}
+.lay3 .hd{position:absolute;left:14mm;top:16mm;width:150mm;color:#fff}.lay3 .kick{color:var(--or2)}.lay3 .ttl{font-size:27pt;margin-top:2mm}.lay3 .ttl.s{font-size:21pt}.lay3 .ttl.xs{font-size:17pt}
+.lay3 .hd:before{content:"";display:block;width:22mm;height:1.6mm;background:var(--or);margin-bottom:5mm}
+.lay3 .sm{font-size:8.6pt;line-height:1.55;color:#dfe3e8;max-width:130mm;margin:3mm 0 0;max-height:30mm;overflow:hidden;white-space:pre-line}
+.lay3 .thumbs{position:absolute;right:12mm;top:36mm;display:flex;flex-direction:column;gap:4mm}.lay3 .thumbs div{width:46mm;height:32mm;border-radius:2.5mm;border:1.2mm solid #fff;background:#ddd center/cover no-repeat;box-shadow:0 2mm 6mm rgba(0,0,0,.3)}
+.lay3 .tiles{position:absolute;left:14mm;right:14mm;bottom:24mm;display:flex;gap:4mm;align-items:stretch}
+.lay3 .tw{flex:1;display:grid;grid-template-columns:repeat(4,1fr);gap:3mm}
+.lay3 .tl{background:rgba(255,255,255,.95);border-radius:2.5mm;padding:3.5mm 4mm;border-top:1.4mm solid var(--or);display:flex;flex-direction:column;gap:1.5mm}
+.lay3 .tl i{font-style:normal;font-size:17pt;font-weight:900;line-height:1}.lay3 .tl s{text-decoration:none;font-size:8.5pt;font-weight:700;color:var(--ord);margin-left:1mm}
+.lay3 .tl b{font-size:7pt;font-weight:800;line-height:1.25}
+.lay3 .tr{flex:none;background:#fff;border-radius:2.5mm;padding:2.5mm;display:grid;place-items:center}.lay3 .tr .ring{width:25mm;height:25mm}.lay3 .tr .ring div{width:20mm;height:20mm}
+.lay3 .strip{position:absolute;left:0;right:0;bottom:0;height:17mm;background:linear-gradient(100deg,var(--or),var(--or2));display:grid;grid-template-columns:1fr 1fr auto;gap:8mm;align-items:center;padding:0 14mm}
+.lay3 .strip small{display:block;font-size:6.3pt;font-weight:800;letter-spacing:.8px;opacity:.7}.lay3 .strip b{font-size:9pt;font-weight:800}
+.lay3 .strip .doc em{background:#1d2228}
+.lay4 .M{position:absolute;left:0;top:0;bottom:22mm;width:190mm;display:grid;gap:2.5mm;background:#fff;padding:0 0 2.5mm}
+.lay4 .g{background:#3a4047 center/cover no-repeat}
+.lay4 .m1{grid-template:1fr/1fr}.lay4 .m2{grid-template:1fr/1.6fr 1fr}.lay4 .m3{grid-template:1fr 1fr/1.7fr 1fr}.lay4 .m3 .g0{grid-row:1/3}
+.lay4 .m4{grid-template:1fr 1fr 1fr/1.7fr 1fr}.lay4 .m4 .g0{grid-row:1/4}
+.lay4 .logo{left:10mm;right:auto}
+.lay4 .info{position:absolute;left:10mm;bottom:8mm;z-index:3;background:rgba(255,255,255,.95);border-radius:3mm;padding:4mm 5mm;width:78mm;box-shadow:0 2mm 6mm rgba(0,0,0,.18)}
+.lay4 .info{text-align:left}.lay4 .info .yr{background:var(--or)}
+.lay4 .O{position:absolute;right:0;top:0;bottom:22mm;width:107mm;background:linear-gradient(170deg,var(--or2),var(--or) 55%,var(--ord))}
+.lay4 .O .in{position:absolute;left:10mm;right:10mm;top:14mm;bottom:9mm;display:flex;flex-direction:column}
+.lay4 .O .sub{color:#4a3500}.lay4 .O .wk{border-bottom-color:rgba(0,0,0,.12)}.lay4 .O .vol s{color:#1d2228}.lay4 .O .sum{border-left-color:#1d2228;color:#2a2410}
+.lay4 .O .ring{background:conic-gradient(#1d2228 calc(var(--p)*1%),rgba(255,255,255,.45) 0)}.lay4 .O .doc em{background:#1d2228}
+.lay4 .f4{height:22mm;grid-template-columns:1fr 1fr}
+.lay5 .ph{position:absolute;left:0;right:0;top:0;height:112mm;background:#3a4047 center 45%/cover no-repeat;clip-path:polygon(0 0,100% 0,100% 82%,0 100%)}
+.lay5 .ph:after{content:"";position:absolute;left:0;right:0;bottom:0;height:4mm;background:var(--or)}
+.lay5 .circles{left:auto;right:14mm;bottom:auto;top:78mm}.lay5 .c{width:28mm;height:28mm}.lay5 .c.big{width:34mm;height:34mm;margin-top:-6mm}
+.lay5 .lo{position:absolute;left:14mm;top:118mm;width:105mm;bottom:22mm;display:flex;flex-direction:column}
+.lay5 .lo .ttl{font-size:18pt}.lay5 .lo .ttl.s{font-size:15pt}.lay5 .lo .ttl.xs{font-size:12.5pt}
+.lay5 .info{position:static;text-align:left;width:auto;margin-top:auto}.lay5 .info .yr{background:var(--or);margin-bottom:2mm}.lay5 .info p{font-size:8pt}.lay5 .contact{display:none}
+.lay5 .ro{position:absolute;left:128mm;right:14mm;top:118mm;bottom:22mm;display:flex;gap:6mm}
+.lay5 .ro .wks{flex:1;display:grid;grid-template-columns:1fr 1fr;column-gap:6mm;align-content:start}.lay5 .ro .wk{padding:2.4mm 0}.lay5 .ro .vol i{font-size:13pt}.lay5 .ro .wk b{font-size:7.4pt}
+.lay5 .ro .badges{flex:none;flex-direction:column;margin:0;padding:0;align-items:flex-start;justify-content:flex-end}.lay5 .ro .doc{font-size:6pt}
+.lay5 .f5{height:20mm;background:#faf6ee;padding:0 14mm}
+.lay6{background:#1d2228;color:#fff}
+.lay6 .fr{position:absolute;left:14mm;top:14mm;width:168mm;height:124mm}.lay6 .fr:before{content:"";position:absolute;left:-5mm;top:-5mm;width:60mm;height:45mm;background:var(--or)}
+.lay6 .fr.full{height:182mm}.lay6 .ttl.s{font-size:12.5pt}.lay6 .ph{position:absolute;inset:0;background:#3a4047 center/cover no-repeat;border-radius:2mm}
+.lay6 .row{position:absolute;left:14mm;top:144mm;width:168mm;height:52mm;display:flex;gap:4mm}.lay6 .row div{flex:1;background:#3a4047 center/cover no-repeat;border-radius:2mm}
+.lay6 .tx{position:absolute;left:192mm;right:12mm;top:14mm;bottom:12mm;display:flex;flex-direction:column}
+.lay6 .logo.l6{position:static;align-self:flex-start;margin-bottom:6mm;box-shadow:none}.lay6 .logo.l6 img{height:10mm}
+.lay6 .ttl{font-size:16pt}.lay6 .ttl.s{font-size:13.5pt}.lay6 .ttl.xs{font-size:11.5pt}.lay6 .sub{color:var(--or2)}
+.lay6 .wk{border-bottom-color:rgba(255,255,255,.12);padding:2.4mm 0;gap:2mm}.lay6 .wk b{font-size:7pt}.lay6 .vol i{font-size:12.5pt}.lay6 .vol s{color:var(--or2)}
+.lay6 .badges{gap:4mm}.lay6 .ring{background:conic-gradient(var(--or) calc(var(--p)*1%),#3a4047 0);width:24mm;height:24mm}.lay6 .ring div{background:#1d2228;width:19mm;height:19mm}.lay6 .ring span{color:#aab2bc}
+.lay6 .meta .yr{color:#1d2228;font-size:10pt;margin-bottom:1.5mm}.lay6 .meta p{margin:0;font-size:7.2pt;line-height:1.35;color:#c9ced5}
+.lay6 .gp{margin-top:5mm;font-size:7.6pt;font-weight:700;line-height:1.35}.lay6 .gp small{display:block;font-size:6pt;letter-spacing:.8px;color:var(--or2);margin-top:2.5mm}`;
  const CHECK='<svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>';
  const CAL='<svg viewBox="0 0 24 24" fill="none" stroke="#1d2228" stroke-width="2.4" stroke-linecap="round"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/></svg>';
  const bg=src=>src?` style="background-image:url('${String(src).replace(/'/g,"%27")}')"`:"";
@@ -121,56 +173,106 @@
   <div class="A3"><div class="kick up">Нам доверяют</div><h2>Заказчики и генподрядчики</h2>
   <ul class="cust">${ps.map(p=>`<li>${esc(p)}</li>`).join("")}</ul><div class="q">${co.trust}</div></div></section>`
  }
- function objectPage(o,co,logo){
-  const name=String(o.name||"Объект"),len=name.length,word=Math.max(...name.split(/\s+/).map(w=>w.length)),works=(o.works||[]).filter(w=>num(w.volume)>0||num(w.plan)>0);
-  const shown=works.slice(0,o.summary?5:7),p=doneOf(o),pics=o.pictures||[],main=pics[0]||"",rest=pics.slice(1,4);
-  const circles=rest.length?`<div class="circles">${rest.map((s,i)=>`<div class="c${rest.length===3&&i===1?" big":""}"${bg(s)}></div>`).join("")}</div>`:"";
-  const year=String(o.years||"").trim(),place=String(o.address||"").trim();
-  return`<section class="page"><div class="L"><div class="in">
-  <h1 class="ttl up${len>70||word>15?" xs":len>45||word>12?" s":""}">${esc(name)}</h1>${o.customer?`<div class="sub up">${esc(o.customer)}</div>`:""}
-  <div class="wks">${shown.map(w=>`<div class="wk"><b class="up">${esc(w.name)}</b><div class="vol"><i>${esc(fmt(num(w.plan)||num(w.volume)))}</i><s>${esc(unitOf(w.unit))}</s></div></div>`).join("")}</div>
-  ${o.summary?`<div class="sum">${esc(o.summary)}</div>`:""}
-  <div class="badges"><div class="ring" style="--p:${p}"><div><b>${p}%</b><span class="up">выполнено</span></div></div>
-  <div class="doc up"><em>${CHECK}</em>Полный пакет<br>исполнительной<br>документации</div></div></div></div>
-  <div class="R"><div class="ph"${bg(main)}></div><div class="logo">${logo?`<img src="${esc(logo)}" alt="">`:`<b>${esc(co.name)}</b>`}</div>
-  <div class="band"></div>${circles}
-  <div class="info">${year?`<div class="yr">${CAL}${esc(year)}</div>`:""}${place?`<h4 class="up">Место выполнения</h4><p>${esc(place)}</p>`:""}
-  <div class="contact">${esc(co.contactMail)}<br>WhatsApp ${esc(co.whatsapp)}</div></div>
-  <div class="foot"><div><small class="up">Генеральный подрядчик</small><b>${esc(o.general_contractor||"—")}</b></div><div><small class="up">Заказчик</small><b>${esc(o.customer||"—")}</b></div></div></div></section>`
+ // лист объекта — четыре макета, чтобы листы не были одинаковыми (инженер 20.11.2026 «чтобы не все страницы были
+ // одинаковые, макет разный»): 1 «Классика» — текст слева, фото справа с полосой и кругами; 2 «Зеркало» — фото слева,
+ // текст справа; 3 «Обложка» — фото на весь лист, виды работ плитками внизу; 4 «Мозаика» — фото сеткой, текст на
+ // оранжевой колонке; 5 «Панорама» — фото полосой сверху, виды работ в две колонки; 6 «Тёмный» — тёмный лист, фото в
+ // рамке и малые под ним. Макет выбирается у каждого объекта (инженер «выбор для каждого объекта макета своего, сделай
+ // 5-6 разных макетов»); Авто — по очереди, по числу фото.
+ const LAYOUTS=["Классика","Зеркало","Обложка","Мозаика","Панорама","Тёмный"];
+ const titleCls=name=>{const len=name.length,word=Math.max(...name.split(/\s+/).map(w=>w.length));return len>70||word>15?" xs":len>45||word>12?" s":""};
+ const worksOf=o=>(o.works||[]).filter(w=>num(w.volume)>0||num(w.plan)>0);
+ const wkRows=ws=>ws.map(w=>`<div class="wk"><b class="up">${esc(w.name)}</b><div class="vol"><i>${esc(fmt(num(w.plan)||num(w.volume)))}</i><s>${esc(unitOf(w.unit))}</s></div></div>`).join("");
+ const ringOf=p=>`<div class="ring" style="--p:${p}"><div><b>${p}%</b><span class="up">выполнено</span></div></div>`;
+ const docOf=()=>`<div class="doc up"><em>${CHECK}</em>Полный пакет<br>исполнительной<br>документации</div>`;
+ const logoOf=(co,logo,cls="")=>`<div class="logo${cls}">${logo?`<img src="${esc(logo)}" alt="">`:`<b>${esc(co.name)}</b>`}</div>`;
+ const footOf=(o,cls="")=>`<div class="foot${cls}"><div><small class="up">Генеральный подрядчик</small><b>${esc(o.general_contractor||"—")}</b></div><div><small class="up">Заказчик</small><b>${esc(o.customer||"—")}</b></div></div>`;
+ const yearOf=o=>{const y=String(o.years||"").trim();return y?`<div class="yr">${CAL}${esc(y)}</div>`:""};
+ const layoutOf=(o,i)=>{const n=Number(o.layout);if(n>=1&&n<=LAYOUTS.length)return n;const pics=(o.pictures||[]).length;if(!pics)return 1;
+  const seq=pics>=3?[1,3,5,2,4,6]:[1,3,5,2,6];return seq[i%seq.length]};
+ function textCol(o,max){const name=String(o.name||"Объект"),ws=worksOf(o),p=doneOf(o);
+  return`<h1 class="ttl up${titleCls(name)}">${esc(name)}</h1>${o.customer?`<div class="sub up">${esc(o.customer)}</div>`:""}
+  <div class="wks">${wkRows(ws.slice(0,o.summary?max-2:max))}</div>${o.summary?`<div class="sum">${esc(o.summary)}</div>`:""}
+  <div class="badges">${ringOf(p)}${docOf()}</div>`}
+ function placeOf(o,co){const place=String(o.address||"").trim();
+  return`${yearOf(o)}${place?`<h4 class="up">Место выполнения</h4><p>${esc(place)}</p>`:""}<div class="contact">${esc(co.contactMail)}<br>WhatsApp ${esc(co.whatsapp)}</div>`}
+ function circlesOf(rest){return rest.length?`<div class="circles">${rest.map((s,i)=>`<div class="c${rest.length===3&&i===1?" big":""}"${bg(s)}></div>`).join("")}</div>`:""}
+ function objectPage(o,co,logo,i=0){
+  const lay=layoutOf(o,i),pics=o.pictures||[],main=pics[0]||"",rest=pics.slice(1,4);
+  if(lay===2)return`<section class="page lay2"><div class="L"><div class="in">${textCol(o,7)}</div></div>
+  <div class="R"><div class="ph"${bg(main)}></div>${logoOf(co,logo)}<div class="band"></div>${circlesOf(rest)}
+  <div class="info">${placeOf(o,co)}</div>${footOf(o)}</div></section>`;
+  if(lay===3){const name=String(o.name||"Объект"),ws=worksOf(o).slice(0,4),p=doneOf(o),place=String(o.address||"").trim();
+   return`<section class="page lay3"><div class="ph"${bg(main)}></div><div class="shade"></div>${logoOf(co,logo)}
+   <div class="hd"><div class="kick up">${esc(o.years?String(o.years):"Объект")}${place?" · "+esc(place):""}</div><h1 class="ttl up${titleCls(name)}">${esc(name)}</h1>
+   ${o.summary?`<p class="sm">${esc(o.summary)}</p>`:""}</div>
+   ${rest.length?`<div class="thumbs">${rest.slice(0,3).map(s=>`<div${bg(s)}></div>`).join("")}</div>`:""}
+   <div class="tiles"><div class="tw">${ws.map(w=>`<div class="tl"><i>${esc(fmt(num(w.plan)||num(w.volume)))}<s>${esc(unitOf(w.unit))}</s></i><b class="up">${esc(w.name)}</b></div>`).join("")}</div>
+   <div class="tr">${ringOf(p)}</div></div>
+   <div class="strip"><div><small class="up">Генеральный подрядчик</small><b>${esc(o.general_contractor||"—")}</b></div><div><small class="up">Заказчик</small><b>${esc(o.customer||"—")}</b></div><div class="doc up"><em>${CHECK}</em>Полный пакет исполнительной документации</div></div></section>`}
+  if(lay===5){const name=String(o.name||"Объект"),ws=worksOf(o).slice(0,8),p=doneOf(o);
+   return`<section class="page lay5"><div class="ph"${bg(main)}></div>${logoOf(co,logo)}${circlesOf(rest)}
+   <div class="lo"><h1 class="ttl up${titleCls(name)}">${esc(name)}</h1>${o.customer?`<div class="sub up">${esc(o.customer)}</div>`:""}
+   <div class="info">${placeOf(o,co)}</div></div>
+   <div class="ro"><div class="wks">${wkRows(ws)}</div><div class="badges">${ringOf(p)}${docOf()}</div></div>${footOf(o," f5")}</section>`}
+  if(lay===6){const name=String(o.name||"Объект"),p=doneOf(o);
+   return`<section class="page lay6"><div class="fr${rest.length?"":" full"}"><div class="ph"${bg(main)}></div></div>
+   ${rest.length?`<div class="row">${rest.slice(0,3).map(s=>`<div${bg(s)}></div>`).join("")}</div>`:""}
+   <div class="tx">${logoOf(co,logo," l6")}<h1 class="ttl up${titleCls(name)}">${esc(name)}</h1>${o.customer?`<div class="sub up">${esc(o.customer)}</div>`:""}
+   <div class="wks">${wkRows(worksOf(o).slice(0,5))}</div><div class="badges">${ringOf(p)}<div class="meta">${yearOf(o)}<p>${esc(o.address||"")}</p></div></div>
+   <div class="gp"><small class="up">Генподрядчик</small>${esc(o.general_contractor||"—")}<small class="up">Заказчик</small>${esc(o.customer||"—")}</div></div></section>`}
+  if(lay===4){const n=Math.min(4,pics.length);
+   return`<section class="page lay4"><div class="M m${n}">${pics.slice(0,4).map((s,k)=>`<div class="g g${k}"${bg(s)}></div>`).join("")}${logoOf(co,logo)}
+   <div class="info">${placeOf(o,co)}</div></div>
+   <div class="O"><div class="in">${textCol(o,6)}</div></div>${footOf(o," f4")}</section>`}
+  return`<section class="page"><div class="L"><div class="in">${textCol(o,7)}</div></div>
+  <div class="R"><div class="ph"${bg(main)}></div>${logoOf(co,logo)}
+  <div class="band"></div>${circlesOf(rest)}
+  <div class="info">${placeOf(o,co)}</div>${footOf(o)}</div></section>`
  }
  // objects: [{name, customer, general_contractor, address, status, years, summary, works:[{name,unit,volume,plan}], pictures:[src…]}]
  function build(objects,{logo="",company={}}={}){
   const co={...COMPANY,...company},list=Array.isArray(objects)?objects:[];
   return`<!doctype html><html lang="ru"><head><meta charset="utf-8"><title>Буклет ${esc(co.name)}</title>
 <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800;900&display=swap" rel="stylesheet"><style>${CSS}</style></head><body>
-${aboutPage(list,co,logo)}${list.map(o=>objectPage(o,co,logo)).join("")}</body></html>`
+${aboutPage(list,co,logo)}${list.map((o,i)=>objectPage(o,co,logo,i)).join("")}</body></html>`
  }
 
  // ---- в окне программы ----
- // фото поменьше (до 1600 точек, JPEG) — чтобы PDF не весил сотни мегабайт
- async function small(src,side=1600){
+ // Качество фото (инженер 20.11.2026 «почему такое плохое качество фото»): обложка объекта в программе хранится
+ // вырезом 900×400 — на весь лист она расплывалась. Берётся её исходник (original_path, до 4000 точек — object-image-crop),
+ // фото не пережимаются, если уже JPEG и не больше нужного; большое фото — до 2800 точек, остальные — до 1400, JPEG 0,92.
+ async function small(src,side=2800,q=.92){
   if(!src||typeof document==="undefined")return src||"";
   try{const img=await new Promise((ok,bad)=>{const i=new Image();i.onload=()=>ok(i);i.onerror=bad;i.src=src});
    const k=Math.min(1,side/Math.max(img.naturalWidth,img.naturalHeight));if(k>=1&&/^data:image\/jpe?g/.test(src))return src;
    const c=document.createElement("canvas");c.width=Math.max(1,Math.round(img.naturalWidth*k));c.height=Math.max(1,Math.round(img.naturalHeight*k));
-   c.getContext("2d").drawImage(img,0,0,c.width,c.height);return c.toDataURL("image/jpeg",.85)}catch{return src}
+   const g=c.getContext("2d");g.imageSmoothingQuality="high";g.drawImage(img,0,0,c.width,c.height);return c.toDataURL("image/jpeg",q)}catch{return src}
  }
+ // маленькая картинка для окна выбора фото
+ const thumb=src=>small(src,360,.8);
  const read=async f=>{if(!f)return"";if(/^data:/.test(f))return f;try{return await root.irProject.images.read(f)||""}catch{return""}};
- // data: объекты так, как их собирает окно «Сайт» (siteObjectData) — cover, photos, hero
+ // фото объекта на выбор: исходник обложки вместо выреза, фото «в шапку», фото объекта
+ // баннер (полоса 1920×180) в буклет не годится
+ const allFiles=o=>[...new Set([o.cover_full||o.cover,...(o.hero||[]),...(o.photos||[])].filter(f=>f&&f!==o.banner&&!(o.cover_full&&f===o.cover)))];
+ // что отмечено по умолчанию: сохранённый выбор (object-meta «booklet_photos»), иначе первые 4
+ const pickDefault=o=>{const all=allFiles(o),saved=(o.booklet?.files||[]).filter(f=>all.includes(f));return{all,files:saved.length?saved:all.slice(0,4),layout:Number(o.booklet?.layout)||0}};
+ // data: объекты так, как их собирает окно «Сайт» (siteObjectData) — cover, cover_full, photos, hero; files — выбранные
+ // фото (первое — главное), layout — номер макета (0 — авто)
  async function make(data,{onProgress}={}){
   const profile=await root.irProject.company.get().catch(()=>({}));
-  const logo=await small(await read(profile?.logo||""),800);
+  const logo=await small(await read(profile?.logo||""),1200);
   const objects=[];
   for(const [i,o] of data.entries()){
    onProgress?.(i,data.length,o.name);
-   const files=[...new Set([o.cover,...(o.hero||[]),...(o.photos||[])].filter(Boolean))],pictures=[];
-   for(const f of files){if(pictures.length>=4)break;const s=await read(f);if(s)pictures.push(await small(s,pictures.length?900:1800))}
+   const files=(o.files||pickDefault(o).files).slice(0,4),pictures=[];
+   for(const f of files){const s=await read(f);if(s)pictures.push(await small(s,pictures.length?1400:2800))}
    objects.push({...o,pictures})
   }
   const html=build(objects,{logo,company:profile?.name?{name:profile.name}:{}});
   const name="Буклет "+String(profile?.name||COMPANY.name).replace(/[«»"]/g,"")+" "+new Date().toLocaleDateString("ru-RU");
   return root.irProject.ai.invoke("ai-documents:exec-export",{format:"pdf",name,html})
  }
- const api={build,make,totals,doneOf,parties,COMPANY};
+ const api={build,make,totals,doneOf,parties,COMPANY,LAYOUTS,layoutOf,thumb,read,pickDefault};
  if(typeof module!=="undefined"&&module.exports)module.exports=api;else root.irBooklet=api;
 })(typeof window!=="undefined"?window:globalThis);

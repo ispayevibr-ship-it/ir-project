@@ -147,6 +147,12 @@
 .ir-hero-cov{position:absolute;top:8px;left:8px;padding:2px 9px;border-radius:20px;background:#0f2233cc;color:#fff;font-size:10.5px;font-weight:650}
 .ir-hero-ttx{display:none;margin:0 8px 8px;font:inherit;font-size:12.5px;line-height:1.35;padding:6px 9px;border:1px solid #e6c46a;border-radius:8px;resize:vertical;min-height:40px;color:#1d3247;background:#fff;cursor:text}.ir-hero-ph.on .ir-hero-ttx{display:block}.ir-hero-ph.on .ir-hero-ttx:focus{outline:none;border-color:#c7920f;box-shadow:0 0 0 3px #f6e2a6}.ir-hero-ph.on{background:#fff6e0}
 .ir-hero-n{font-size:12.5px;color:#4d6a80}
+.ir-bk-obj{border-radius:12px}.ir-bk-obj.on{background:#fffaf0;box-shadow:0 0 0 1px #f0d98f}.ir-bk-box{padding:4px 12px 12px}
+.ir-bk-tools{display:flex;align-items:center;gap:10px;font-size:12.5px;color:#4d6a80;margin:2px 0 8px}.ir-bk-tools label{display:flex;align-items:center;gap:6px;margin:0;font-weight:600;white-space:nowrap}.ir-bk-tools select{font:inherit;padding:4px 8px;border:1px solid #d9e4ee;border-radius:8px;margin-left:6px}
+.ir-bk-ph{display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:8px}
+.ir-bk-t{position:relative;padding:0;border:2px solid #d9e4ee;border-radius:10px;overflow:hidden;background:#eef2f5;cursor:pointer;aspect-ratio:4/3}
+.ir-bk-t img{width:100%;height:100%;object-fit:cover;display:block}.ir-bk-t:hover{border-color:#a9c6df}.ir-bk-t.on{border-color:#d9a520;box-shadow:0 0 0 3px #f6e2a6}
+.ir-bk-t b{position:absolute;top:6px;left:6px;width:24px;height:24px;display:grid;place-items:center;border-radius:50%;background:#d9a520;color:#fff;font-size:13px;font-weight:800;box-shadow:0 1px 4px rgba(0,0,0,.3)}
 .ir-so-empty{padding:22px;text-align:center;color:#7b8f9f;border:1px dashed #cfdbe5;border-radius:11px;background:#fff}
 .ir-so-prog{display:grid;gap:6px;padding:12px 14px;border:1px solid #cfe0ef;border-radius:11px;background:#fff}
 .ir-so-prog .row{display:flex;gap:10px;justify-content:space-between;font-size:12.5px;color:#3c5568}.ir-so-prog .row b{color:#1d3247}
@@ -277,7 +283,7 @@
   if(!st0?.signedIn){if(await login(doc))return panel(doc);return}
   if(st0.user.role!=="admin"){alert("Панель администратора — только для администратора.");return}
   const d=dialog(doc,"wide",head("Панель администратора","Кто входит в программу и что видит. Сервер проверяет права сам: человек получает только свои объекты и разделы.")+
-   `<div class="ir-acc-body"><div data-mail></div><div class="ir-acc-tools"><button type="button" class="ir-acc-btn main" data-add><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg><span>Дать доступ</span></button><button type="button" class="ir-acc-btn" data-roles title="Названия ролей и что каждая может: разделы, новые объекты, удаление, выгрузка"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3 4 6v6c0 4.5 3.4 8.3 8 9 4.6-.7 8-4.5 8-9V6l-8-3Z"/><path d="m9 12 2 2 4-4"/></svg><span>Роли и права</span></button><button type="button" class="ir-acc-btn" data-site title="Какие объекты показывает сайт компании"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a14 14 0 0 1 0 18M12 3a14 14 0 0 0 0 18"/></svg><span>Сайт</span></button><span class="grow"></span><span class="ir-acc-count" data-count></span><button type="button" class="ir-acc-btn" data-reload><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 11a8 8 0 0 0-14.8-4"/><path d="M4 4v5h5"/><path d="M4 13a8 8 0 0 0 14.8 4"/><path d="M20 20v-5h-5"/></svg><span>Обновить</span></button></div>
+   `<div class="ir-acc-body"><div data-mail></div><div class="ir-acc-tools"><button type="button" class="ir-acc-btn main" data-add><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg><span>Дать доступ</span></button><button type="button" class="ir-acc-btn" data-roles title="Названия ролей и что каждая может: разделы, новые объекты, удаление, выгрузка"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3 4 6v6c0 4.5 3.4 8.3 8 9 4.6-.7 8-4.5 8-9V6l-8-3Z"/><path d="m9 12 2 2 4-4"/></svg><span>Роли и права</span></button><button type="button" class="ir-acc-btn" data-site title="Какие объекты показывает сайт компании"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a14 14 0 0 1 0 18M12 3a14 14 0 0 0 0 18"/></svg><span>Сайт</span></button><button type="button" class="ir-acc-btn" data-booklet title="PDF-буклет фирмы: объекты, фото, макет"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 5.5C5.5 4 8.5 4 12 6c3.5-2 6.5-2 9-.5V19c-2.5-1.5-5.5-1.5-9 .5-3.5-2-6.5-2-9-.5Z"/><path d="M12 6v13.5"/></svg><span>Буклет</span></button><span class="grow"></span><span class="ir-acc-count" data-count></span><button type="button" class="ir-acc-btn" data-reload><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 11a8 8 0 0 0-14.8-4"/><path d="M4 4v5h5"/><path d="M4 13a8 8 0 0 0 14.8 4"/><path d="M20 20v-5h-5"/></svg><span>Обновить</span></button></div>
    <div class="ir-acc-st" data-st>Загружаем…</div><div class="ir-acc-people" data-list></div></div>
    <div class="ir-acc-foot"><span class="grow"></span><button type="button" class="ir-acc-btn" data-close>Закрыть</button></div>`);
   const st=d.querySelector("[data-st]"),list=d.querySelector("[data-list]");
@@ -308,6 +314,7 @@
   d.querySelector("[data-reload]").onclick=load;
   d.querySelector("[data-roles]").onclick=()=>rolesEditor(d).then(r=>{if(!r)return;info().then(()=>load()).then(()=>{st.className="ir-acc-st ok";st.textContent=r.note})});
   d.querySelector("[data-site]").onclick=()=>siteObjects(d);
+  d.querySelector("[data-booklet]").onclick=()=>bookletWindow(d);
   // after the letter — back in the panel, the result above the list
   d.querySelector("[data-add]").onclick=()=>editor(d,{objects}).then(r=>{if(!r)return;load().then(()=>{if(r.note){st.className="ir-acc-st ok";st.textContent=r.note}})});
   // who is in the program — renewed every minute while the panel is open
@@ -408,6 +415,7 @@
   const [meta,photos,archive,workTypes,marks,reports]=await Promise.all(["object-meta","photos","archive","work-types","marks","reports"].map(sec));
   const pic=t=>{const d=photos.find(x=>x.record_type===t||x.data?.photo_type===t)?.data;return String(d?.file_path||d?.file||"")};
   const cover=pic("cover"),banner=pic("banner");
+  const coverFull=String(photos.find(x=>x.record_type==="cover"||x.data?.photo_type==="cover")?.data?.original_path||"");
   // the years as the card shows them (year of start and of end — archive-objects.js), else the text of the years
   const yy=t=>(String(meta.find(r=>r.record_type===t)?.data?.value||"").match(/\d{4}/g)||[]);
   let [ys]=yy("object_year_start"),[ye]=yy("object_year_end");if(!ys&&!ye){const all=yy("object_years");ys=all[0];ye=all.length>1?all[all.length-1]:""}
@@ -430,7 +438,7 @@
    for(const d of byDate)for(const p of sarr(d.photos))if(p)gallery.push(String(p))
   }
   return{rid:Number(o.id),name:o.name||"",customer:o.customer||"",general_contractor:o.general_contractor||"",address:o.address||"",
-   summary:String(meta.find(r=>r.record_type==="object_summary")?.data?.value||""),status:o.status||"",years,works,cover:cover||banner,photos:[...new Set(gallery.filter(f=>f&&f!==cover&&f!==banner))],skip:[cover,banner].filter(Boolean),hero:heroOf(meta),hero_texts:heroTextsOf(meta),sort}
+   summary:String(meta.find(r=>r.record_type==="object_summary")?.data?.value||""),status:o.status||"",years,works,cover:cover||banner,photos:[...new Set(gallery.filter(f=>f&&f!==cover&&f!==banner))],skip:[cover,banner].filter(Boolean),hero:heroOf(meta),hero_texts:heroTextsOf(meta),cover_full:coverFull,banner,booklet:meta.find(r=>r.record_type===BOOKLET)?.data||null,sort}
  }
  // Фото «в шапку сайта» (просьба инженера 12.11.2026 «на каждую фотку можно ставить метку Выводить в шапке сайта»):
  // запись object-meta «site_hero_photos», data.files — пути отмеченных фото. Уходит с объектом на сайт (site-objects.js).
@@ -483,6 +491,69 @@
   t.querySelector("[data-open]")?.addEventListener("click",()=>{call("ai-settings:server-open-site",{}).catch(()=>{});close()});
   setTimeout(close,error?20000:12000);
  }
+ // Буклет фирмы PDF (просьба инженера 20.11.2026, company-booklet.js) — своё окно рядом с «Сайт» (инженер «сделай
+ // отдельную где Сайт Буклет»): отметить объекты, у каждого выбрать фото (по порядку щелчков, первое — главное) и макет
+ // листа. Выбор хранится у объекта — запись object-meta «booklet_photos» {files, layout}.
+ const BOOKLET="booklet_photos";
+ async function saveBooklet(id,files,layout){
+  const api=irProject.data.forObject(id).section("object-meta"),rows=await api.list().catch(()=>[]),r=rows.find(x=>x.record_type===BOOKLET);
+  const body={record_type:BOOKLET,title:"Фото для буклета",data:{entity_type:BOOKLET,files,layout}};
+  if(!r)await api.create(body);else await api.update(r.id,body)
+ }
+ async function bookletWindow(parent){
+  const doc=parent?.ownerDocument||document;
+  const d=dialog(doc,"wide ir-acc-so ir-acc-bk",head("Буклет","Отметьте объекты, у каждого выберите фото и макет листа — получится PDF-буклет фирмы.")+
+   `<div class="ir-acc-body">
+    <div class="ir-so-bar"><input type="search" data-q placeholder="Поиск по названию, заказчику, адресу"><div class="ir-so-tabs" data-tabs></div></div>
+    <div class="ir-so-prog" data-prog hidden><div class="row"><b data-pt></b><span data-pp>0%</span></div><div class="track"><i data-pb></i></div><div class="row"><span data-ps></span></div></div>
+    <div class="ir-acc-st" data-st></div>
+    <div class="ir-so-list ir-bk-list" data-list><div class="ir-so-empty">Загружаем…</div></div></div>
+   <div class="ir-acc-foot"><span class="ir-hero-n" data-n></span><span class="grow"></span><button type="button" class="ir-acc-btn" data-close>Закрыть</button><button type="button" class="ir-acc-btn main" data-go>Сделать PDF</button></div>`);
+  const $=q=>d.querySelector(q),st=$("[data-st]"),list=$("[data-list]"),go=$("[data-go]"),prog=$("[data-prog]");
+  const bad=e=>{st.className="ir-acc-st err";st.textContent=errText(e)};
+  if(!window.irBooklet){bad(Error("Буклет не загружен — перезапустите программу"));go.disabled=true}
+  let objects=[],chosen=[],tab="done",q="";const info=new Map(),thumbs=new Map(),SHOW=60;
+  const TABS=[["all","Все"],["done","Завершённые"],["work","В работе"],["prep","Подготовка"]];
+  const match=o=>(tab==="all"||STATUS_TAG(o.status||"")===tab)&&(!q||[o.name,o.customer,o.address].join(" ").toLowerCase().includes(q));
+  const setProg=(pct,title,sub,cls="")=>{prog.hidden=false;prog.className="ir-so-prog"+(cls?" "+cls:"");$("[data-pb]").style.width=Math.max(0,Math.min(100,pct)).toFixed(1)+"%";
+   $("[data-pp]").textContent=Math.round(pct)+"%";$("[data-pt]").textContent=title;$("[data-ps]").textContent=sub||""};
+  const drawN=()=>{$("[data-n]").textContent=chosen.length?"Объектов в буклете: "+chosen.length:"Отметьте объекты";go.disabled=!chosen.length||!window.irBooklet};
+  const photosHtml=id=>{const x=info.get(id);if(!x)return`<div class="ir-so-empty">Загружаем фото…</div>`;
+   if(!x.all.length)return`<div class="ir-so-empty">У объекта нет фото</div>`;
+   return`<div class="ir-bk-tools"><span>Щёлкайте фото по порядку: <b>1</b> — главное, ещё до трёх — малые. Выбрано: ${x.files.length} из 4</span><span class="grow"></span><label>Макет <select data-lay>${["Авто",...irBooklet.LAYOUTS].map((t,i)=>`<option value="${i}"${x.layout===i?" selected":""}>${esc(t)}</option>`).join("")}</select></label></div>
+   <div class="ir-bk-ph">${x.all.slice(0,SHOW).map((f,k)=>{const n=x.files.indexOf(f)+1,t=thumbs.get(f);return`<button type="button" class="ir-bk-t${n?" on":""}" data-k="${k}">${t?`<img src="${esc(t)}" alt="">`:'<span class="ir-hero-no">…</span>'}${n?`<b>${n}</b>`:""}</button>`}).join("")}</div>
+   ${x.all.length>SHOW?`<div class="ir-acc-help">Показаны первые ${SHOW} фото из ${x.all.length}.</div>`:""}`};
+  const drawObj=id=>{const box=list.querySelector(`[data-box="${id}"]`);if(!box)return;box.innerHTML=photosHtml(id);const x=info.get(id);if(!x)return;
+   box.querySelector("[data-lay]")?.addEventListener("change",e=>{x.layout=Number(e.target.value)||0});
+   box.querySelectorAll("[data-k]").forEach(b=>b.onclick=()=>{const f=x.all[Number(b.dataset.k)],i=x.files.indexOf(f);
+    if(i>=0)x.files.splice(i,1);else if(x.files.length<4)x.files.push(f);else return;drawObj(id)})};
+  async function load(id){if(info.has(id))return drawObj(id);
+   const o=objects.find(x=>Number(x.id)===id);let data;try{data=await siteObjectData(o,0)}catch(e){bad(e);return}
+   const p=irBooklet.pickDefault(data);info.set(id,{data,...p});drawObj(id);
+   for(const f of p.all.slice(0,SHOW)){if(thumbs.has(f))continue;thumbs.set(f,await irBooklet.thumb(await irBooklet.read(f)));if(d.isConnected)drawObj(id)}}
+  const draw=()=>{
+   $("[data-tabs]").innerHTML=TABS.map(([k,t])=>{const n=k==="all"?objects.length:objects.filter(o=>STATUS_TAG(o.status||"")===k).length;
+    return n||k==="all"||k===tab?`<button type="button" class="${k===tab?"on":""}" data-tab="${k}">${t}<span>${n}</span></button>`:""}).join("");
+   const rows=objects.filter(o=>match(o)||chosen.includes(Number(o.id)));drawN();
+   list.innerHTML=rows.map(o=>{const id=Number(o.id),on=chosen.includes(id),tag=STATUS_TAG(o.status||"");
+    return`<div class="ir-bk-obj${on?" on":""}"><label class="ir-so-obj${on?" on":""}" data-id="${id}"><input type="checkbox" ${on?"checked":""}><span class="t"><b>${esc(o.name)}</b><small>${esc([o.customer,o.address].filter(Boolean).join(" · ")||"—")}</small></span><span class="ir-so-tags"><span class="ir-so-tag ${tag}">${esc(o.status||"—")}</span></span></label>${on?`<div class="ir-bk-box" data-box="${id}"></div>`:""}</div>`}).join("")||
+    `<div class="ir-so-empty">${objects.length?"Ничего не найдено":"В программе пока нет объектов"}</div>`;
+   list.querySelectorAll(".ir-so-obj").forEach(l=>{const i=l.querySelector("input");i.onchange=()=>{const id=Number(l.dataset.id);chosen=chosen.filter(x=>x!==id);if(i.checked)chosen.push(id);draw()}});
+   for(const id of chosen)load(id)
+  };
+  $("[data-q]").oninput=e=>{q=e.target.value.trim().toLowerCase();draw()};
+  $("[data-tabs]").onclick=e=>{const b=e.target.closest("[data-tab]");if(b){tab=b.dataset.tab;draw()}};
+  try{objects=sarr(await irProject.data.objects.list());if(!objects.some(o=>STATUS_TAG(o.status||"")==="done"))tab="all";draw()}catch(e){bad(e)}
+  go.onclick=async()=>{
+   go.disabled=true;st.textContent="";
+   try{const data=[];for(const [i,id] of chosen.entries()){const o=objects.find(x=>Number(x.id)===id);setProg(i/chosen.length*20,"Собираем объекты…",(i+1)+" из "+chosen.length+" — "+(o?.name||""));
+     if(!info.has(id))await load(id);const x=info.get(id);if(!x)continue;
+     await saveBooklet(id,x.files,x.layout).catch(()=>{});data.push({...x.data,files:x.files,layout:x.layout})}
+    const r=await irBooklet.make(data,{onProgress:(i,n,name)=>setProg(20+i/n*75,"Фото объектов…",(i+1)+" из "+n+" — "+(name||""))});
+    setProg(100,r?"Буклет сохранён":"Буклет не сохранён",r?.path||"","ok")}
+   catch(e){setProg(100,"Буклет не получился",errText(e),"err")}
+   drawN()};
+ }
  let siteSending=false;
  async function siteObjects(parent){
   const doc=parent?.ownerDocument||document;
@@ -494,7 +565,7 @@
     <div class="ir-acc-st" data-st></div>
     <div class="ir-so-list" data-list><div class="ir-so-empty">Загружаем…</div></div>
     <div class="ir-acc-note">На сайт уходят: название, заказчик, генподрядчик, адрес, статус, годы, виды работ с объёмами (у объекта в работе — смонтировано по ежедневным отчётам), фото объекта и до 30 фотографий. Финансы, письма, акты, схемы и отчёты не уходят. Объект без отметки после отправки убирается с сайта.</div></div>
-   <div class="ir-acc-foot"><button type="button" class="ir-acc-btn link" data-open>Открыть сайт a-ts.kz</button><span class="grow"></span><button type="button" class="ir-acc-btn" data-close>Закрыть</button><button type="button" class="ir-acc-btn" data-booklet title="PDF-буклет фирмы по отмеченным объектам">Буклет</button><button type="button" class="ir-acc-btn main" data-go>Отправить на сайт</button></div>`);
+   <div class="ir-acc-foot"><button type="button" class="ir-acc-btn link" data-open>Открыть сайт a-ts.kz</button><span class="grow"></span><button type="button" class="ir-acc-btn" data-close>Закрыть</button><button type="button" class="ir-acc-btn main" data-go>Отправить на сайт</button></div>`);
   const $=q=>d.querySelector(q),st=$("[data-st]"),list=$("[data-list]"),go=$("[data-go]"),prog=$("[data-prog]");
   const bad=e=>{st.className="ir-acc-st err";st.textContent=errText(e)};
   let objects=[],onSite=new Set(),chosen=new Set(),tab="all",q="",heroN=new Map();
@@ -536,17 +607,6 @@
   $("[data-open]").onclick=()=>call("ai-settings:server-open-site",{}).catch(bad);
   const setProg=(pct,title,sub,cls="")=>{prog.hidden=false;prog.className="ir-so-prog"+(cls?" "+cls:"");$("[data-pb]").style.width=Math.max(0,Math.min(100,pct)).toFixed(1)+"%";
    $("[data-pp]").textContent=Math.round(pct)+"%";$("[data-pt]").textContent=title;$("[data-ps]").textContent=sub||""};
-  // Буклет фирмы PDF по отмеченным объектам (просьба инженера 20.11.2026, company-booklet.js)
-  $("[data-booklet]").onclick=async()=>{
-   const b=$("[data-booklet]"),ids=objects.filter(o=>chosen.has(Number(o.id)));
-   if(!ids.length){st.className="ir-acc-st err";st.textContent="Отметьте объекты для буклета";return}
-   if(!window.irBooklet){bad(Error("Буклет не загружен — перезапустите программу"));return}
-   b.disabled=true;st.textContent="";
-   try{const data=[];for(const [i,o] of ids.entries()){setProg(i/ids.length*50,"Буклет: собираем объекты…",(i+1)+" из "+ids.length+" — "+(o.name||""));data.push(await siteObjectData(o,i+1))}
-    const r=await irBooklet.make(data,{onProgress:(i,n,name)=>setProg(50+i/n*45,"Буклет: фото объектов…",(i+1)+" из "+n+" — "+(name||""))});
-    setProg(100,r?"Буклет сохранён":"Буклет не сохранён",r?.path||"","ok")}
-   catch(e){setProg(100,"Буклет не получился",errText(e),"err")}
-   b.disabled=false};
   if(siteSending){go.disabled=true;setProg(0,"Идёт отправка на сайт…","Окно можно закрыть — по окончании будет уведомление.")}
   go.onclick=async()=>{
    const ids=objects.filter(o=>chosen.has(Number(o.id))).map(o=>o.id);
@@ -835,6 +895,6 @@
   setInterval(()=>void check(),30*60e3);
   watchChanges()
  }
- window.irServerAccount={menu,panel,login,changePassword,syncDialog,siteDialog,siteObjects,info,state:()=>state};
+ window.irServerAccount={menu,panel,login,changePassword,syncDialog,siteDialog,siteObjects,bookletWindow,info,state:()=>state};
  if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",()=>void start(),{once:true});else void start();
 })();
