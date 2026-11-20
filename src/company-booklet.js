@@ -33,28 +33,25 @@
  const unitOf=u=>String(u||"").replace(/^м2$/i,"м²").replace(/^м3$/i,"м³").replace(/^тн$/i,"т");
  // итоги — как на сайте (KINDS в server/pb_public/index.html), по видам работ отмеченных объектов
  const DEMO=n=>/демонт/.test(n);
- const kindOf=w=>{const n=String(w.name||"").toLowerCase(),u=unitOf(w.unit);
-  if(DEMO(n))return null;if(/изготов/.test(n))return null;
-  if(u==="т"&&!/оборуд/.test(n))return"mk";
-  if(u==="м²"&&/сэндвич|сендвич|панел|профнаст|профлист|проф\.\s*лист|профилирован/.test(n))return"skin";
-  return null};
- function totals(objects){
-  let mk=0,skin=0;for(const o of objects)for(const w of o.works||[]){const v=num(w.volume),k=kindOf(w);if(v>0&&k==="mk")mk+=v;if(v>0&&k==="skin")skin+=v}
-  const n=objects.length,word=n%10===1&&n%100!==11?"объект":n%10>=2&&n%10<=4&&(n%100<10||n%100>=20)?"объекта":"объектов";
-  const out=[];if(mk>0)out.push([fmt(mk,1)+" т","металлоконструкций смонтировано"]);if(skin>0)out.push([fmt(skin,0)+" м²","сэндвич-панелей и профнастила"]);
-  out.push([String(n),n%10===1&&n%100!==11?"объект выполнен":word+" выполнено"]);return out}
- // итоги объекта — как на сайте: «466,3 т металлоконструкций смонтировано» (инженер 20.11.2026 «сюда больше
- // информации, как на сайте объемы указаны»); группы — KINDS сайта
- const SKINDS=[["fab","т","изготовлено металлоконструкций",n=>/изготов/.test(n)],
-  ["dm","т","металлоконструкций демонтировано",n=>DEMO(n)],["dms","м²","демонтировано",n=>DEMO(n)],
+ // итоги — как на сайте a-ts.kz (KINDS в server/pb_public/index.html), каждый вид отдельно: металл, сэндвич, профнастил,
+ // оборудование, изготовлено, демонтаж (инженер 20.11.2026 «где остальные объемы? почему все в кучу?», «сюда больше
+ // информации, как на сайте объемы указаны»); фирма — totals, объект — objStats
+ const PROF=n=>/профнаст|профлист|проф\.\s*лист|профилирован/.test(n),SAND=n=>/сэндвич|сендвич|панел/.test(n);
+ const SKINDS=[["dmeq","т","оборудования демонтировано",n=>DEMO(n)&&/оборуд/.test(n)],["dmt","т","металлоконструкций демонтировано",DEMO],
+  ["dmsp","м²","сэндвич-панелей демонтировано",n=>DEMO(n)&&SAND(n)],["dmpn","м²","профнастила демонтировано",n=>DEMO(n)&&PROF(n)],
+  ["dmm","м²","покрытий демонтировано",DEMO],["fab","т","изготовлено металлоконструкций",n=>/изготов/.test(n)],
   ["eq","т","оборудования смонтировано",n=>/оборуд/.test(n)],["mk","т","металлоконструкций смонтировано",()=>true],
-  ["pn","м²","профнастила смонтировано",n=>/профнаст|профлист|проф\.\s*лист|профилирован/.test(n)],
-  ["sp","м²","сэндвич-панелей смонтировано",n=>/сэндвич|сендвич|панел/.test(n)]];
- const ORDER=["mk","sp","pn","eq","fab","dm","dms"];
- function objStats(o){const by=new Map();
-  for(const w of o.works||[]){const v=num(w.volume),u=unitOf(w.unit),n=String(w.name||"").toLowerCase();if(!(v>0))continue;
+  ["sp","м²","сэндвич-панелей смонтировано",SAND],["pn","м²","профнастила смонтировано",PROF]];
+ const ORDER=["mk","sp","pn","eq","fab","dmt","dmeq","dmsp","dmpn","dmm"];
+ const fmtK=(v,u)=>fmt(v,u==="т"?(v>=100?1:2):(v>=1000?0:1));
+ function sumKinds(list){const by=new Map();
+  for(const o of list)for(const w of o.works||[]){const v=num(w.volume),u=unitOf(w.unit),n=String(w.name||"").toLowerCase();if(!(v>0))continue;
    const K=SKINDS.find(([,ku,,t])=>ku===u&&t(n));if(K)by.set(K[0],(by.get(K[0])||0)+v)}
-  return ORDER.filter(k=>by.get(k)>0).slice(0,3).map(k=>{const K=SKINDS.find(x=>x[0]===k),v=by.get(k);return[fmt(v,K[1]==="т"?1:v>=1000?0:1)+" "+K[1],K[2]]})}
+  return by}
+ const kindRows=(by,max)=>ORDER.filter(k=>by.get(k)>0).slice(0,max).map(k=>{const K=SKINDS.find(x=>x[0]===k);return[fmtK(by.get(k),K[1])+" "+K[1],K[2]]});
+ function totals(objects){const n=objects.length,word=n%10===1&&n%100!==11?"объект выполнен":n%10>=2&&n%10<=4&&(n%100<10||n%100>=20)?"объекта выполнено":"объектов выполнено";
+  return[["с 2023 года","на рынке строительства"],...kindRows(sumKinds(objects),10),[String(n),word]]}
+ const objStats=o=>kindRows(sumKinds([o]),6);
  const statsOf=(o,co)=>{const st=objStats(o);return st.length?`<div class="osd up">Выполнено на ${esc(co.date)}</div><div class="ost">${st.map(([b,t])=>`<div><b>${esc(b)}</b><span>${esc(t)}</span></div>`).join("")}</div>`:""};
  // краткая характеристика — разметка карточки объекта (summaryHtml в archive-objects.js): **жирный**, *курсив*,
  // списки «- », заголовки «#»; пункты, слитые в одну строку («…:***- **…**- **…**»), — каждый с новой строки
@@ -123,6 +120,7 @@
 .kick{font-size:7.5pt;font-weight:800;color:var(--ord);letter-spacing:2px}
 .A2 h2{font-size:19pt;font-weight:900;margin:1mm 0 4mm;line-height:1.05}.A2 p{font-size:8.6pt;line-height:1.55;margin:0 0 3mm;color:#333a42}
 .nums{display:grid;grid-template-columns:repeat(3,1fr);gap:3mm;margin:3mm 0 5mm}.nums div{border-top:1mm solid var(--or);padding-top:2mm}
+.nums.many{gap:2.5mm 3mm;margin:2mm 0 4mm}.nums.many b{font-size:12.5pt}.nums.many span{font-size:6.2pt}.nums.many div{padding-top:1.5mm}
 .nums b{display:block;font-size:16pt;font-weight:900;line-height:1.1}.nums span{font-size:6.8pt;color:var(--mut);font-weight:600}
 .adv{display:grid;grid-template-columns:1fr 1fr;gap:3mm}.adv div{background:#faf6ee;border-radius:2mm;padding:3mm;font-size:7.4pt;line-height:1.35}.adv b{display:block;font-size:8pt;margin-bottom:.6mm}
 .svc{display:flex;flex-wrap:wrap;gap:2mm;margin-top:4mm}.svc span{font-size:7pt;font-weight:700;border:1px solid var(--or);border-radius:10mm;padding:1.2mm 3mm}
@@ -198,7 +196,7 @@
   <div class="kv"><small class="up">Руководитель</small>${esc(co.head)}</div>
   <div class="kv"><small class="up">Банковские реквизиты</small>${co.bank.map(esc).join("<br>")}</div></div>
   <div class="A2"><div class="kick up">О компании</div><h2>${esc(co.title)}</h2>${co.about.map(p=>`<p>${esc(p)}</p>`).join("")}
-  <div class="osd up" style="margin:3mm 0 0">По программе на ${esc(co.date)}</div><div class="nums">${totals(objects).map(([b,s])=>`<div><b>${esc(b)}</b><span>${esc(s)}</span></div>`).join("")}</div>
+  <div class="osd up" style="margin:3mm 0 0">По программе на ${esc(co.date)}</div><div class="nums${totals(objects).length>6?" many":""}">${totals(objects).map(([b,s])=>`<div><b>${esc(b)}</b><span>${esc(s)}</span></div>`).join("")}</div>
   <div class="adv">${co.adv.map(([b,s])=>`<div><b>${esc(b)}</b>${esc(s)}</div>`).join("")}</div>
   <div class="svc">${co.services.map(s=>`<span>${esc(s)}</span>`).join("")}</div>
   <div class="slogan">${esc(co.slogan[0])}<br><i>${esc(co.slogan[1])}</i></div></div>
