@@ -1187,11 +1187,12 @@ function createMontage({database,documents,drafts,renderer,engine,knowledge=null
  // count, mass, sheets) and the pieces of the PDF sheets — where it is drawn on the montage scheme and its own view
  // on an assembly sheet. Pieces are rendered locally and kept while the program runs.
  const cards=new Map();
- async function elementCard(id,{key="",mark="",volume=""}={}){
+ async function elementCard(id,{key="",mark="",volume="",file="",sheet="",pos="",ft="",kind=""}={}){
   const oid=object(id),row=lastDraft(oid);
   if(!row)return{mark,catalog:null,crops:[],note:"Анализ чертежей ещё не выполнялся"};
-  const data=row.data||{},cacheKey=oid+"|"+row.id+"|"+key+"|"+normMark(mark)+"|"+volume;
+  const data=row.data||{},cacheKey=oid+"|"+row.id+"|"+key+"|"+normMark(mark)+"|"+volume+"|"+file+"|"+sheet+"|"+pos+"|"+ft+"|"+kind;
   if(cards.has(cacheKey))return cards.get(cacheKey);
+  if(ft==="panel"||ft==="trim"){const card=await arCard(oid,row,{mark,file,sheet,pos,ft,kind});if(card.crops.every(c=>!c.error))cards.set(cacheKey,card);return card}
   const pages=data.pages||[],nm=normMark(mark);
   let catalog=null;
   try{
@@ -1234,6 +1235,44 @@ function createMontage({database,documents,drafts,renderer,engine,knowledge=null
   }
   const card={mark,catalog,crops,analyzedAt:row.data?.analyzedAt||row.created_at||""};
   if(crops.every(c=>!c.error))cards.set(cacheKey,card);
+  return card
+ }
+ // A panel or a trim of the АР in its card (the engineer, 20.11.2026: «почему не показывает на чертеже где», Пк-7 of АР
+ // ч.2 л.11): the piece of its own sheet with every label of its mark ringed — the panel's layout, the trim's node — and
+ // its row of the specification of the АР: size, area, count for a panel; position, name, developed width for a trim.
+ // Nothing found — nothing shown (no empty «Сведений о марке нет»).
+ async function arCard(oid,row,{mark="",file="",sheet="",pos="",ft="",kind=""}){
+  const pages=row.data?.pages||[],flat=t=>String(t||"").toLowerCase().replace(/ё/gu,"е").replace(/[\s\-‐‑–—.]+/gu,"");
+  const nm=flat(mark),posN=String(pos||"").trim(),card={mark,ar:true,catalog:null,spec:null,crops:[]};
+  // (the row of the specification: the first table of the АР that has it)
+  for(const p of pages){const a=p.ar;if(!a)continue;
+   if(ft==="panel"&&!card.spec){const r=(a.panels||[]).find(x=>flat(x.pos)===nm);if(r){const one=r.length_mm&&r.width_mm?r.length_mm*r.width_mm/1e6:null;
+    card.spec={kind:"panel",pos:r.pos,name:r.name||"",length_mm:r.length_mm||null,width_mm:r.width_mm||null,thickness_mm:r.thickness_mm||null,ral:r.ral||"",count:r.count??null,area_m2:one!==null?Math.round(one*100)/100:null,total_m2:one!==null&&r.count?Math.round(one*r.count*100)/100:null,table:r.table||"",source:(p.sourceName||"PDF")+", лист "+String(p.sheet?.stamp?.block?.sheet||p.pdfPage||p.page)}}}
+   if(ft==="trim"&&posN&&!card.spec){const r=(a.trims||[]).find(x=>String(x.pos)===posN);if(r){const nmT=(a.trimNames||[]).find(x=>String(x.pos)===posN);
+    card.spec={kind:"trim",pos:r.pos,name:r.name||nmT?.name||"",developed_mm:r.developed_mm??r.width_mm??null,length_m:r.length_m??null,count:r.count??null,ral:r.ral||"",source:(p.sourceName||"PDF")+", лист "+String(p.sheet?.stamp?.block?.sheet||p.pdfPage||p.page)}}}}
+  // (the sheet of the element — its file and sheet; for a trim the node of its position)
+  const sh=String(sheet||"").trim(),fn=flat(file);
+  let page=pages.find(p=>p.documentId&&!p.turn&&(!fn||flat(p.sourceName)===fn)&&sh&&(String(p.sheet?.stamp?.block?.sheet||"").trim()===sh||!p.sheet?.stamp?.block?.sheet&&String(p.pdfPage||p.page)===sh));
+  const shots=[];
+  if(page){const W=Number(page.widthPt)||0,H=Number(page.heightPt)||0;
+   const jm=String(mark||"").toLowerCase().replace(/ё/gu,"е").replace(/(\p{L})\s*[-‐‑–—]?\s*(?=\d)/gu,"$1").trim(),re=jm?new RegExp("(^|[^0-9a-zа-я])"+jm.replace(/[.*+?^${}()|[\]\\]/g,"\\$&")+"(?![0-9]|\\.\\d)","u"):null;
+   const joined=t=>String(t||"").toLowerCase().replace(/ё/gu,"е").replace(/(\p{L})\s*[-‐‑–—]?\s*(?=\d)/gu,"$1");
+   const at=(page.context?.blocks||[]).filter(b=>re&&re.test(joined(b.text))&&Number.isFinite(b.x)&&Number.isFinite(b.y)).map(b=>({x:b.x,y:b.y}));
+   if(W&&H&&at.length){
+    // (around the labels: all of them when they are near, else the first and those near it — at least a sixth of the sheet)
+    const R=Math.max(W,H)*.09,near=at.filter(q=>Math.hypot(q.x-at[0].x,q.y-at[0].y)<Math.max(W,H)*.35);
+    let x0=Math.min(...near.map(q=>q.x))-R*1.4,x1=Math.max(...near.map(q=>q.x))+R*1.4,y0=Math.min(...near.map(q=>q.y))-R,y1=Math.max(...near.map(q=>q.y))+R;
+    const cl=v=>Math.max(0,Math.min(1,v)),region={x:cl(x0/W),y:cl(y0/H)};region.width=cl(x1/W)-region.x;region.height=cl(y1/H)-region.y;
+    if(region.width>=.02&&region.height>=.02)shots.push({title:(ft==="trim"?"Где стоит на листе · ":"Раскладка · ")+mark,source:(page.sourceName||"PDF")+", лист "+(page.sheet?.stamp?.block?.sheet||page.pdfPage||page.page),p:page,region,points:near})}}
+  if(ft==="trim"&&posN){const v=kind?nodeView(oid,{sheet:"АР",title:"поз. "+posN+" ("+kind+")"}):null;if(v)shots.push({title:"Узел фасонного элемента · поз. "+posN,source:v.source,view:v})}
+  for(const s of shots.slice(0,2)){
+   try{
+    if(s.view){const r=await renderer.regionPreview(oid,s.view.documentId,s.view.page,s.view.region);card.crops.push({title:s.title,source:s.source,dataUrl:r.dataUrl,width:r.width,height:r.height});continue}
+    const W=Number(s.p.widthPt),H=Number(s.p.heightPt),rg=s.region;
+    const pts=s.points.map(q=>({x:(q.x/W-rg.x)/rg.width,y:(q.y/H-rg.y)/rg.height})).filter(q=>q.x>=0&&q.x<=1&&q.y>=0&&q.y<=1);
+    const r=await renderer.regionPreview(oid,s.p.documentId,s.p.pdfPage||s.p.page,rg);card.crops.push({title:s.title,source:s.source,dataUrl:r.dataUrl,width:r.width,height:r.height,at:pts[0]||null,ats:pts})}
+   catch(error){card.crops.push({title:s.title,source:s.source,error:String(error.message||error)})}
+  }
   return card
  }
  // When the last analysis of an object was placed and whether it took checked data (a set of the knowledge base): the

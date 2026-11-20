@@ -167,7 +167,7 @@ handle("ai-montage:journal-add",(_e,{objectId,elementId,comment,objectName,actio
  handle("ai-montage:training",(_e,{objectId}={})=>{const r=training.status(objectId);return{...r,base:base.stats?base.stats():null}});
  handle("ai-montage:confirm-scheme",(_e,{objectId,note}={})=>{const r=training.confirmScheme(objectId,{note});github.schedule("схема проверена инженером");return r});
  handle("ai-montage:scheme-snapshot",(_e,{objectId}={})=>montage.schemeSnapshot(objectId));
- handle("ai-montage:element-card",(_e,{objectId,key,mark,volume}={})=>montage.elementCard(objectId,{key,mark,volume}));
+ handle("ai-montage:element-card",(_e,{objectId,key,mark,volume,file,sheet,pos,ft,kind}={})=>montage.elementCard(objectId,{key,mark,volume,file,sheet,pos,ft,kind}));
  // What the program learned from the engineer: structure types of marks, notes (src/ai-knowledge.js).
  handle("ai-knowledge:list",()=>knowledge.list());
  handle("ai-knowledge:types",()=>{knowledge.list();const ST=require("./ai-structure-types");return ST.TYPES.map(t=>({key:t.key,name:t.name,group:t.group,groupName:ST.group(t.group).label,user:Boolean(t.user)}))});
