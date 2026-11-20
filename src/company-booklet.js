@@ -227,7 +227,7 @@
   const seq=pics>=3?[1,3,5,2,4,6]:[1,3,5,2,6];return seq[i%seq.length]};
  function textCol(o,max,co){const name=String(o.name||"Объект"),ws=worksOf(o),p=doneOf(o);
   return`<h1 class="ttl up${titleCls(name)}">${esc(name)}</h1>${o.customer?`<div class="sub up">${esc(o.customer)}</div>`:""}
-  <div class="wks">${wkRows(ws.slice(0,o.summary?max-3:max))}</div>${o.summary?`<div class="sum">${sumHtml(o.summary)}</div>`:""}
+  <div class="wks">${wkRows(ws.slice(0,max))}</div>${o.summary?`<div class="sum">${sumHtml(o.summary)}</div>`:""}
   ${statsOf(o,co)}<div class="badges">${ringOf(p)}${docOf()}</div>`}
  function placeOf(o,co){const place=String(o.address||"").trim();
   return`${yearOf(o)}${place?`<h4 class="up">Место выполнения</h4><p>${esc(place)}</p>`:""}<div class="contact">${esc(co.contactMail)}<br>WhatsApp ${esc(co.whatsapp)}</div>`}
@@ -304,10 +304,29 @@ ${aboutPage(list,co,logo)}${list.map((o,i)=>objectPage(o,co,logo,i)).join("")}</
    for(const f of files){const s=await read(f);if(s)pictures.push(await small(s,pictures.length?1400:2800))}
    objects.push({...o,pictures})
   }
-  const html=build(objects,{logo,company:profile?.name?{name:profile.name}:{}});
+  const opts={logo,company:profile?.name?{name:profile.name}:{}};
+  await dropTooLong(objects,opts);
+  const html=build(objects,opts);
   const name="Буклет "+String(profile?.name||COMPANY.name).replace(/[«»"]/g,"")+" "+new Date().toLocaleDateString("ru-RU");
   return root.irProject.ai.invoke("ai-documents:exec-export",{format:"pdf",name,html})
  }
- const api={build,make,totals,doneOf,parties,COMPANY,LAYOUTS,layoutOf,thumb,read,pickDefault};
+ // краткая характеристика — только если вмещается на лист вместе со всеми видами работ, иначе её нет (инженер
+ // 20.11.2026 «там где есть краткая характеристика и она не вмещается, то не выкладывай»). Лист печатается окном без
+ // скриптов, поэтому мерим здесь: тот же HTML (без фото — на размеры они не влияют) в скрытой рамке.
+ const overflows=el=>el&&el.scrollHeight>el.clientHeight+1;
+ function tooLong(page){return[".wks",".sum",".sm",".in",".hd"].some(q=>[...page.querySelectorAll(q)].some(overflows))}
+ async function dropTooLong(objects,opts){
+  const doc=root.document;if(!doc||!objects.some(o=>o.summary))return;
+  const fr=doc.createElement("iframe");fr.setAttribute("aria-hidden","true");
+  fr.style.cssText="position:fixed;left:-10000px;top:0;width:297mm;height:210mm;border:0;visibility:hidden";
+  try{
+   await new Promise(ok=>{fr.onload=ok;fr.srcdoc=build(objects.map(o=>({...o,pictures:(o.pictures||[]).map(()=>"")})),opts);doc.body.appendChild(fr);setTimeout(ok,8000)});
+   const d=fr.contentDocument;if(!d)return;
+   await Promise.race([d.fonts?.ready,new Promise(ok=>setTimeout(ok,4000))]);
+   const pages=[...d.querySelectorAll("section.page")].slice(1);
+   pages.forEach((pg,i)=>{if(objects[i]?.summary&&tooLong(pg))objects[i]={...objects[i],summary:""}})
+  }catch(_){}finally{fr.remove()}
+ }
+ const api={dropTooLong,build,make,totals,doneOf,parties,COMPANY,LAYOUTS,layoutOf,thumb,read,pickDefault};
  if(typeof module!=="undefined"&&module.exports)module.exports=api;else root.irBooklet=api;
 })(typeof window!=="undefined"?window:globalThis);
