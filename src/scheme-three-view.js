@@ -16559,7 +16559,9 @@ X.all.forEach(function(f){var u=f.o.userData||{},c=dataById.get(f.id);if(f.o===o
    var chan=null;
    // (a page hidden draws no frames: its steps go on by messages, not by frames)
    var pause=function(fn){
-    if(!document.hidden&&window.requestAnimationFrame){requestAnimationFrame(function(){setTimeout(fn,0)});return}
+    // (and an open window covered by others or behind the program: frames there come once a second, the scheme built in the
+    // background took several times longer — the engineer 20.11.2026 «в фоном режиме монтажная схема долго грузится»;
+    // messages are not slowed, the bar is drawn between them all the same)
     if(!chan&&window.MessageChannel)chan=new MessageChannel();
     if(chan){chan.port1.onmessage=function(){fn()};chan.port2.postMessage(0)}else setTimeout(fn,0)
    };

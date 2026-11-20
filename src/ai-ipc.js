@@ -145,7 +145,7 @@ function registerAll({ipcMain,getUserDataPath,safeStorage,netFetch,dialog:native
   const icon=path.join(dir,"assets","icon.ico"),id=Date.now().toString(36)+Math.random().toString(36).slice(2,6);
   const w=new BrowserWindow({width:1280,height:820,icon:fs.existsSync(icon)?icon:undefined,autoHideMenuBar:true,titleBarStyle:"hidden",
    titleBarOverlay:{color:"#f7f7f7",symbolColor:"#1f2937",height:38},
-   webPreferences:{preload:path.join(dir,"preload.js"),contextIsolation:true,nodeIntegration:false,spellcheck:false}});
+   webPreferences:{preload:path.join(dir,"preload.js"),contextIsolation:true,nodeIntegration:false,spellcheck:false,backgroundThrottling:false}});
   try{w.setMenuBarVisibility(false)}catch{}
   w.loadURL("irapp://app/src/tabs-shell.html?detached="+encodeURIComponent(id)+"&own=1#"+r);
   ownWindows.set(r,w);w.on("closed",()=>{if(ownWindows.get(r)===w)ownWindows.delete(r)});
