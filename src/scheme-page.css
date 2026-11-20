@@ -680,3 +680,19 @@
 .scheme-toolbar-actions>.scheme-background-toggle[aria-pressed="true"]{background:#26394b;border-color:#26394b;color:#ffd666}
 .scheme-lock-button.on{border-color:#e7b65c;background:#fff8ea;color:#8a5a00}.scheme-lock-banner{display:flex;flex-wrap:wrap;align-items:baseline;gap:4px 10px;margin:0 0 10px;padding:9px 12px;border:1px solid #ecd29a;border-radius:9px;background:#fffaf0;color:#6d4c06;font-size:9px}.scheme-lock-banner b{font-size:10px}.scheme-lock-banner span{color:#8a6a2a}.scheme-lock-banner small{flex-basis:100%;color:#8f7a50;font-size:8px}
 html[data-theme="dark"] .scheme-lock-button.on,body.dark .scheme-lock-button.on{background:#3a2f17;border-color:#7a6230;color:#f0c977}html[data-theme="dark"] .scheme-lock-banner,body.dark .scheme-lock-banner{background:#2d2717;border-color:#6b5628;color:#f0d49a}
+/* The engineer's fix of a piece of a trim in the card (20.11.2026) and the form in plain words */
+.scheme-trim-fix{margin:10px 0;padding:10px;border:1px solid var(--line,#d6dbe3);border-radius:8px;display:grid;gap:6px}
+.scheme-trim-fix small{color:var(--muted,#667085);line-height:1.35}
+.scheme-trim-fix-row{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}
+.scheme-trim-fix-row label{display:grid;gap:2px;font-size:12px}
+.scheme-trim-fix-row input{width:100%;box-sizing:border-box}
+.scheme-trim-fix-state{font-size:12px;color:var(--muted,#667085)}
+.scheme-simple{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;padding:10px;border:1px solid var(--line,#d6dbe3);border-radius:8px}
+.scheme-simple>b,.scheme-simple>.scheme-simple-where{grid-column:1/-1}
+.scheme-simple-where{font-size:13px;line-height:1.4}
+.scheme-simple label{display:grid;gap:2px}
+.scheme-exact>summary{cursor:pointer;font-weight:600;margin:4px 0}
+.scheme-exact[open]>.scheme-exact-body{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.scheme-exact-body>.wide{grid-column:1/-1}
+.scheme-trim-drag{display:flex;gap:6px;align-items:center;flex-wrap:wrap;font-size:12px}
+.scheme-trim-drag button.on{background:var(--accent,#2563eb);color:#fff;border-color:transparent}

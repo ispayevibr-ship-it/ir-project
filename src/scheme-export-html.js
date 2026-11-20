@@ -200,7 +200,7 @@
    var els=shown();
    window.irThreeSchemeView.render($("stage3d"),{objectId:"export:"+D.objectId,axesX:D.axesX,axesY:D.axesY,spanX:D.spanX,spanY:D.spanY,gridDirX:D.gridDirX,gridDirY:D.gridDirY,
     gridX:D.gridX,gridY:D.gridY,elements:els,selected:S.sel,maxZ:els.reduce(function(m,c){return Math.max(m,c.z0,c.z2,c.mz||0)},0),
-    colorMode:S.color,showLabels:S.labels,showDimensions:S.dims,background:S.bg,canEdit:false,marks:[],report:true,company:D.company||null,nodeCrops:D.nodeCrops||null,specs:D.specs||[],works:D.works||[],work:D.work||"",
+    colorMode:S.color,showLabels:S.labels,showDimensions:S.dims,background:S.bg,canEdit:false,marks:[],report:true,company:D.company||null,nodeCrops:D.nodeCrops||null,specs:D.specs||[],trimFixes:Array.isArray(D.trimFixes)?D.trimFixes:[],works:D.works||[],work:D.work||"",
     onColorModeChange:function(m){S.color=m;draw3d()},onSelect:function(id){S.sel=String(id||"");details();list()},onFirstPaint:firstPaint,onProgress:building});
    $("cnt").textContent=els.length+" из "+D.elements.length
   }
@@ -343,7 +343,7 @@
    box.innerHTML='<button type="button" class="side-close" id="uncard" aria-label="Закрыть карточку">✕</button><h3>Выбранный элемент</h3>'+(c.draft?'<div class="warn">Черновое размещение из чертежей — координаты и отметки требуют проверки'+(c.draft_doc?" · "+esc(c.draft_doc):"")+'</div>':"")+
     '<div class="det-title"><b>'+esc(c.mark||"—")+'</b>'+(c.mark_name?'<small>'+esc(c.mark_name)+'</small>':"")+'</div>'+
     (instText[c.instance_status]?'<div class="'+(c.preliminary?"warn":"inst")+'">По чертежам: '+esc(instText[c.instance_status])+(c.preliminary?" · предварительно":"")+(c.source_section?" · раздел "+esc(c.source_section):"")+
-     (c.instance_reasons||[]).map(function(r){return'<br>• '+esc(r)}).join("")+'</div>':"")+
+     '</div>':"")+
     (c.param_sources?'<details class="from"><summary>Откуда данные</summary>'+[["Положение","position"],["Отметки","levels"],["Наименование","name"],["Наименование на чертеже","name_other"],["Профиль","profile"],["Габарит","size"],["Другой профиль","profile_other"]].filter(function(r){return c.param_sources[r[1]]}).map(function(r){return'<div>'+esc(r[0])+': '+esc(c.param_sources[r[1]])+'</div>'}).join("")+'</details>':"")+'<div class="grid">'+
     [["Тип элемента",c.type_name],["Сечение",c.section],["Профиль",c.profile],[p&&p.total>0?"Статус по ведомости":"Статус",'<span class="'+cls+'">'+esc(statusText[c.status]||c.status)+'</span>',1],
      ["Ось "+D.axesX[0]+"–"+D.axesX[D.axesX.length-1],a.x],["Ось "+D.axesY[0]+"–"+D.axesY[D.axesY.length-1],a.y],["Коорд. X",fmt(c.x)+" мм"],["Коорд. Y",fmt(c.y)+" мм"],

@@ -642,7 +642,9 @@ const fittingSection=c=>c.ft==="flight"||c.ft==="ladder"||c.ft==="deck"?(c.fd>0?
  function refreshAfterMemberChange(){
   if(!document.querySelector("#schemeCanvas .ir-three-root")){draw();return}
   const visible=columns();
-  renderScene();
+  // (by steps, with the bar over the 3D — the window does not stand still a minute after a saving; the engineer, 20.11.2026
+  // «после изменения программа подвисает и надо ждать около минуты»)
+  renderScene({steps:true});
   renderDetails();
   const s=stats(),mp=statusCounts();
   const summary=document.querySelector(".scheme-summary");
@@ -759,6 +761,11 @@ const fittingSection=c=>c.ft==="flight"||c.ft==="ladder"||c.ft==="deck"?(c.fd>0?
  // (already here — given to the 3D again: it was built before they came, with the empty list of then; the engineer,
  // 16.11.2026, «спецификации КМ нет» in every tab, the file on the computer)
  function specsReload(){if(specsKm?.length){window.irThreeSchemeView?.setSpecs?.(specsKm);return}if(specsBusy)return;specsBusy=true;Promise.resolve(irProject.ai?.invoke?.("ai-documents:specs-km")).then(r=>{if(Array.isArray(r)&&r.length){specsKm=r;window.irThreeSchemeView?.setSpecs?.(r)}else if(specsTry<4)setTimeout(specsReload,[2e4,6e4,18e4,6e5][specsTry++])}).catch(()=>{if(specsTry<4)setTimeout(specsReload,[2e4,6e4,18e4,6e5][specsTry++])}).finally(()=>{specsBusy=false})}
+ // ---- The engineer's fixes of trims in the card (20.11.2026 «можем сделать так чтобы фасонку я сам поправлял?»): records
+ // «scheme_trim_fix» of the scheme — the piece clicked (a point on it), taken away or its ends along its length moved (mm);
+ // his word over the rules of the 3D, kept through rebuilds, re-placements and packs of schemes, in the export and the link.
+ function trimFixRows(){return arr(rows).filter(r=>r.record_type==="scheme_trim_fix"&&r.data&&!r.data.undone).sort((a,b)=>String(a.data.at||"").localeCompare(String(b.data.at||""))||String(a.id).localeCompare(String(b.id)))}
+ function trimFixes(){return trimFixRows().map(r=>({x:num(r.data.x),y:num(r.data.y),z:num(r.data.z),action:String(r.data.action||""),ax:r.data.ax||undefined,lo:r.data.lo!==undefined?num(r.data.lo):undefined,hi:r.data.hi!==undefined?num(r.data.hi):undefined,member_id:r.data.member_id?String(r.data.member_id):undefined}))}
  function renderScene(opts){
   const box=document.getElementById("schemeCanvas");if(!box)return;
   // (the 3D is loaded when the scheme opens, not in every tab — src/lazy-modules.js)
@@ -798,7 +805,7 @@ const fittingSection=c=>c.ft==="flight"||c.ft==="ladder"||c.ft==="deck"?(c.fd>0?
    elements:members.map(c=>({...c,scheme_group:recordMarkGroup(c).key,role:recordRole(c),work:recordWorkId(c)||(frameMode?"":String(activeWorkId||""))})),
    // (the work types with their names: the page «Ведомость металла» of the 3D — a tab to each, beside its specification КМ)
    works:enabledWorks().map(w=>({id:w.id,label:w.name+(w.code?" · "+w.code:"")})),
-   specs:specsKm,
+   specs:specsKm,trimFixes:trimFixes(),
    selected:selectedId,
    maxZ:members.reduce((m,c)=>Math.max(m,num(c.z0),num(c.z2),num(c.mz)),0),
    colorMode:schemeColorMode,showLabels:labelsVisible,showDimensions:dimensionsVisible,
@@ -815,6 +822,8 @@ const fittingSection=c=>c.ft==="flight"||c.ft==="ladder"||c.ft==="deck"?(c.fd>0?
    onCopyPlacement:(id,target)=>copySchemeMember(id,target),
    onCopied:id=>{selectedId=String(id||"");refreshAfterMemberChange()},
    onDelete:remove,
+   // (a piece of a trim changed in the 3D itself — saved as a fix of the card; applied:true — the 3D has laid it already)
+   onTrimFix:canEdit()?f=>{if(!canEdit()||!f)return Promise.resolve(false);const c=allRecords().find(r=>String(r.id)===String(f.member_id))||{id:f.member_id,mark:""};return trimFixSave(c,{...f,applied:true}).then(ok=>{if(String(selectedId)===String(c.id))renderDetails();return ok})}:null,
    // The model built by steps with the bar of the opening — 12 % to 98 % of it, as in the exported scheme. After the
    // opening a rebuild after a filter or a cut goes by steps too, with the same bar over the 3D (one asked for while the
    // model was still being built — as well); after an edit, at once, as before (a member placed, copied or deleted is
@@ -867,7 +876,7 @@ const fittingSection=c=>c.ft==="flight"||c.ft==="ladder"||c.ft==="deck"?(c.fd>0?
   let specs=[];try{const all=await irProject.ai?.invoke?.("ai-documents:specs-km"),nc=v=>String(v||"").replace(/\s+/g,"").replace(/[.\-–_]/g,"").toUpperCase(),labs=[...workCounts.values()].map(w=>nc(w.label));
    // (all of them: the 3D finds the one of each work type — by the code in its name, the files or the volume of its sheets)
    specs=Array.isArray(all)?all:[];void labs}catch(_error){specs=[]}
-  return{objectId:oid,nodeCrops,specs,object:{name:String(object.name||object.title||""),short:String(object.short_name||""),address:String(object.address||"")},title:activeGroup()?.label||"Все",
+  return{objectId:oid,nodeCrops,specs,trimFixes:trimFixes(),object:{name:String(object.name||object.title||""),short:String(object.short_name||""),address:String(object.address||"")},title:activeGroup()?.label||"Все",
     axesX:[...axesX],axesY:[...axesY],spanX,spanY,gridDirX,gridDirY,gridX:Object.fromEntries(axisXPos),gridY:Object.fromEntries(axisYPos),background:currentBackground(),
     elements:list,groups:[...counts.values()].sort((a,b)=>b.count-a.count),summary:statusCounts(),
     work:frameMode?(workCounts.size>1?"Все виды работ":""):currentWork?currentWork.name+(currentWork.code?" · "+currentWork.code:""):"",works:frameMode&&workCounts.size>1?[...workCounts.values()].sort((a,b)=>b.count-a.count):[]}
@@ -1164,6 +1173,29 @@ const fittingSection=c=>c.ft==="flight"||c.ft==="ladder"||c.ft==="deck"?(c.fd>0?
   const rows=Array.isArray(c.parts?.rows)?c.parts.rows:[];
   return rows.length&&rows.every(r=>num(r.mass_kg)>0&&num(r.count)>0)?Math.round(rows.reduce((a,r)=>a+num(r.mass_kg)*num(r.count),0)*10)/10:null
  }
+ // (one fix saved — from the card or from the 3D itself (onTrimFix: a piece pulled by the mouse) — and laid on the model at once)
+ async function trimFixSave(c,data){const V=window.irThreeSchemeView;
+  const f={x:data.x,y:data.y,z:data.z,action:data.action,ax:data.ax,lo:data.lo,hi:data.hi,member_id:String(c.id),stop:data.stop};
+  // (laid on the model first — the end stops at a trim or a roof on its way, «сквозь нельзя» —, then saved as it came out)
+  const ok=data.applied?true:V?.trimFix?.(f,null);const d={...data,lo:f.lo,hi:f.hi,stop:f.stop||undefined};delete d.applied;for(const k of Object.keys(d))if(d[k]===undefined)delete d[k];
+  const rec={record_type:"scheme_trim_fix",title:"Правка фасонного "+String(c.mark||""),data:{...d,member_id:String(c.id),mark:String(c.mark||""),at:new Date().toISOString()}};
+  const saved=await schemeApi.create(rec);rows=[...arr(rows),saved?.id!=null?saved:{...rec,id:"tmp"+Date.now()}];V?.trimFix?.(null,trimFixes());
+  journalAuto(c.id,"edited",{comment:"Правка фасонного куска: "+(d.action==="hide"?"убран":"концы "+d.lo+"…"+d.hi+" мм")+(d.stop?", упёрлась в «"+d.stop+"», сквозь нельзя":"")}).catch(()=>{});
+  return ok===false?false:{stop:d.stop||""}}
+ function bindTrimFix(panel,c,pk,fixedHere){
+  const st=panel.querySelector("[data-trim-state]"),lo=panel.querySelector("[data-trim-lo]"),hi=panel.querySelector("[data-trim-hi]"),len=panel.querySelector("[data-trim-len]"),V=window.irThreeSchemeView;
+  if(lo&&hi&&len){lo.oninput=()=>{len.value=String(Math.round(num(hi.value)-num(lo.value)))};hi.oninput=lo.oninput;len.oninput=()=>{hi.value=String(Math.round(num(lo.value)+num(len.value)))}}
+  const save=async(data,btn)=>{if(btn)btn.disabled=true;if(st)st.textContent="Сохраняется…";
+   try{const ok=await trimFixSave(c,data);if(st)st.textContent=ok===false?"Сохранено; кусок не найден на модели — правка придёт при следующей перестройке.":ok?.stop?"Готово, конец упёрся в «"+ok.stop+"» — сквозь нельзя.":"Готово — на модели и в выгрузке.";setTimeout(()=>{if(String(selectedId)===String(c.id))renderDetails()},400)}
+   catch(error){if(st)st.textContent="Не сохранено: "+String(error?.message||error)}finally{if(btn)btn.disabled=false}};
+  panel.querySelector("[data-trim-apply]")?.addEventListener("click",e=>{const a=num(lo.value),b=num(hi.value);if(!(b-a>5)){if(st)st.textContent="Конец должен быть дальше начала больше чем на 5 мм.";return}save({x:pk.x,y:pk.y,z:pk.z,action:"ends",ax:pk.ax,lo:Math.round(a),hi:Math.round(b)},e.currentTarget)});
+  panel.querySelectorAll("[data-trim-mode]").forEach(btn=>btn.addEventListener("click",()=>{V?.setDragWhole?.(btn.dataset.trimMode==="whole");panel.querySelectorAll("[data-trim-mode]").forEach(x=>x.classList.toggle("on",x===btn))}));
+  panel.querySelector("[data-trim-hide]")?.addEventListener("click",e=>save({x:pk.x,y:pk.y,z:pk.z,action:"hide"},e.currentTarget));
+  // (back: the fixes of this element marked undone — kept for the journal —, the model built again by steps)
+  const undo=async(list,btn)=>{if(btn)btn.disabled=true;try{for(const r of list){await schemeApi.update(r.id,{record_type:"scheme_trim_fix",title:r.title,data:{...r.data,undone:new Date().toISOString()}});r.data={...r.data,undone:true}}refreshAfterMemberChange()}catch(error){if(st)st.textContent="Не вернулось: "+String(error?.message||error)}finally{if(btn)btn.disabled=false}};
+  panel.querySelector("[data-trim-undo-last]")?.addEventListener("click",e=>undo(fixedHere.slice(-1),e.currentTarget));
+  panel.querySelector("[data-trim-undo]")?.addEventListener("click",e=>undo(fixedHere,e.currentTarget))
+ }
  function renderDetails(){
   const panel=document.getElementById("schemeDetails");if(!panel)return;const c=selected();
   if(!c){panel.innerHTML=sideToggleHtml()+pickerHtml()+`<div class="scheme-detail-empty"><b>Элемент не выбран</b><span>Нажмите на элемент на схеме или добавьте новый.</span>${canEdit()?'<button type="button" data-scheme-add>＋ Добавить элемент</button>':""}</div>`;panel.querySelector("[data-scheme-add]")?.addEventListener("click",()=>window.irThreeSchemeView?.startPlacement?.()??openEditor());bindElementPicker(panel);return}
@@ -1183,6 +1215,12 @@ const fittingSection=c=>c.ft==="flight"||c.ft==="ladder"||c.ft==="deck"?(c.fd>0?
   // (all of the mark at once, beside «✓ Все» — the engineer, 03.11.2026: «и удалить все? если есть подтвердить все»)
   const allOfMark=String(c.mark||"")?records().filter(r=>String(r.mark||"")===String(c.mark)):[];
   const actionsHtml=canEdit()?`<div class="scheme-detail-actions">${confirmHtml}<button type="button" data-scheme-edit>Редактировать</button><button type="button" data-scheme-copy-place>⧉ Размещение</button><button type="button" data-scheme-copy>⧉ Копировать позицию</button><button type="button" class="danger" data-scheme-delete>Удалить</button>${allOfMark.length>1?`<button type="button" class="danger" data-scheme-delete-mark title="Удалить со схемы все элементы марки ${esc(c.mark)}">Удалить все ${esc(c.mark)} (${allOfMark.length})</button>`:""}</div>${irProject.ai?.invoke?`<div class="scheme-journal-send"><input type="text" data-scheme-journal-note maxlength="500" placeholder="Комментарий к правке (необязательно)"><button type="button" data-scheme-journal title="Правки и расстановка записываются в журнал сами; кнопка добавляет к элементу ваш комментарий. Журнал уходит на GitHub каждый час">В журнал</button><small data-scheme-journal-state>${journalSent.has(String(c.id))?"В журнале: "+esc(journalSent.get(String(c.id))):""}</small></div>`:""}`:"";
+  // (the piece of a trim clicked — its ends in mm, «убрать», «вернуть»: trimFixRows; at once on the model, no rebuilding)
+  const pick=canEdit()?window.irThreeSchemeView?.pickInfo?.():null,pk=pick&&pick.trim&&String(pick.id)===String(c.id)&&pick.lo!=null?pick:null,fixedHere=trimFixRows().filter(r=>String(r.data.member_id||"")===String(c.id));
+  const axWord={z:["Низ куска, мм","Верх куска, мм","по высоте"],x:["Начало куска, мм","Конец куска, мм","вдоль цифровых осей"],y:["Начало куска, мм","Конец куска, мм","вдоль буквенных осей"]};
+  const trimHtml=canEdit()&&(pk||fixedHere.length)?`<div class="scheme-trim-fix"><b>Фасонный кусок под щелчком${pk?" · "+(pk.built?"построен программой":"из чертежа"):""}</b>${pk?`<div class="scheme-trim-drag"><span>Тянуть мышью за конец:</span><button type="button" data-trim-mode="piece" class="${window.irThreeSchemeView?.dragWhole?.()?"":"on"}">Одну полку</button><button type="button" data-trim-mode="whole" class="${window.irThreeSchemeView?.dragWhole?.()?"on":""}">Весь элемент</button></div><small>Нажмите на кусок ближе к концу и тяните — конец двигается по 10 мм, другой стоит на месте.</small><small>Кусок ${esc(axWord[pk.ax][2])}: сейчас ${fmt(pk.lo)} … ${fmt(pk.hi)} мм, длина ${fmt(pk.hi-pk.lo)} мм. Измените концы — кусок вытянется или укоротится сразу; другие куски этого элемента не меняются. Ваша правка главнее правил схемы и не сбрасывается при обновлении.</small>
+    <div class="scheme-trim-fix-row"><label>${esc(axWord[pk.ax][0])}<input data-trim-lo inputmode="decimal" value="${pk.lo}"></label><label>${esc(axWord[pk.ax][1])}<input data-trim-hi inputmode="decimal" value="${pk.hi}"></label><label>Длина, мм<input data-trim-len inputmode="decimal" value="${pk.hi-pk.lo}"></label></div>
+    <div class="scheme-detail-actions"><button type="button" class="ok" data-trim-apply>Применить</button><button type="button" class="danger" data-trim-hide>Убрать этот кусок</button></div>`:""}${fixedHere.length?`<div class="scheme-detail-actions"><button type="button" data-trim-undo-last>↶ Отменить последнюю правку</button><button type="button" data-trim-undo>Вернуть как строит программа (${fixedHere.length})</button></div>`:""}<span class="scheme-trim-fix-state" data-trim-state></span></div>`:"";
   // The card in plain words, by the drawings (src/scheme-element-card.js): what it is, its section, where it stands, what
   // the drawings say of it; the exact coordinates folded away. The tiles of before only when the module is not loaded.
   const EC=window.irSchemeElementCard;
@@ -1205,10 +1243,10 @@ const fittingSection=c=>c.ft==="flight"||c.ft==="ladder"||c.ft==="deck"?(c.fd>0?
    Object.assign(e,{status_date:day.date,status_more:day.more,sheet:sheetOfRecord(c),mass_kmd:markMass(c,linked),model:V?.card?.(c.id)||null,
     spec:Array.isArray(c.parts?.rows)?c.parts:null,kgm:t=>V?.massPerMetre?.(t,c.profile_standard)??null});
    panel.innerHTML=sideToggleHtml()+pickerHtml()+`<div class="ec-card"><div class="scheme-detail-title"><span>Выбранный элемент</span></div>${EC.head(e)}${EC.facts(e)}${EC.nodes(e)}${EC.tools(e)}${EC.parts(e)}${EC.traits(e,grid)}${EC.drawings(e)}<div class="ec-mark-host"></div>
-    ${progressHtml}${fastenersHtml(c)}${drillHtml(c)}${cutsHtml(c)}${platesHtml(c)}${EC.coords(e)}</div>${actionsHtml}`;
+    ${progressHtml}${fastenersHtml(c)}${drillHtml(c)}${cutsHtml(c)}${platesHtml(c)}${EC.coords(e)}</div>${trimHtml}${actionsHtml}`;
    EC.bind(panel,String(c.id));
   }else
-  panel.innerHTML=sideToggleHtml()+pickerHtml()+`${c.check_note?`<div class="scheme-check-note"><small>Проверьте: ${esc(String(c.check_note).replace(/\s*—?\s*проверьте\.?/giu,""))}</small></div>`:""}<div class="scheme-detail-title"><span>Выбранный элемент</span><b>${esc(c.mark||"—")}</b>${name?`<small>${esc(name)}</small>`:""}</div>${instanceHtml(c)}
+  panel.innerHTML=sideToggleHtml()+pickerHtml()+`<div class="scheme-detail-title"><span>Выбранный элемент</span><b>${esc(c.mark||"—")}</b>${name?`<small>${esc(name)}</small>`:""}</div>${instanceHtml(c)}
    <div class="scheme-detail-grid">
     <div><span>Наименование</span><b>${esc(name||"—")}</b></div>
     <div><span>Тип элемента</span><b>${esc(c.type_name||FITTING_LABEL[c.ft]||geometryLabel(c.geometryType))}</b></div><div><span>Сечение</span><b>${esc(sectionShown(c))}</b></div>
@@ -1226,8 +1264,9 @@ const fittingSection=c=>c.ft==="flight"||c.ft==="ladder"||c.ft==="deck"?(c.fd>0?
    ${progressHtml}
    ${fastenersHtml(c)}${drillHtml(c)}${cutsHtml(c)}${platesHtml(c)}${partsHtml(c)}
    ${between?`<div class="scheme-between"><b>Элемент между осями</b><span>${esc(a.x)} / ${esc(a.y)}</span><small>Положение вычисляется от выбранных базовых осей и сохраняется точно в миллиметрах.</small></div>`:""}
-   ${actionsHtml}`;
+   ${trimHtml}${actionsHtml}`;
   loadMarkCard(panel,c);
+  bindTrimFix(panel,c,pk,fixedHere);
   // The journal of edits: the element as it is now, what the program placed and the comment (src/ai-training.js).
   panel.querySelector("[data-scheme-journal]")?.addEventListener("click",async e=>{
    const btn=e.currentTarget,state=panel.querySelector("[data-scheme-journal-state]"),note=panel.querySelector("[data-scheme-journal-note]");btn.disabled=true;
@@ -1347,6 +1386,13 @@ const fittingSection=c=>c.ft==="flight"||c.ft==="ladder"||c.ft==="deck"?(c.fd>0?
     <label>Геометрия элемента<select name="geometry_type" id="schemeGeometryType">${geometryOptions("column")}</select></label>
     <label>Тип сечения<select name="section_type">${sectionOptions("ibeam")}</select></label>
     <label class="wide">Профиль / обозначение<input name="profile_name" placeholder="Например: 40К2, 300×300×10, Ø273×8"></label>
+    <div class="scheme-simple wide" id="schemeSimple"><b>Положение и размеры</b><div class="scheme-simple-where" id="schemeSimpleWhere"></div>
+     <label>Длина, мм<input name="len_mm" inputmode="decimal" title="Меняет конец элемента, начало остаётся на месте"></label>
+     <label>Низ (отметка начала), мм<input name="z0_mm" inputmode="decimal" value="0"></label>
+     <label>Верх (отметка конца), мм<input name="z1_mm" inputmode="decimal" value="8400"></label>
+     <small class="wide">Оранжевая линия на схеме показывает элемент так, как он будет сохранён.</small>
+    </div>
+    <details class="wide scheme-exact" id="schemeExact"><summary>Где стоит: оси и смещения (точные координаты)</summary><div class="scheme-exact-body">
     <div class="scheme-form-axis"><b>Направление ${esc(axesX[0])}–${esc(axesX.at(-1))}</b><label>Базовая ось<select name="axis_x">${axisOptions(axesX,axesX[0])}</select></label><label>Смещение, мм<input name="offset_x_mm" inputmode="decimal" value="0"></label></div>
     <div class="scheme-form-axis"><b>Направление ${esc(axesY[0])}–${esc(axesY.at(-1))}</b><label>Базовая ось<select name="axis_y">${axisOptions(axesY,axesY[0])}</select></label><label>Смещение, мм<input name="offset_y_mm" inputmode="decimal" value="0"></label></div>
     <div class="scheme-member-end wide" id="schemeMemberEnd" hidden><b>Конец элемента — вторая точка для балки, связи или фермы</b>
@@ -1366,10 +1412,9 @@ const fittingSection=c=>c.ft==="flight"||c.ft==="ladder"||c.ft==="deck"?(c.fd>0?
      <div class="scheme-ridge-note" id="schemeRidgeNote">X/Y конька рассчитываются автоматически точно посередине между началом и концом. Смещения вручную не требуются.</div>
      <label>Отметка конька Z, мм<input name="mid_z_mm" inputmode="decimal" value="10000"></label>
     </div>
-    <label>Отметка низа / начала, мм<input name="z0_mm" inputmode="decimal" value="0"></label>
-    <label>Отметка верха / конца, мм<input name="z1_mm" inputmode="decimal" value="8400"></label>
     <label>Поворот, °<input name="rotation_deg" inputmode="decimal" value="0"></label>
     <div class="scheme-coordinate-preview wide" id="schemeCoordPreview"></div>
+    </div></details>
    </div>
    <div class="scheme-form-error" id="schemeFormError" hidden></div>
    <div class="actions"><button type="button" id="schemeEditorCancel">Отмена</button><button type="submit" class="primary">Сохранить элемент</button></div>
@@ -1507,6 +1552,14 @@ const fittingSection=c=>c.ft==="flight"||c.ft==="ladder"||c.ft==="deck"?(c.fd>0?
    mx=centered?(x+endX)/2:num(editorGrid.xPos.get(f.elements.mid_axis_x.value))+num(f.elements.mid_offset_x_mm.value),
    my=centered?(y+endY)/2:num(editorGrid.yPos.get(f.elements.mid_axis_y.value))+num(f.elements.mid_offset_y_mm.value),
    length=bent?Math.hypot(mx-x,my-y,num(f.elements.mid_z_mm.value)-num(f.elements.z0_mm.value))+Math.hypot(endX-mx,endY-my,num(f.elements.z1_mm.value)-num(f.elements.mid_z_mm.value)):0;
+   {const z0=num(f.elements.z0_mm.value),z1=num(f.elements.z1_mm.value),kind=f.elements.geometry_type.value,col=kind==="column",AXN=window.irSchemeElementCard?.axName||String,
+     sg=v=>v?(v>0?" + ":" − ")+fmt(Math.abs(v))+" мм":"",dx=endX-x,dy=endY-y,L=col?z1-z0:bent?length:Math.hypot(dx,dy,z1-z0),
+     dirW=col?"вертикально":!member?"точкой":Math.abs(dy)<1&&Math.abs(z1-z0)<1?"вдоль осей "+AXN(editorGrid.axesX[0])+"–"+AXN(editorGrid.axesX.at(-1)):Math.abs(dx)<1&&Math.abs(z1-z0)<1?"вдоль осей "+AXN(editorGrid.axesY[0])+"–"+AXN(editorGrid.axesY.at(-1)):Math.hypot(dx,dy)<1?"вертикально":"наклонно";
+    const from="ось "+AXN(ax)+sg(num(f.elements.offset_x_mm.value))+" / ось "+AXN(ay)+sg(num(f.elements.offset_y_mm.value)),to="ось "+AXN(f.elements.end_axis_x.value)+sg(num(f.elements.end_offset_x_mm.value))+" / ось "+AXN(f.elements.end_axis_y.value)+sg(num(f.elements.end_offset_y_mm.value));
+    const w=document.getElementById("schemeSimpleWhere");if(w)w.innerHTML=`<div>Направление: <b>${esc(dirW)}</b></div><div>${col||!member?"Стоит":"Начало"}: <b>${esc(from)}</b>${member&&!col?`</div><div>Конец: <b>${esc(to)}</b>`:""}</div><div>Длина <b>${fmt(Math.round(L))} мм</b> · низ <b>${fmt(z0)}</b> · верх <b>${fmt(z1)}</b> мм</div>`;
+    if(document.activeElement!==f.elements.len_mm)f.elements.len_mm.value=String(Math.round(L));f.elements.len_mm.disabled=!member&&!col||bent;
+    const pts=col||!member?[{x,y,z:z0},{x,y,z:col?z1:z0+1}]:bent?[{x,y,z:z0},{x:mx,y:my,z:num(f.elements.mid_z_mm.value)},{x:endX,y:endY,z:z1}]:[{x,y,z:z0},{x:endX,y:endY,z:z1}];
+    try{window.irThreeSchemeView?.formPreview?.(pts)}catch{}}
    document.getElementById("schemeCoordPreview").innerHTML=`<span>Точные координаты</span><b>Начало X = ${fmt(x)} мм · Y = ${fmt(y)} мм</b><small>${member?`${bent?"Конёк X = "+fmt(mx)+" мм · Y = "+fmt(my)+" мм · Z = "+fmt(f.elements.mid_z_mm.value)+" мм · ":""}Конец X = ${fmt(endX)} мм · Y = ${fmt(endY)} мм${bent?" · Длина "+fmt(length)+" мм":""}`:f.elements.geometry_type.value==="column"?"Колонна расположена вертикально":"Центр листа, размер — по радиусу элемента"}</small>`;
   };
   // Existing asymmetric beams must stay asymmetric unless explicitly changed.
@@ -1531,7 +1584,17 @@ const fittingSection=c=>c.ft==="flight"||c.ft==="ladder"||c.ft==="deck"?(c.fd>0?
    f.elements.ridge_mode.value=placement.ridgeMode==="manual"?"manual":"center";
    updateGeometry(false);renderMarkOptions();
   }
-  ["axis_x","axis_y","offset_x_mm","offset_y_mm","end_axis_x","end_axis_y","end_offset_x_mm","end_offset_y_mm","mid_axis_x","mid_axis_y","mid_offset_x_mm","mid_offset_y_mm","mid_z_mm","z0_mm","z1_mm"].forEach(n=>f.elements[n].addEventListener("input",refreshPreview));refreshPreview();d.showModal()
+  ["axis_x","axis_y","offset_x_mm","offset_y_mm","end_axis_x","end_axis_y","end_offset_x_mm","end_offset_y_mm","mid_axis_x","mid_axis_y","mid_offset_x_mm","mid_offset_y_mm","mid_z_mm","z0_mm","z1_mm"].forEach(n=>f.elements[n].oninput=refreshPreview);
+  ["axis_x","axis_y","end_axis_x","end_axis_y","mid_axis_x","mid_axis_y","geometry_type"].forEach(n=>f.elements[n].addEventListener("change",refreshPreview));
+  // (the length typed — the end moves along the member, the start stays; a column — its top)
+  f.elements.len_mm.oninput=()=>{const L=num(f.elements.len_mm.value);if(!(L>0))return;const kind=f.elements.geometry_type.value;
+   if(kind==="column"){f.elements.z1_mm.value=String(Math.round(num(f.elements.z0_mm.value)+L));refreshPreview();return}if(pointGeometry(kind)||kind==="bent")return;
+   const x=num(editorGrid.xPos.get(f.elements.axis_x.value))+num(f.elements.offset_x_mm.value),y=num(editorGrid.yPos.get(f.elements.axis_y.value))+num(f.elements.offset_y_mm.value),z0=num(f.elements.z0_mm.value),
+    ex=num(editorGrid.xPos.get(f.elements.end_axis_x.value))+num(f.elements.end_offset_x_mm.value),ey=num(editorGrid.yPos.get(f.elements.end_axis_y.value))+num(f.elements.end_offset_y_mm.value),z1=num(f.elements.z1_mm.value),L0=Math.hypot(ex-x,ey-y,z1-z0);if(L0<1)return;
+   const k=L/L0;f.elements.end_offset_x_mm.value=String(Math.round(x+(ex-x)*k-num(editorGrid.xPos.get(f.elements.end_axis_x.value))));f.elements.end_offset_y_mm.value=String(Math.round(y+(ey-y)*k-num(editorGrid.yPos.get(f.elements.end_axis_y.value))));f.elements.z1_mm.value=String(Math.round(z0+(z1-z0)*k));refreshPreview()};
+  d.addEventListener("close",()=>{try{window.irThreeSchemeView?.formPreview?.(null)}catch{}},{once:true});
+  const ex=document.getElementById("schemeExact");if(ex)ex.open=!c&&!placement;
+  refreshPreview();d.showModal()
  }
  function bindEditor(){
   if(!canEdit())return;const d=document.getElementById("schemeEditor"),f=document.getElementById("schemeForm"),err=document.getElementById("schemeFormError");
@@ -1595,7 +1658,7 @@ const fittingSection=c=>c.ft==="flight"||c.ft==="ladder"||c.ft==="deck"?(c.fd>0?
    mid_axis_x:kind==="bent"?midX:undefined,mid_axis_y:kind==="bent"?midY:undefined,
    mid_offset_x_mm:kind==="bent"?mdx:undefined,mid_offset_y_mm:kind==="bent"?mdy:undefined,
    ridge_mode:kind==="bent"?ridgeMode:undefined,
-   mid_anchor_member_id:kind==="bent"&&ridgeMode==="manual"?previous.mid_anchor_member_id:undefined,end_axis_x:point?undefined:endX,end_axis_y:point?undefined:endY,end_offset_x_mm:point?undefined:endDx,end_offset_y_mm:point?undefined:endDy,end_z_mm:point?undefined:z1,z0_mm:z0,z1_mm:z1,rotation_deg:rot,status,section_type,profile_name,scheme_group:g.key,scheme_group_label:g.label,scheme_view_id:view?.id||"all"}};
+   mid_anchor_member_id:kind==="bent"&&ridgeMode==="manual"?previous.mid_anchor_member_id:undefined,end_axis_x:point?undefined:endX,end_axis_y:point?undefined:endY,end_offset_x_mm:point?undefined:endDx,end_offset_y_mm:point?undefined:endDy,end_z_mm:point?undefined:z1,z0_mm:z0,z1_mm:z1,rotation_deg:rot,status,section_type,profile_name,scheme_group:g.key,scheme_group_label:g.label,scheme_view_id:view?.id||"all",engineer_edited:id?{at:new Date().toISOString()}:previous.engineer_edited}};
    try{
     const saved=id?await schemeApi.update(id,payload):await schemeApi.create(payload);
     const merged=rememberSavedSchemeRecord(saved);

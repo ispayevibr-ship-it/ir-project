@@ -72,11 +72,17 @@
  // its bolt and class and the weld, else the list of its КМД; the bolts the model puts there.
  function fasteners(e){
   var j=e.joint&&typeof e.joint==="object"?e.joint:{},m=e.model||{},out=[];
-  if(j.text)out.push(String(j.text));
-  else{if(j.bolt)out.push("болты "+j.bolt+(j.cls?" кл. "+j.cls:""));if(j.weld)out.push("монтажная сварка")}
-  if(!out.length&&Array.isArray(j.fasteners)&&j.fasteners.length)out.push(j.fasteners.slice(0,3).join("; ")+(j.fasteners.length>3?" …":""));
-  if(num(m.bolts)>0)out.push("на модели "+fmt(m.bolts)+" шт.");
-  return out.join("; ")
+  // (only what fastener and how many — by the bolts of the model: «Болт М20×140 кл. 5.8 (ГОСТ 7798-70) — 4 шт.», a line a
+  // size, nuts and washers so; the description of the node goes to «Узел» — the engineer, 19.11.2026 «что за бред? Просто
+  // напиши какой метиз и какое количество», «Болт 20х140 (ГОСТ) - штук»)
+  var it=Array.isArray(m.bolt_items)?m.bolt_items:[];
+  if(it.length){var nuts={},ws={};it.forEach(function(q){out.push("Болт М"+q.d+"×"+q.len+(q.cls?" кл. "+q.cls:"")+" ("+(q.high?"ГОСТ Р 52644-2006":"ГОСТ 7798-70")+") — "+fmt(q.n)+" шт.");
+    var nk=q.d+"|"+q.high;nuts[nk]=(nuts[nk]||0)+q.nuts;ws[nk]=(ws[nk]||0)+q.washers});
+   Object.keys(nuts).forEach(function(k){var d=k.split("|")[0],hi=k.split("|")[1]==="true";if(nuts[k])out.push("Гайка М"+d+" ("+(hi?"ГОСТ Р 52645-2006":"ГОСТ 5915-70")+") — "+fmt(nuts[k])+" шт.");if(ws[k])out.push("Шайба "+d+" ("+(hi?"ГОСТ Р 52646-2006":"ГОСТ 11371-78")+") — "+fmt(ws[k])+" шт.")});
+   return out}
+  if(j.bolt)out.push("Болт "+j.bolt+(j.cls?" кл. "+j.cls:""));if(j.weld)out.push("Монтажная сварка");
+  if(!out.length&&Array.isArray(j.fasteners)&&j.fasteners.length)j.fasteners.slice(0,6).forEach(function(f){out.push(String(f))});
+  return out
  }
  // What it is made of, when the reading of its sheet says (the central ring of a shield roof: its box, ribs, shield).
  function made(e){
@@ -148,19 +154,9 @@
   if(num(e.mass_kmd)>0)kg.push("масса "+kgs(e.mass_kmd)+" кг (КМД)");
   if(num(m.mass_kg)>0)kg.push((kg.length?"по модели ":"масса по модели ")+kgs(m.mass_kg)+" кг");
   if(kg.length)out.push(kg.join(", "));
-  // (a member that crossed a wall of sandwich panels: drawn to the panel, what was past it named — not hidden)
-  // (a wall of panels moved out onto the outer face of the frame: by how much, from the line of the facades of the АР)
-  if(num(m.line_mm)>0)out.push("стена поставлена по наружной грани каркаса — на "+fmt(m.line_mm)+" мм наружу от линии по фасадам АР");
-  if(num(m.roof_mm))out.push("кровельная панель уложена на прогоны каркаса — "+(num(m.roof_mm)>0?"поднята":"опущена")+" на "+fmt(Math.abs(num(m.roof_mm)))+" мм от отметок плана кровли АР");
-  // (a railing post in a column: not drawn — the column holds the rails there)
-  if(m.col_post)out.push("стойка ограждения стоит на оси колонны "+m.col_post+" — в 3D не рисуется: здесь поручни крепятся к колонне");
-  // (a post of the framing standing on a girder: welded to it, no base and no anchors — by the angle its sheet gives)
-  if(m.post_on){var fa=m.foot_angle;out.push(fa?"стойка стоит на ригеле "+m.post_on+": уголок "+fa.angle+" длиной "+fmt(fa.len_mm)+" мм внутри швеллера приварен к стенке стойки и к ригелю, низ стойки на "+fmt(fa.gap_mm)+" мм выше ригеля"+(fa.node?" — "+fa.node:"")+"; болтов и анкеров нет":"стойка стоит на ригеле "+m.post_on+" — крепится к нему сваркой по узлу листа; базы с анкерами нет")}
-  // (a guard its sheet draws on the line of a vertical bracing: drawn moved into its landing, clear of the angles and
-  // gussets of the bracing — guardMoved of the 3D view)
-  if(m.guard_moved&&num(m.guard_moved.mm)>0)out.push("ограждение по чертежу стоит в плоскости вертикальной связи"+(m.guard_moved.mark?" "+m.guard_moved.mark:"")+" — её уголки и фасонки прошли бы сквозь него; в 3D отодвинуто внутрь площадки на "+fmt(m.guard_moved.mm)+" мм, место крепления уточните по КМД");
-  if(m.wall_post)out.push("стойка ограждения кровли попадает в стеновой ригель "+m.wall_post+", который здесь выше кровли, — в 3D не рисуется; место ограждения проверьте по разделу АР");
-  var wall=num(m.wall_mm)>0?'<div class="ec-facts ec-warn">За стену из сэндвич-панелей выходило '+esc(fmt(m.wall_mm))+' мм — показан до стены. Проверьте положение элемента по чертежу.</div>':"";
+  // (no notes of the placing — how it was put, by how much moved, «проверьте…»: kept for the checks and for Claude, not
+  // in the card, the export, the report — the engineer, 19.11.2026 «эти описания зачем?»)
+  var wall="";
   return(out.length?'<div class="ec-facts">'+esc(out.join(" · "))+'</div>':"")+wall
  }
  function nodes(e){
@@ -202,10 +198,10 @@
  // data-ec-steel), the fasteners, where it is; what a ring or a manhole is made of, by its sheet.
  function traits(e,g){
   var rows=[],t=String(e.type_name||"").trim(),sec=section(e),f=fasteners(e),st=String(e.steel||"").trim();
-  if(t)rows.push(["Вид",t]);if(sec)rows.push(["Сечение",sec]);rows.push(["Сталь",st,"steel"]);if(f)rows.push(["Метизы",f]);
+  if(t)rows.push(["Вид",t]);if(sec)rows.push(["Сечение",sec]);rows.push(["Сталь",st,"steel"]);if(f.length)rows.push(["Метизы",f]);var jt=e.joint&&typeof e.joint==="object"&&e.joint.text?String(e.joint.text):"";if(jt)rows.push(["Узел",jt]);
   position(e,g).forEach(function(r){rows.push(r)});made(e).forEach(function(x){rows.push(["Устройство",x])});
   return'<div class="ec-block ec-traits"><b>Характеристика</b><dl>'+rows.map(function(r){
-   return'<div'+(r[2]?' data-ec-'+r[2]+(r[1]?"":" hidden"):"")+'><dt>'+esc(r[0])+'</dt><dd>'+esc(r[1])+'</dd></div>'}).join("")+'</dl></div>'
+   return'<div'+(r[2]?' data-ec-'+r[2]+(r[1]?"":" hidden"):"")+'><dt>'+esc(r[0])+'</dt><dd>'+(Array.isArray(r[1])?r[1].map(esc).join("<br>"):esc(r[1]))+'</dd></div>'}).join("")+'</dl></div>'
  }
  // What a new reading of the drawings gives for an element the engineer changed (his values stay).
  function renewed(e){
@@ -234,7 +230,6 @@
   if(ds.drawing)rows.push('<p class="ec-src"><span>Чертёж</span> — '+esc(ds.drawing)+'</p>');
   if(ds.sheet)rows.push('<p class="ec-src"><span>Лист</span> — '+esc(ds.sheet)+'</p>');
   var checks=[];(e.reasons||[]).concat(e.check_note?String(e.check_note).split("; "):[]).forEach(function(r){var t=String(r).replace(/\s*—?\s*проверьте\.?/gi,"").trim();if(t&&checks.indexOf(t)<0)checks.push(t)});
-  checks.forEach(function(t){rows.push('<p class="ec-check">Проверьте: '+esc(t)+'</p>')});
   var again=renewed(e);if(again)rows.push(again);
   if(!f&&!rows.length)return"";
   var warn=e.preliminary||f&&f[0]==="warn";
