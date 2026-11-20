@@ -15807,7 +15807,9 @@ X.all.forEach(function(f){var u=f.o.userData||{},c=dataById.get(f.id);if(f.o===o
   function onPanelPlane(e,d){screenRay(e);var pl=new T.Plane().setFromNormalAndCoplanarPoint(d.wn,d.p0),q=new T.Vector3();return raycaster.ray.intersectPlane(pl,q)?q:null}
   function rectCorners(d,B){var up=new T.Vector3(0,1,0),wn=d.wn,u=Math.abs(wn.dot(up))>.99?new T.Vector3(1,0,0):up.clone().cross(wn).normalize(),v=wn.clone().cross(u).normalize(),A=d.p0,du=B.clone().sub(A).dot(u),dv=B.clone().sub(A).dot(v);
    return[A,A.clone().addScaledVector(u,du),A.clone().addScaledVector(u,du).addScaledVector(v,dv),A.clone().addScaledVector(v,dv),A].map(function(w){var q=fromWorld(w);return{x:q.x,y:q.y,z:q.z}})}
-  function panelSend(f){if(editSess){editSnap(f);stepIn(f);editSess.redo=[]}trimFix(f,(P.trimFixes||[]).concat([f]));if(editSess){editSess.pending.push(f);paintEditBar();return}try{Promise.resolve(P.onTrimFix(f)).catch(function(){})}catch(x){}}
+  // (in the mode of editing of the page every edit goes into the session — written only by «Сохранить», «Выйти без
+  // сохранения» takes it all back: the engineer 20.11.2026 «вышел без сохранения а это сохранилось»)
+  function panelSend(f){if(!editSess&&P.editGlobal)editStart("select");if(editSess){editSnap(f);stepIn(f);editSess.redo=[]}trimFix(f,(P.trimFixes||[]).concat([f]));if(editSess){editSess.pending.push(f);paintEditBar();return}try{Promise.resolve(P.onTrimFix(f)).catch(function(){})}catch(x){}}
   // ---- The mode of editing: the changes are seen at once and kept here; «Сохранить» — written as the engineer's fixes,
   // «Отмена» — the pieces as they were before the mode (each member touched kept as it stood before its first change)
   var editSess=null,editBar=null;
@@ -15832,7 +15834,7 @@ X.all.forEach(function(f){var u=f.o.userData||{},c=dataById.get(f.id);if(f.o===o
    try{rebatch()}catch(e){}pickOf=null;lit=null;try{paintHighlight()}catch(e){}invalidate();paintEditBar();return 1}
   function editRedo(){if(!editSess||!editSess.redo.length)return 0;var f=editSess.redo.pop(),keep=editSess.redo;stepIn(f);trimFix(f,(P.trimFixes||[]).concat([f]));editSess.pending.push(f);editSess.redo=keep;paintEditBar();return 1}
   function editStart(kind){if(P.report||typeof P.onTrimFix!=="function"||!EDIT_WORD[kind])return"";
-   if(!editSess)editSess={kind:kind,snaps:new Map(),pending:[],steps:[],redo:[]};else editSess.kind=kind;
+   if(!editSess)editSess={kind:kind,snaps:new Map(),pending:[],steps:[],redo:[],u0:unsavedFixes.slice(),t0:(P.trimFixes||[]).slice()};else editSess.kind=kind;
    panelMode=kind==="line"||kind==="rect"?kind:"pull";cutPts=[];rectDrag=null;formPreview(null);
    if(kind!=="mitre"&&kind!=="over"){pairMode="";pairA=null}
    renderer.domElement.title="";paintEditBar();return kind}
@@ -15842,7 +15844,7 @@ X.all.forEach(function(f){var u=f.o.userData||{},c=dataById.get(f.id);if(f.o===o
    return list.reduce(function(pr,f){return pr.then(function(){try{return Promise.resolve(P.onTrimFix(f)).catch(function(){})}catch(x){}})},Promise.resolve()).then(function(){return list.length})}
   function editCancel(){if(!editSess)return 0;var sess=editSess,n=sess.pending.length,gone=new Set(sess.pending.map(fixKeyOf));
    sess.snaps.forEach(snapBack);
-   unsavedFixes=unsavedFixes.filter(function(f){return!gone.has(fixKeyOf(f))});P.trimFixes=(P.trimFixes||[]).filter(function(f){return!gone.has(fixKeyOf(f))});appliedFixes=P.trimFixes.slice();builtFixKey=JSON.stringify(P.trimFixes);built=signature(P.elements);
+   unsavedFixes=sess.u0?sess.u0.slice():unsavedFixes.filter(function(f){return!gone.has(fixKeyOf(f))});P.trimFixes=sess.t0?sess.t0.slice():(P.trimFixes||[]).filter(function(f){return!gone.has(fixKeyOf(f))});appliedFixes=P.trimFixes.slice();builtFixKey=JSON.stringify(P.trimFixes);built=signature(P.elements);
    editEnd();if(sess.stale){built="";try{update(P)}catch(e){}return n}try{rebatch()}catch(e){}pickOf=null;lit=null;try{paintHighlight()}catch(e){}invalidate();return n}
   function paintEditBar(){if(!editBar){editBar=document.createElement("div");editBar.className="ir-three-edit-bar";editBar.setAttribute("data-edit-bar","");
     editBar.innerHTML='<span data-edit-word></span><button type="button" class="ok" data-edit-save>Сохранить</button><button type="button" data-edit-cancel>Отмена</button>';
@@ -20036,6 +20038,7 @@ X.all.forEach(function(f){var u=f.o.userData||{},c=dataById.get(f.id);if(f.o===o
   }
   function trimFix(f,list){
    // (typed in the card: the end pulled out stops at the first trim or roof on its way, as by the mouse — dragStop)
+   if(f&&!editSess&&P.editGlobal)editStart("select");if(f&&editSess)editSnap(f);
    fixStop(f);
    var ok=f?applyFix(f):true;if(ok&&f&&(f.action==="cut"||f.action==="rect"||f.action==="ends")){var mid=String(f.member_id||"");if(mid&&dataById.get(mid)&&dataById.get(mid).ft==="panel")try{cutLines(mid)}catch(e){}}
    if(f&&!unsavedFixes.some(function(q){return fixKeyOf(q)===fixKeyOf(f)}))unsavedFixes.push(f);

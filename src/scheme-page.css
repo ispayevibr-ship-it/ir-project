@@ -742,3 +742,18 @@ body.scheme-editing .scheme-canvas>.ir-three-root{height:100%;min-height:0}
 body.scheme-editing .scheme-workspace>.scheme-details{display:block;position:static;height:100%;max-height:none;margin:0;border-radius:0;border:0;border-left:1px solid #d7e0e8;overflow-y:auto}
 body.scheme-editing #irThreeMore,body.scheme-editing #irThreeJoints,body.scheme-editing #irThreeMetal,body.scheme-editing #irThreeCount,body.scheme-editing #irThreeSum,body.scheme-editing #irThreeAdd,body.scheme-editing #irThreeOpts{display:none!important}
 body.scheme-editing .ir-three-toolbar{top:auto;bottom:10px;left:50%;right:auto;transform:translateX(-50%);width:auto;max-width:calc(100% - 20px)}
+/* журнал правок схемы */
+.scheme-fix-log{width:min(720px,94vw);max-height:80vh;padding:0;border:0;border-radius:10px;box-shadow:0 12px 40px rgba(0,0,0,.3);background:var(--panel,#fff);color:inherit}
+.scheme-fix-log::backdrop{background:rgba(10,20,30,.35)}
+.scheme-fix-log form{display:flex;flex-direction:column;max-height:80vh}
+.scheme-fix-log header{display:flex;align-items:center;justify-content:space-between;padding:12px 16px;border-bottom:1px solid #d7e0e8}
+.scheme-fix-log header button{border:0;background:none;font-size:16px;cursor:pointer}
+.scheme-fix-log ol{list-style:none;margin:0;padding:6px 10px;overflow-y:auto}
+.scheme-fix-log li{display:grid;grid-template-columns:92px 110px 1fr auto auto;gap:8px;align-items:center;padding:6px;border-bottom:1px solid #eef2f6;font-size:13px}
+.scheme-fix-log li.undone{opacity:.5}
+.scheme-fix-log li em{font-style:normal}
+.scheme-fix-log li span{color:#5a6b7b;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.scheme-fix-log li button{padding:4px 8px;border:1px solid #c9d4de;border-radius:6px;background:#fff;cursor:pointer;font-size:12px}
+.scheme-fix-log li small{grid-column:span 2;color:#5a6b7b}
+.scheme-fix-log p,.scheme-fix-log footer{padding:10px 16px;margin:0;color:#5a6b7b;font-size:12px}
+@media (max-width:600px){.scheme-fix-log li{grid-template-columns:1fr auto;}.scheme-fix-log li time,.scheme-fix-log li span{grid-column:1/-1}}
