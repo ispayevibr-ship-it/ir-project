@@ -9,7 +9,9 @@ const from=lines.findIndex(l=>l.startsWith(" const SECTION_LABEL=")),to=lines.fi
 assert(from>0&&to>from,"the kind helpers");
 const code=[pick(" const FITTING_LABEL="),...lines.slice(from,to+1),pick(" const sectionType="),pick(" const sectionTypeLabel="),pick(" const sectionOptions="),pick(" const geometryLabel="),pick(" const geometryOptions=")].join("\n")+
  "\n;({elementKind,sectionFor,sectionOptions,geometryOptions,geometryChoices,pointGeometry,sectionTypeLabel})";
-const k=vm.runInNewContext(code,{window:{irStructureTypes:require("../src/ai-structure-types.js")}});
+const k=vm.runInNewContext(code,{window:{irStructureTypes:require("../src/ai-structure-types.js")},isTrimMark:m=>/^Нщ/.test(String(m&&m.mark||""))});
+// (1.12.231: a new element of a trim mark — «Фасонный элемент», not a beam)
+assert.equal(k.elementKind({},{mark:"Нщ"}),"trim","a new element of a trim mark");
 const shown=html=>[...html.matchAll(/<option value="([^"]*)" (selected)?>([^<]*)</g)].map(m=>(m[2]?"*":"")+m[3]);
 // A sandwich panel of the АР: its fitting type or its name.
 const panel={fitting_type:"panel",section_type:"ibeam",geometry_type:"beam",mark:"ПН-14",mark_name:"Сэндвич-панель стеновая ПС 5490.1190.150"};

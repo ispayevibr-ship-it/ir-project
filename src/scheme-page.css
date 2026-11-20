@@ -696,3 +696,10 @@ html[data-theme="dark"] .scheme-lock-button.on,body.dark .scheme-lock-button.on{
 .scheme-exact-body>.wide{grid-column:1/-1}
 .scheme-trim-drag{display:flex;gap:6px;align-items:center;flex-wrap:wrap;font-size:12px}
 .scheme-trim-drag button.on{background:var(--accent,#2563eb);color:#fff;border-color:transparent}
+/* Фасонные — цвет по виду: легенда в «Вид ▾» (1.12.231) */
+.ir-three-trim-legend{display:flex;flex-direction:column;gap:3px;margin:-2px 0 8px 21px}
+.ir-three-trim-legend[hidden]{display:none}
+.ir-three-trim-key{display:flex;align-items:center;gap:6px;font-size:10px;color:#4c6c80}
+.ir-three-trim-key i{width:12px;height:8px;border-radius:2px;flex:0 0 auto;box-shadow:0 0 0 1px rgba(0,0,0,.15)}
+.scheme-order-row{align-items:center}
+.scheme-order-row span{font-size:12px;margin-right:auto}

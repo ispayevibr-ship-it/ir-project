@@ -1302,7 +1302,7 @@ window.irSchemePage=async function(objectId,opts){
  let dataPanelOpen=true;try{dataPanelOpen=localStorage.getItem("ir-scheme-data-open")!=="0"}catch(e){}
  // and the panel on the right (the placed elements, the chosen one): folded to a narrow strip, the 3D wider («также правую сторону»).
  let sidePanelOpen=true;try{sidePanelOpen=localStorage.getItem("ir-scheme-side-open")!=="0"}catch(e){}
- let specsKm=null,frameMode=true,selectedId="",activeWorkId="",activeScheme="all",rows=[],markRows=[],workRows=[],gridXSpans=[],gridYSpans=[],spanX=targetSpanX,spanY=targetSpanY,axisXPos=new Map(),axisYPos=new Map(),labelsVisible=false,dimensionsVisible=false,hiddenGroups=new Set(),hiddenSections=new Set(),confFilter="all",statusFilter="all",levelMin="",levelMax="",layersPanelOpen=false,elementSearch="",pickerScrollTop=0,previewFullscreen=false,previewNativeFullscreen=false,previewOriginalOverflow="";
+ let porchMade=[],specsKm=null,frameMode=true,selectedId="",activeWorkId="",activeScheme="all",rows=[],markRows=[],workRows=[],gridXSpans=[],gridYSpans=[],spanX=targetSpanX,spanY=targetSpanY,axisXPos=new Map(),axisYPos=new Map(),labelsVisible=false,dimensionsVisible=false,hiddenGroups=new Set(),hiddenSections=new Set(),confFilter="all",statusFilter="all",levelMin="",levelMax="",layersPanelOpen=false,elementSearch="",pickerScrollTop=0,previewFullscreen=false,previewNativeFullscreen=false,previewOriginalOverflow="";
 
  // Shared view state: neither the 2D plan nor 3D owns a separate data model.
  // The scheme opens coloured by montage (the engineer, 25.10.2026: «по стандарту первым вывод делай монтаж в схеме»); a
@@ -1375,6 +1375,28 @@ window.irSchemePage=async function(objectId,opts){
  }
  [rows,markRows,workRows]=await Promise.all([schemeApi.list().catch(()=>[]),root.section("marks").list().catch(()=>[]),root.section("work-types").list().catch(()=>[])]);
  if(location.hash!==requestedRoute){loading.cancel();return}
+ // The profiled sheet of a porch and the abutment over it — elements of their own (the engineer 20.11.2026: «профлист и
+ // нащельник над ним отдельными элементами», «очерёдность … нащельник над профлистом сверху»): one record each per porch
+ // of the scheme, made once by one who may edit; a part deleted by the engineer is not made again — the list of the made
+ // in object-meta «scheme_porch_parts» (the 3D does not draw a made part that is gone).
+ try{
+  const PORCH=/Крыльцо\s+(Кр\d+[^—]*?)\s*—\s*(прогон|балка конька)/i,by=new Map(),have=new Set();
+  for(const r of arr(rows)){const d=r.data||{};if(String(d.fitting_type||"")==="porch_part"&&d.layout)have.add(String(d.layout.porch)+"|"+String(d.layout.part));
+   const m=PORCH.exec(String(d.mark_name||r.title||""));if(m&&d.geometry_type!=="column"&&d.absolute_x2_mm!==undefined){if(!by.has(m[1]))by.set(m[1],[]);by.get(m[1]).push(d)}}
+  const metaRow=arr(await metaApi.list()).find(r=>r.record_type==="scheme_porch_parts"),made=new Set(arr(metaRow?.data?.keys).map(String));
+  const add=[];if(!headless&&canEdit())for(const[k,ls]of by)if(ls.length>=2)for(const part of["sheet","abut"]){const kk=k+"|"+part;if(!have.has(kk)&&!made.has(kk))add.push([k,part,ls[0]])}
+  if(add.length){const used=new Set(arr(rows).map(r=>String(r.title||r.data?.position||"")));let n=0;
+   for(const[k,part,src]of add){let title;do{title="PRC-"+String(++n).padStart(4,"0")}while(used.has(title));used.add(title);
+    const keep=["axis_x","axis_y","offset_x_mm","offset_y_mm","absolute_x_mm","absolute_y_mm","absolute_x2_mm","absolute_y2_mm","end_axis_x","end_axis_y","end_offset_x_mm","end_offset_y_mm","z0_mm","z1_mm","end_z_mm","work_type_id"];
+    const data={entity_type:"column",position:title,geometry_type:"beam",fitting_type:"porch_part",layout:{porch:k,part},status:"planned",scheme_view_id:"all",engineer_added:true,
+     mark:(part==="sheet"?"Профлист ":"Нащельник ")+k,mark_name:"Крыльцо "+k+" — "+(part==="sheet"?"профлист":"нащельник над профлистом"),type_name:part==="sheet"?"Профлист крыльца":"Нащельник над профлистом"};
+    for(const f of keep)if(src[f]!==undefined)data[f]=src[f];
+    await schemeApi.create({record_type:"scheme_column",title,data});made.add(k+"|"+part)}
+   const md={entity_type:"scheme_porch_parts",keys:[...made]};
+   if(metaRow)await metaApi.update(metaRow.id,{record_type:"scheme_porch_parts",title:"Части крылец",data:md});else await metaApi.create({record_type:"scheme_porch_parts",title:"Части крылец",data:md});
+   rows=await schemeApi.list().catch(()=>rows)}
+  porchMade=[...made];
+ }catch(error){console.warn("porch parts",error)}
  loading.progress(.08,"Элементы прочитаны: "+rows.length);
  const equalSpans=(total,count)=>{count=Math.max(1,count);const base=Math.floor(total/count),rem=Math.round(total-base*count);return Array.from({length:count},(_,i)=>base+(i<rem?1:0))};
  const validAxes=v=>Array.isArray(v)&&v.length>=2&&v.every(x=>String(x||"").trim());
@@ -1594,9 +1616,22 @@ window.irSchemePage=async function(objectId,opts){
  const activeMarks=()=>{const scoped=workMarks(),v=activeView();return activeScheme==="all"?scoped:frameMode?scoped.filter(m=>markGroup(m).key===activeScheme):v?scoped.filter(m=>groupKeys(v).includes(markGroup(m).key)):[]};
  if(!activeWorkId)activeWorkId=enabledWorks()[0]?.id||String(workRows[0]?.id||"");
  refreshGridModel();
+ // (a mark of a trim — «Нщ», «Нащельник…», «Планка…» — or of a sandwich panel of АР: a trim, not a «балка», in the add form
+ // and in the panel of the 3D; every kind of them in the list, the placed too — the engineer 20.11.2026 «почему пишет
+ // балка?», «а где остальные фасонки?»)
+ const TRIM_WORDS=/^\s*Нщ(?![а-яё])|нащельник|(?:торцев|конько|карниз|ветров)\S*\s+планк|планк\S*\s+(?:примыкан|конька|карниза)|накрывк|откос|отлив|примыкан|фасонн\S*\s+элемент|угловой\s+элемент/iu;
+ let trimMarksOf=null,trimMarksSet=null;
+ const trimMarkIds=()=>{const all=allRecords();if(trimMarksOf!==all){trimMarksOf=all;trimMarksSet=new Set();for(const r of all)if(trimLay(r)){const id=String(r.mark_id||""),mk=String(r.mark||"").trim();if(id)trimMarksSet.add("id:"+id);if(mk)trimMarksSet.add("m:"+mk)}}return trimMarksSet};
+ const isTrimMark=m=>{if(!m)return false;if(TRIM_WORDS.test(String(m.mark||m.title||""))||TRIM_WORDS.test(String(m.name||"")))return true;const t=trimMarkIds();return t.has("id:"+String(m.id))||t.has("m:"+String(m.mark||m.title||"").trim())};
+ const isPanelMark=m=>/^\s*П[скc]\s*-?\s*\d/u.test(String(m?.mark||m?.title||""));
+ // (the work of a trim mark — the work of its trims on the scheme: the marks «Нщ» added to the list under КМ1 when the
+ // trims stood there showed under «Монтаж металлоконструкций»; the engineer 20.11.2026)
+ const markWork=m=>{if(!isTrimMark(m))return String(m.work_type_id||"");const t=trimTemplateOf(m.id)||allRecords().find(r=>trimLay(r));return String(t?.work_type_id||m.work_type_id||"")};
+ // (a work by its code too — «КМ1 · Монтаж металлоконструкций»: КМ1, КМ2, КМ3 one name; the engineer 20.11.2026 «шифр пиши тоже»)
+ const workTitle=w=>{const code=String(w.code||""),short=(code.match(/(?:^|[-.\s])((?:КМД|КМ|АР|ТХ|КЖ|ОВ|ВК)\d*)\s*$/u)||[])[1]||code;return short?short+" · "+w.name:w.name};
  const guessGeometry=m=>{const key=markGroup(m).key;if(["columns","fahwerk","posts"].includes(key))return"column";if(key==="ties")return"brace";if(key==="trusses")return"truss";return"beam"};
  const geometry=c=>["column","beam","bent","brace","truss","shell","plate"].includes(c.geometry_type)?c.geometry_type:c.absolute_x2_mm!==undefined&&c.absolute_y2_mm!==undefined?guessGeometry(c):"column";
- const FITTING_LABEL={nozzle:"Патрубок",manhole:"Люк-лаз",hatch:"Люк на крыше",valve:"Клапан",foam:"Пеногенератор",ring:"Кольцо на стенке",rod:"Молниеприёмник",sensor:"Патрубок прибора",railing:"Ограждение",flight:"Лестничный марш",ladder:"Стремянка",deck:"Настил площадки",panel:"Сэндвич-панели",trim:"Нащельник, доборный элемент"};
+ const FITTING_LABEL={porch_part:"Часть крыльца",nozzle:"Патрубок",manhole:"Люк-лаз",hatch:"Люк на крыше",valve:"Клапан",foam:"Пеногенератор",ring:"Кольцо на стенке",rod:"Молниеприёмник",sensor:"Патрубок прибора",railing:"Ограждение",flight:"Лестничный марш",ladder:"Стремянка",deck:"Настил площадки",panel:"Сэндвич-панели",trim:"Нащельник, доборный элемент"};
  // A window, a door, a gate — its block, height × width as its mark writes them; a sandwich panel — its thickness.
 const fittingSection=c=>c.ft==="flight"||c.ft==="ladder"||c.ft==="deck"?(c.fd>0?"Ширина "+Math.round(c.fd):""):
  c.ft==="window"||c.ft==="door"||c.ft==="gate"?"Блок "+(c.fd>0?Math.round(c.fd)+"×"+Math.round(num(c.lay?.width_mm)||Math.hypot(c.x2-c.x,c.y2-c.y))+" (высота × ширина)":""):
@@ -1695,10 +1730,10 @@ const fittingSection=c=>c.ft==="flight"||c.ft==="ladder"||c.ft==="deck"?(c.fd>0?
  // A saved «ibeam» of a panel is the old default of the editor, not a reading of the drawings: a kind takes its own section.
  const sectionFor=(c,ek)=>{const list=sectionChoices(ek),t=sectionType(c);return list.includes(t)?t:list[0]};
  const GEOMETRY_LABEL={column:"Колонна / стойка",beam:"Балка / прогон / ригель",bent:"Ломаная балка (3 точки)",brace:"Связь / раскос",truss:"Ферма",shell:"Обечайка резервуара (по радиусу)",plate:"Лист днища, крыши (по радиусу)"};
- const KIND_NAME={panel:"Сэндвич-панели",profsheet:"Профлист",trim:"Нащельник, планка",sheet:"Лист резервуара",window:"Окно",door:"Дверь",gate:"Ворота"};
+ const KIND_NAME={panel:"Сэндвич-панели",profsheet:"Профлист",trim:"Фасонный элемент",sheet:"Лист резервуара",window:"Окно",door:"Дверь",gate:"Ворота"};
  const elementKind=(c,m)=>{const ft=String(c?.ft||c?.fitting_type||"");if(ft)return ft;const g=String(c?.geometryType||c?.geometry_type||"");if(g==="shell"||g==="plate")return"sheet";
   const types=window.irStructureTypes,t=types?.byKey?.get?.(String(c?.type_key||""))||types?.typeByName?.(String(c?.mark_name||m?.name||m?.title||""));
-  return t?.key==="sheeting"?"profsheet":t?.shape==="panel"?"panel":t?.shape==="trim"?"trim":""};
+  return t?.key==="sheeting"?"profsheet":t?.shape==="panel"?"panel":t?.shape==="trim"||!c?.id&&isTrimMark(m)?"trim":""};
  // A tank sheet keeps its shell or plate (a point and a radius); a fitting, a panel, a trim goes along its line or stands up.
  const geometryChoices=(kind,ek)=>{const list=ek==="sheet"?[["shell",GEOMETRY_LABEL.shell],["plate",GEOMETRY_LABEL.plate]]:ek?[["beam",(KIND_NAME[ek]||FITTING_LABEL[ek]||"Элемент")+" — по линии от точки до точки"],["column",(KIND_NAME[ek]||FITTING_LABEL[ek]||"Элемент")+" — вертикально, от низа до верха"]]:["column","beam","bent","brace","truss"].map(k=>[k,GEOMETRY_LABEL[k]]);
   return kind&&!list.some(x=>x[0]===kind)?list.concat([[kind,GEOMETRY_LABEL[kind]||kind]]):list};
@@ -1811,7 +1846,7 @@ const fittingSection=c=>c.ft==="flight"||c.ft==="ladder"||c.ft==="deck"?(c.fd>0?
  let ctxMenu=null;
  function contextMenu(at){
   ctxMenu?.remove();ctxMenu=null;if(!at||!canEdit())return;
-  const ITEMS=[["Изменить","[data-scheme-edit]"],["Двигать целиком","[data-trim-mode='whole']"],["Двигать одну полку","[data-trim-mode='piece']"],["Срезать по линии","[data-trim-line]"],["Сделать угол","[data-trim-corner]"],["Этот поверх","[data-trim-over]"],["Убрать кусок","[data-trim-hide]"],["Отменить последнее","[data-trim-undo-last]"],["Удалить элемент","[data-scheme-delete]"]];
+  const ITEMS=[["Изменить","[data-scheme-edit]"],["Двигать целиком","[data-trim-mode='whole']"],["Двигать одну полку","[data-trim-mode='piece']"],["Срезать по линии","[data-trim-line]"],["Сделать угол","[data-trim-corner]"],["Показать позади","[data-order-step='-1']"],["Показать поверх","[data-order-step='1']"],["Этот поверх","[data-trim-over]"],["Убрать кусок","[data-trim-hide]"],["Отменить последнее","[data-trim-undo-last]"],["Удалить элемент","[data-scheme-delete]"]];
   let tries=0;
   const show=()=>{
    const box=document.getElementById("schemeDetails");const found=box?ITEMS.map(([t,q])=>[t,box.querySelector(q)]).filter(x=>x[1]&&!x[1].disabled):[];
@@ -1844,7 +1879,7 @@ const fittingSection=c=>c.ft==="flight"||c.ft==="ladder"||c.ft==="deck"?(c.fd>0?
   const seen=new Map();
   // (the records keep fitting_type and layout — ft and lay are the names of the 3D: 1.12.229 looked for those and found none)
   for(const r of allRecords()){const lay=trimLay(r);if(!lay)continue;const pos=String(lay.shape?.pos||""),k=String(lay.trim||"")+"|"+pos;if(seen.has(k))continue;
-   seen.set(k,{id:String(r.id),title:String(r.mark||r.mark_name||r.title||"Фасонный элемент")+(pos?" · поз. "+pos:"")+(lay.ral?" · RAL "+lay.ral:"")})}
+   seen.set(k,{id:String(r.id),title:(pos?"поз. "+pos+" · ":"")+String(r.mark_name||r.mark||r.title||"Фасонный элемент")+(lay.ral?" · RAL "+lay.ral:"")})}
   return[...seen.values()].sort((a,b)=>a.title.localeCompare(b.title,"ru"))
  }
  async function createTrimPiece(placement){
@@ -1875,6 +1910,9 @@ const fittingSection=c=>c.ft==="flight"||c.ft==="ladder"||c.ft==="deck"?(c.fd>0?
    end_axis_x:end.ax,end_axis_y:end.ay,end_offset_x_mm:end.dx,end_offset_y_mm:end.dy,z0_mm:start.z,z1_mm:end.z,end_z_mm:end.z,
    start_anchor_member_id:start.memberId||undefined,end_anchor_member_id:end.memberId||undefined};
   for(const k of keep)if(tpl[k]!==undefined&&tpl[k]!==null&&tpl[k]!=="")data[k]=tpl[k];
+  // (the mark chosen in the list — «Нщ …» of its own — over the template's: the kind gives the profile, the mark its name)
+  {const pm=placement.markId?marks.find(x=>String(x.id)===String(placement.markId)):null;
+   if(pm){data.mark_id=pm.id;data.mark=pm.mark||pm.title||"";data.mark_name=pm.name||data.mark_name||""}}
   const saved=await schemeApi.create({record_type:"scheme_column",title,data});
   if(!rememberSavedSchemeRecord(saved))rows=await schemeApi.list();
   selectedId=String(saved?.id||"");journalAuto(saved?.id,"placed");
@@ -2086,8 +2124,8 @@ const fittingSection=c=>c.ft==="flight"||c.ft==="ladder"||c.ft==="deck"?(c.fd>0?
    background:currentBackground(),backgroundColor:currentCustomBackground(),
    canEdit:Boolean(canEdit()&&activeWorkId),
    // Marks with their remaining quantity for placing new members by clicks.
-   marks:activeMarks().map(m=>{const q=markPlacement(m);return{id:m.id,title:markLabel(m),mark:m.mark||m.title,total:q.total,placed:q.placed,left:q.left,geometry:guessGeometry(m),work:String(m.work_type_id||"")}}),
-   works:enabledWorks().map(w=>({id:w.id,name:w.name})),
+   marks:activeMarks().map(m=>{const q=markPlacement(m);return{id:m.id,title:markLabel(m),mark:m.mark||m.title,total:q.total,placed:q.placed,left:q.left,geometry:isTrimMark(m)?"trim":guessGeometry(m),panel:isPanelMark(m),work:markWork(m)}}),
+   works:enabledWorks().map(w=>({id:w.id,name:workTitle(w)})),porchMade,
    onColorModeChange:next=>changeColorMode(next),
    onSelect:id=>{selectedId=id;renderDetails()},
    // (the right click on a member: the actions of its card in a menu at the cursor — the engineer, 20.11.2026)
@@ -2096,9 +2134,10 @@ const fittingSection=c=>c.ft==="flight"||c.ft==="ladder"||c.ft==="deck"?(c.fd>0?
    // (a trim chosen by its mark — «Нщ» — is built by its own profile on the face of the panel, as the other trims, not as
    // a beam of the form: the template — the trim clicked on, if of that mark, else the first of that mark; the engineer,
    // 20.11.2026, a yellow I-beam for «Нащельник стыка ярусов»)
-   onPlacement:placement=>{const tpl=placement?.start?trimTemplateOf(placement.markId,placement.start.memberId||placement.end?.memberId):null;
+   onPlacement:placement=>{const pm=marks.find(x=>String(x.id)===String(placement?.markId||""));
+    const tpl=placement?.start?trimTemplateOf(placement.markId,placement.start.memberId||placement.end?.memberId)||(isTrimMark(pm)?allRecords().find(r=>trimLay(r)):null):null;
     if(tpl&&placement?.start&&placement?.end&&placement.end!==placement.start){
-     const zf=q=>Object.assign({},q,{z:q.z??placement.height});return createTrimPiece({template:tpl.id,start:zf(placement.start),end:zf(placement.end)}).then(()=>refreshAfterMemberChange()).catch(e=>alert(e?.message||String(e)))}
+     const zf=q=>Object.assign({},q,{z:q.z??placement.height});return createTrimPiece({template:tpl.id,markId:placement.markId,start:zf(placement.start),end:zf(placement.end)}).then(()=>refreshAfterMemberChange()).catch(e=>alert(e?.message||String(e)))}
     return openEditor(null,false,placement)},
    onQuickPlace:frameMode?createFrameMember:null,
    // (a trim added by two clicks: its kind from the trims on the scheme, the profile with it — the engineer, 20.11.2026)
@@ -2161,7 +2200,7 @@ const fittingSection=c=>c.ft==="flight"||c.ft==="ladder"||c.ft==="deck"?(c.fd>0?
   let specs=[];try{const all=await irProject.ai?.invoke?.("ai-documents:specs-km"),nc=v=>String(v||"").replace(/\s+/g,"").replace(/[.\-–_]/g,"").toUpperCase(),labs=[...workCounts.values()].map(w=>nc(w.label));
    // (all of them: the 3D finds the one of each work type — by the code in its name, the files or the volume of its sheets)
    specs=Array.isArray(all)?all:[];void labs}catch(_error){specs=[]}
-  return{objectId:oid,nodeCrops,specs,trimFixes:trimFixes(),object:{name:String(object.name||object.title||""),short:String(object.short_name||""),address:String(object.address||"")},title:activeGroup()?.label||"Все",
+  return{objectId:oid,nodeCrops,specs,porchMade,trimFixes:trimFixes(),object:{name:String(object.name||object.title||""),short:String(object.short_name||""),address:String(object.address||"")},title:activeGroup()?.label||"Все",
     axesX:[...axesX],axesY:[...axesY],spanX,spanY,gridDirX,gridDirY,gridX:Object.fromEntries(axisXPos),gridY:Object.fromEntries(axisYPos),background:currentBackground(),
     elements:list,groups:[...counts.values()].sort((a,b)=>b.count-a.count),summary:statusCounts(),
     work:frameMode?(workCounts.size>1?"Все виды работ":""):currentWork?currentWork.name+(currentWork.code?" · "+currentWork.code:""):"",works:frameMode&&workCounts.size>1?[...workCounts.values()].sort((a,b)=>b.count-a.count):[]}
@@ -2246,6 +2285,10 @@ const fittingSection=c=>c.ft==="flight"||c.ft==="ladder"||c.ft==="deck"?(c.fd>0?
   b.textContent="🔗 Ссылка"+(sign?" "+sign:"");b.title=text+". Нажмите — ссылка и окно с ней."
  }
  let pickerCollator=null;
+ // (a trim shown by its position and kind — «поз. 39 · Примыкание кровли к стене», not «Нщ» for all of them: the engineer
+ // 20.11.2026 «что есть что из фасонки вообще не понятно»)
+ function markShown(c){const l=c?.lay||c?.layout,ft=String(c?.ft||c?.fitting_type||""),pos=ft==="trim"&&l?.shape?.pos;if(ft!=="trim")return String(c?.mark||"");
+  const nm=String(c?.mark_name||"").trim();return(pos?"поз. "+pos:String(c?.mark||"Нщ"))+(nm?" · "+nm:"")}
  function pickerRecords(){
   // (one comparer for the whole list: the comparison of strings with options built a new one at each of the ~60 000 comparisons of
   // 5000 members, and the list is drawn anew at every choice on the scheme — «монтажная схема подвисает», 03.11.2026)
@@ -2255,7 +2298,7 @@ const fittingSection=c=>c.ft==="flight"||c.ft==="ladder"||c.ft==="deck"?(c.fd>0?
  function pickerMatches(c,query){
   const q=norm(query);return !q||norm([c.mark,c.mark_name,c.position,c.title,c.id,c.axisX,c.axisY,fmt(c.x),fmt(c.y)].join(" ")).includes(q)
  }
- function pickerOptionText(c){const progress=markProgress(linkedMark(c));return [c.mark||"Без марки",c.axisX+"/"+c.axisY,"X "+fmt(c.x),"Y "+fmt(c.y),progress?.total>0?fmt(progress.mounted)+"/"+fmt(progress.total)+" смонт.":"Статус вручную","#"+c.id].join(" · ")}
+ function pickerOptionText(c){const progress=markProgress(linkedMark(c));return [markShown(c)||"Без марки",c.axisX+"/"+c.axisY,"X "+fmt(c.x),"Y "+fmt(c.y),progress?.total>0?fmt(progress.mounted)+"/"+fmt(progress.total)+" смонт.":"Статус вручную","#"+c.id].join(" · ")}
  function pickerOptions(found){
   // (the first 200 and the chosen one: 6783 options were made anew at every drawing of the panel — the engineer,
   // 13.11.2026: «чтобы так много не кушало памяти»; the search narrows the list)
@@ -2268,7 +2311,7 @@ const fittingSection=c=>c.ft==="flight"||c.ft==="ladder"||c.ft==="deck"?(c.fd>0?
   for(const r of records()){const p=coord(r),key=[Math.round(p.x),Math.round(p.y),Math.round(p.z0)].join("|");overlapping.set(key,(overlapping.get(key)||0)+1)}
   return found.slice(0,150).map(c=>{
    const key=[Math.round(c.x),Math.round(c.y),Math.round(c.z0)].join("|"),stack=overlapping.get(key)||1,progress=markProgress(linkedMark(c));
-   return '<div class="scheme-element-row '+(c.id===selectedId?'on':'')+' status-'+esc(c.status)+'"><button type="button" data-pick-element="'+esc(c.id)+'" title="Выбрать элемент"><b>'+esc(c.mark||"Без марки")+'</b><span>'+esc(c.axisX+'/'+c.axisY)+' · X '+fmt(c.x)+' · Y '+fmt(c.y)+'</span><small>#'+esc(c.id)+(stack>1?' · '+stack+' в точке':'')+(progress?.total>0?' · '+fmt(progress.mounted)+'/'+fmt(progress.total)+' смонт.':'')+'</small></button>'+(canEdit()?'<button type="button" class="scheme-list-copy" data-copy-element="'+esc(c.id)+'" title="Копировать элемент">⧉</button>':'')+'</div>'
+   return '<div class="scheme-element-row '+(c.id===selectedId?'on':'')+' status-'+esc(c.status)+'"><button type="button" data-pick-element="'+esc(c.id)+'" title="Выбрать элемент"><b>'+esc(markShown(c)||"Без марки")+'</b><span>'+esc(c.axisX+'/'+c.axisY)+' · X '+fmt(c.x)+' · Y '+fmt(c.y)+'</span><small>#'+esc(c.id)+(stack>1?' · '+stack+' в точке':'')+(progress?.total>0?' · '+fmt(progress.mounted)+'/'+fmt(progress.total)+' смонт.':'')+'</small></button>'+(canEdit()?'<button type="button" class="scheme-list-copy" data-copy-element="'+esc(c.id)+'" title="Копировать элемент">⧉</button>':'')+'</div>'
   }).join("")+(found.length>150?'<div class="scheme-picker-more">Показаны первые 150 из '+found.length+'. Уточните поиск.</div>':'')
  }
  function sideToggleHtml(){
@@ -2549,6 +2592,11 @@ const fittingSection=c=>c.ft==="flight"||c.ft==="ladder"||c.ft==="deck"?(c.fd>0?
   // (a member of steel — carried whole by the mouse, with its details, bolts and welds; undo as for the trims — the engineer,
   // 20.11.2026 «сталь тоже двигать мышью»)
   const steelHtml=canEdit()&&!c.ft&&window.irThreeSchemeView?.pickInfo?`<div class="scheme-trim-fix"><b>Перенос мышью</b><small class="scheme-trim-hint" title="Нажмите на выделенный элемент и тяните: переносится весь, со всеми деталями и болтами. Сквозь другую сталь, фасонку и панель нельзя — упирается. Правка ложится сразу, без перестройки схемы.">Тяните выделенный элемент мышью.</small>${fixedHere.length?`<div class="scheme-detail-actions"><button type="button" data-trim-undo-last>↶ Отменить последний перенос</button><button type="button" data-trim-undo>Вернуть как строит программа</button></div>`:""}</div>`:"";
+  // (the order of drawing of a trim or a part of a porch — «Назад» / «Вперёд»: over the others or behind them where two lie
+  // in one place; the engineer 20.11.2026 «очерёдность … поменять в каждом элементе»)
+  const orderOf=r=>{const l=r.lay||{};if(l.order!==undefined&&l.order!==null&&l.order!==""&&Number.isFinite(Number(l.order)))return Math.max(-2,Math.min(2,Math.round(Number(l.order))));if(r.ft==="trim"&&(l.trim==="reveal"||l.trim==="sill"))return-1;if(r.ft==="porch_part"&&l.part==="abut")return 1;return 0};
+  const ORDER_WORD={"-2":"в самом низу","-1":"позади","0":"обычная","1":"впереди","2":"поверх всех"};
+  const orderHtml=canEdit()&&(c.ft==="trim"||c.ft==="porch_part")?`<div class="scheme-detail-actions scheme-order-row"><span>Очерёдность: <b>${ORDER_WORD[String(orderOf(c))]}</b></span><button type="button" data-order-step="-1" ${orderOf(c)<=-2?"disabled":""} title="Показывать позади соседних элементов">Назад</button><button type="button" data-order-step="1" ${orderOf(c)>=2?"disabled":""} title="Показывать поверх соседних элементов">Вперёд</button></div>`:"";
   const trimHtml=panelHtml||(canEdit()&&(pk||fixedHere.length)?`<div class="scheme-trim-fix"><b>Фасонный элемент</b>${pk?`<div class="scheme-trim-drag"><button type="button" data-trim-mode="whole" class="${whole?"on":""}" title="Тянуть все полки и куски этого элемента вместе">Весь элемент</button><button type="button" data-trim-mode="piece" class="${whole?"":"on"}" title="Тянуть только кусок под щелчком">Одну полку</button></div><small class="scheme-trim-hint" title="Мышью: за конец — длина, за середину — перенос куда угодно. Сквозь другой фасонный элемент нельзя — упирается. Ваша правка не сбрасывается при обновлении схемы.">Мышью: за конец — длина, за середину — перенос.</small>
     <div class="scheme-trim-fix-row"><label>${pk.ax==="z"?"Низ":"Начало"}, мм<input data-trim-lo inputmode="decimal" value="${pk.lo}"></label><label>${pk.ax==="z"?"Верх":"Конец"}, мм<input data-trim-hi inputmode="decimal" value="${pk.hi}"></label><label>Длина, мм<input data-trim-len inputmode="decimal" value="${pk.hi-pk.lo}"></label></div>
     <div class="scheme-detail-actions"><button type="button" class="ok" data-trim-apply>Применить</button><button type="button" class="danger" data-trim-hide>Убрать кусок</button><button type="button" data-trim-corner title="Щёлкните потом второй кусок в углу: оба обрежутся на ус и сомкнутся впритык">Сделать угол</button><button type="button" data-trim-over title="Щёлкните потом второй кусок: этот пройдёт поверх него до его дальней грани, тот упрётся">Этот поверх</button><button type="button" data-trim-line title="Щёлкните две точки на полке — линия реза под любым углом, затем часть, которую убрать. «Одну полку» — режется только она, «Весь элемент» — весь профиль у линии">Срезать по линии</button></div>`:""}${fixedHere.length?`<div class="scheme-detail-actions"><button type="button" data-trim-undo-last>↶ Отменить</button><button type="button" data-trim-undo title="Убрать все ваши правки этого элемента (${fixedHere.length})">Вернуть как было</button></div>`:""}<span class="scheme-trim-fix-state" data-trim-state></span></div>`:"");
@@ -2556,7 +2604,7 @@ const fittingSection=c=>c.ft==="flight"||c.ft==="ladder"||c.ft==="deck"?(c.fd>0?
   // the drawings say of it; the exact coordinates folded away. The tiles of before only when the module is not loaded.
   const EC=window.irSchemeElementCard;
   if(EC){
-   const e={mark:c.mark,name,type_name:String(c.type_name||FITTING_LABEL[c.ft]||""),type_key:String(c.type_key||""),lay:c.lay||null,group:recordMarkGroup(c).key,geometry:c.geometryType,
+   const e={mark:c.ft==="trim"?markShown(c).split(" · ")[0]:c.mark,name,type_name:String(c.type_name||FITTING_LABEL[c.ft]||""),type_key:String(c.type_key||""),lay:c.lay||null,group:recordMarkGroup(c).key,geometry:c.geometryType,
     profile:profileShown(c),standard:String(c.profile_standard||""),section:sectionShown(c),steel:String(c.steel||""),joint:c.joint||null,status:c.status,
     status_label:statusText(c.status),status_title:progress?.total>0?"Статус по ведомости марок":"Статус задан вручную",
     x:c.x,y:c.y,x2:c.x2,y2:c.y2,z0:c.z0,z2:c.z2,mx:c.mx,my:c.my,mz:c.mz,r:c.r,ri:c.ri,sw:c.sw,ft:c.ft,
@@ -2574,7 +2622,7 @@ const fittingSection=c=>c.ft==="flight"||c.ft==="ladder"||c.ft==="deck"?(c.fd>0?
    Object.assign(e,{status_date:day.date,status_more:day.more,sheet:sheetOfRecord(c),mass_kmd:markMass(c,linked),model:V?.card?.(c.id)||null,
     spec:Array.isArray(c.parts?.rows)?c.parts:null,kgm:t=>V?.massPerMetre?.(t,c.profile_standard)??null});
    panel.innerHTML=sideToggleHtml()+pickerHtml()+`<div class="ec-card"><div class="scheme-detail-title"><span>Выбранный элемент</span></div>${EC.head(e)}${fitTrim?trimHtml:""}${EC.facts(e)}${EC.nodes(e)}${EC.tools(e)}${EC.parts(e)}${EC.traits(e,grid)}${EC.drawings(e)}${fitTrim?"":'<div class="ec-mark-host"></div>'}
-    ${progressHtml}${fastenersHtml(c)}${drillHtml(c)}${cutsHtml(c)}${platesHtml(c)}${fitTrim?"":EC.coords(e)}</div>${fitTrim?"":trimHtml}${actionsHtml}`;
+    ${progressHtml}${fastenersHtml(c)}${drillHtml(c)}${cutsHtml(c)}${platesHtml(c)}${fitTrim?"":EC.coords(e)}</div>${fitTrim?"":trimHtml}${orderHtml}${actionsHtml}`;
    EC.bind(panel,String(c.id));
   }else
   panel.innerHTML=sideToggleHtml()+pickerHtml()+`<div class="scheme-detail-title"><span>Выбранный элемент</span><b>${esc(c.mark||"—")}</b>${name?`<small>${esc(name)}</small>`:""}</div>${instanceHtml(c)}
@@ -2595,8 +2643,12 @@ const fittingSection=c=>c.ft==="flight"||c.ft==="ladder"||c.ft==="deck"?(c.fd>0?
    ${progressHtml}
    ${fastenersHtml(c)}${drillHtml(c)}${cutsHtml(c)}${platesHtml(c)}${partsHtml(c)}
    ${between?`<div class="scheme-between"><b>Элемент между осями</b><span>${esc(a.x)} / ${esc(a.y)}</span><small>Положение вычисляется от выбранных базовых осей и сохраняется точно в миллиметрах.</small></div>`:""}
-   ${trimHtml||steelHtml}${actionsHtml}`;
+   ${trimHtml||steelHtml}${orderHtml}${actionsHtml}`;
   loadMarkCard(panel,c);
+  panel.querySelectorAll("[data-order-step]").forEach(b=>b.addEventListener("click",async()=>{if(!canEdit())return;const row=arr(rows).find(r=>String(r.id)===String(c.id));if(!row)return;
+   const next=Math.max(-2,Math.min(2,orderOf(c)+Number(b.dataset.orderStep))),d=row.data||{},data={...d,layout:{...(d.layout||{}),order:next}};b.disabled=true;
+   try{const saved=await schemeApi.update(row.id,{record_type:row.record_type||"scheme_column",parent_id:row.parent_id,title:row.title,data});if(!rememberSavedSchemeRecord(saved))rows=arr(rows).map(r=>String(r.id)===String(row.id)?{...r,data}:r);refreshAfterMemberChange()}
+   catch(error){alert(String(error?.message||error));b.disabled=false}}));
   bindTrimFix(panel,c,pk,fixedHere);
   // The journal of edits: the element as it is now, what the program placed and the comment (src/ai-training.js).
   panel.querySelector("[data-scheme-journal]")?.addEventListener("click",async e=>{
@@ -2949,7 +3001,14 @@ const fittingSection=c=>c.ft==="flight"||c.ft==="ladder"||c.ft==="deck"?(c.fd>0?
     if(id&&typeof schemeApi.get==="function"){const fresh=await schemeApi.get(id);if(fresh?.id!=null)rememberSavedSchemeRecord(fresh);else rows=await schemeApi.list()}
     else if(!Array.isArray(rows)||!rows.length)rows=await schemeApi.list()
    }catch(error){err.textContent="Не удалось проверить остатки по схеме: "+String(error?.message||error);err.hidden=false;return}
-   if(!markAvailable(m,id)){const quota=markPlacement(m);err.textContent="Марка "+(m.mark||m.title)+" полностью размещена: "+quota.placed+" из "+quota.total+" шт. Добавление невозможно.";err.hidden=false;return}
+   if(!id&&isTrimMark(m)){
+    const tpl=trimTemplateOf(m.id)||allRecords().find(r=>trimLay(r));
+    if(tpl){const ax=String(fd.get("axis_x")||""),ay=String(fd.get("axis_y")||""),ex=String(fd.get("end_axis_x")||""),ey=String(fd.get("end_axis_y")||"");
+     try{await createTrimPiece({template:tpl.id,markId:m.id,start:{ax,ay,dx:num(fd.get("offset_x_mm")),dy:num(fd.get("offset_y_mm")),z:String(fd.get("z0_mm")??"")},
+      end:{ax:ex,ay:ey,dx:num(fd.get("end_offset_x_mm")),dy:num(fd.get("end_offset_y_mm")),z:String(fd.get("z1_mm")??"")}})}
+     catch(error){err.textContent=String(error?.message||error);err.hidden=false;return}
+     d.close();refreshAfterMemberChange();return}}
+   if(!markAvailable(m,id)&&!isPanelMark(m)){const quota=markPlacement(m);err.textContent="Марка "+(m.mark||m.title)+" полностью размещена: "+quota.placed+" из "+quota.total+" шт. Добавление невозможно.";err.hidden=false;return}
    const axisX=String(fd.get("axis_x")||targetGrid.axesX[0]),axisY=String(fd.get("axis_y")||targetGrid.axesY[0]),dx=num(fd.get("offset_x_mm")),dy=num(fd.get("offset_y_mm")),x=num(targetGrid.xPos.get(axisX))+dx,y=num(targetGrid.yPos.get(axisY))+dy;
    const kind=String(fd.get("geometry_type")||"column"),point=pointGeometry(kind),z0=num(fd.get("z0_mm")),z1=num(fd.get("z1_mm"));
    if(!id&&f.dataset.copyPosition==="1"&&guessGeometry(m)!==(kind==="bent"?"beam":kind)){

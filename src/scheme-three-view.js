@@ -13,7 +13,7 @@ window.irThreeSchemeView=(function irThreeModule(){
  // ускорить построение схемы?» — «да»). It is raised by scripts/scheme-model-digest.js, never by hand: the script builds
  // the checked schemes with this file and raises the number when what would be kept for any of them differs from the
  // record (knowledge/quality/model-digest.json); scripts/scheme-pack.js refuses a pack made without it.
- var MODEL_BUILD=96;
+ var MODEL_BUILD=97;
  var token=0,active=null,loadPromise=null,cameraMemory={};
  // Bundled with the app (works offline); the CDN is only a fallback for an incomplete hot update.
  var sources=[
@@ -111,7 +111,7 @@ window.irThreeSchemeView=(function irThreeModule(){
   return s==="КМД"&&/^\s*КМ\d*(?![\dД])/.test(String(c.source_sheet||c.src_sheet||""))?"КМ":s
  }
  var backgrounds={standard:0xdfe8f3,white:0xffffff,gray:0xd9dde2,blue:0xd6e6f6,sand:0xefe6d6,dark:0x1d2733};
- var kindNames={column:"колонна",beam:"балка",bent:"ломаная балка",brace:"связь",truss:"ферма",shell:"стенка резервуара",plate:"днище / площадка"};
+ var kindNames={column:"колонна",beam:"балка",bent:"ломаная балка",brace:"связь",truss:"ферма",shell:"стенка резервуара",plate:"днище / площадка",trim:"фасонный элемент"};
  function kind(member){
   var key=String(member.scheme_group||member.schemeGroup||"").toLowerCase();
   return groups[key]?key:(member.geometryType==="column"?"columns":member.geometryType==="brace"?"ties":"beams")
@@ -733,6 +733,7 @@ function byCreation(list){if(!Array.isArray(list))return list;var key=function(c
   var spanX=number(P.spanX),spanY=number(P.spanY),X=spanX/1000,Y=spanY/1000;
   var axesX=P.axesX||[],axesY=P.axesY||[],gridX=P.gridX||{},gridY=P.gridY||{};
   var dirX=P.gridDirX==="rtl"?"rtl":"ltr",dirY=P.gridDirY==="ttb"?"ttb":"btt";
+  var porchRecs=[],isPorchPart=function(c){return Boolean(c&&c.ft==="porch_part"&&c.lay&&c.lay.porch)};
   var elems=[],selected=String(P.selected||""),colorMode=COLOR_MODES.indexOf(P.colorMode)>=0?P.colorMode:"type";
   var showGrid=true,showAxes=true,hover="",alive=true,raf=0,firstPaint=false,copySource="",copyBusy=false,placing=null;
   var memoryKey=String(P.objectId||"")+"|"+key;
@@ -788,7 +789,7 @@ function byCreation(list){if(!Array.isArray(list))return list;var key=function(c
    '<label class="ir-three-check" title="Пол во всех помещениях — одним цветом, снаружи асфальт"><input type="checkbox" id="irThreeFloor"> Пол</label>'+
    '<label class="ir-three-check" title="Строка в углу схемы: кадров в секунду, треугольников и команд видеокарте за кадр, время кадра, болтов в поле зрения (и тех, что закрыты стенами)"><input type="checkbox" id="irThreeStats"> Счётчик</label>'+
    '<label class="ir-three-check" title="Все болты в кадре со всеми фасками и гранями на любом расстоянии, блеск серебристой стали, обе стороны граней, повышенная чёткость. Выключено — мелкие на экране болты рисуются проще, вблизи всегда полные, сталь без отражений; так легче видеокарте"><input type="checkbox" id="irThreeBest"> Максимальное качество схемы</label>'+
-   '<label class="ir-three-check" title="Временно: каждый фасонный элемент АР своим цветом, чтобы видеть, где какой. Выключено — в цвете RAL"><input type="checkbox" id="irThreeTrimEach" checked> Фасонные — каждый своим цветом</label>'+
+   '<label class="ir-three-check" title="Каждый вид фасонных элементов своим цветом. Выключено — в цвете RAL"><input type="checkbox" id="irThreeTrimEach" checked> Фасонные — цвет по виду</label><div id="irThreeTrimLegend" class="ir-three-trim-legend"></div>'+
    '</div>'+
    '<div id="irThreeCopyHint" class="ir-three-copy-hint" hidden>Щёлкните новое начало конструкции на плоскости X/Y. <button id="irThreeCancelCopy" type="button">Отмена</button></div>'+
    '<div class="ir-three-viewport" id="irThreeViewport" role="img" aria-label="Интерактивная 3D модель металлического каркаса"></div>'+
@@ -1067,11 +1068,29 @@ function byCreation(list){if(!Array.isArray(list))return list;var key=function(c
   // (each trim of the АР its own colour — temporary, on by default, «Вид ▾»: the engineer 19.11.2026 «сделай каждую
   // фасонку своим цветом», to see where which one is; the hue by the golden angle over the number of the trim)
   var trimEach=true;
+  // (the trims coloured by their kind — one kind, one colour, its name in «Вид ▾»: the engineer 20.11.2026 «что есть что из
+  // фасонки вообще не понятно»; was every trim a colour of its own)
+  var TRIM_KIND={corner:["Угловой наружный",0xe6194b],corner_in:["Угловой внутренний",0xf58231],abutment:["Примыкание кровли к стене",0x3cb44b],existing:["Примыкание к существующему зданию",0x008080],
+   cap:["Накрывка парапета",0x911eb4],gutter:["Накрывка у желоба",0xbfef45],eave:["Карнизный элемент",0x4363d8],gable:["Торцевая планка",0xf032e6],ridge:["Коньковый элемент",0x9a6324],
+   tier:["Стык ярусов",0x42d4f4],reveal:["Откос проёма",0xffe119],sill:["Отлив окна",0xaaffc3],plinth:["Цокольный отлив",0x800000],foot:["Уголок низа перегородки",0x469990]};
+  function trimKindOf(c){var l=c&&c.lay||{},k=String(l.trim||"");if(k==="reveal"&&l.shape&&String(l.shape.pos)==="28")k="sill";return TRIM_KIND[k]?k:""}
+  function trimKindColor(c){var k=trimKindOf(c);return k?TRIM_KIND[k][1]:trimEachColor(c.id)}
+  function trimLegend(){var seen={};elems.forEach(function(c){if(c&&c.ft==="trim"){var k=trimKindOf(c);if(k)seen[k]=(seen[k]||0)+1}});
+   return Object.keys(TRIM_KIND).filter(function(k){return seen[k]}).map(function(k){return'<span class="ir-three-trim-key"><i style="background:#'+("00000"+TRIM_KIND[k][1].toString(16)).slice(-6)+'"></i>'+escapeHtml(TRIM_KIND[k][0])+' · '+seen[k]+'</span>'}).join("")}
+  function paintTrimLegend(){var el=root&&root.querySelector("#irThreeTrimLegend");if(el){el.innerHTML=trimEach?trimLegend():"";el.hidden=!trimEach}}
   function trimEachColor(id){var h=0,t=String(id);for(var i=0;i<t.length;i++)h=(h*31+t.charCodeAt(i))>>>0;return new T.Color().setHSL(((h%997)*.618034)%1,.78,.5).getHex()}
   function trimEachFixed(){allMeshes.forEach(function(m){if(!m.userData.fixed)return;var c=dataById.get(m.userData.memberId);if(!c||c.ft!=="trim")return;
    if(!m.userData.ownMat)m.userData.ownMat=m.material;m.material=trimEach?(m.userData.stepInner?stepInnerMat(c):baseMaterial(c)):m.userData.ownMat})}
   // (the inner corner element of a wall step bears the id of its abutment — its own colour all the same)
-  var stepInnerMats=new Map();function stepInnerMat(c){var k=String(c.id);if(!stepInnerMats.has(k))stepInnerMats.set(k,new T.MeshStandardMaterial({color:trimEachColor(k+"/in"),metalness:.13,roughness:.64,side:T.DoubleSide,polygonOffset:true,polygonOffsetFactor:-1,polygonOffsetUnits:-1}));return stepInnerMats.get(k)}
+  var stepInnerMats=new Map();function stepInnerMat(c){var k=String(c.id);if(!stepInnerMats.has(k))stepInnerMats.set(k,new T.MeshStandardMaterial({color:TRIM_KIND.corner_in[1],metalness:.13,roughness:.64,side:T.DoubleSide,polygonOffset:true,polygonOffsetFactor:-1,polygonOffsetUnits:-1}));return stepInnerMats.get(k)}
+  // The order of drawing of an element (the engineer 20.11.2026 «очерёдность … поменять в каждом элементе»): over the
+  // others or behind them where two lie in one place — the depth offset, the element itself where it is. By the card
+  // (lay.order, −2…2, «Назад» / «Вперёд»); by default the trims of a window (откос, отлив) behind the other trims, shown
+  // whole, the abutment of a porch over its sheet in front.
+  function drawOrder(c){var l=c&&c.lay;if(l&&l.order!==undefined&&l.order!==null&&l.order!==""&&isFinite(Number(l.order)))return Math.max(-2,Math.min(2,Math.round(Number(l.order))));
+   if(c&&c.ft==="trim"&&l&&(l.trim==="reveal"||l.trim==="sill"))return-1;if(isPorchPart(c)&&l.part==="abut")return 1;return 0}
+  var orderMats=new Map();
+  function orderedMat(base,order,f0){if(!order)return base;var k=base.uuid+"|"+order;if(!orderMats.has(k)){var m=base.clone();m.polygonOffset=true;m.polygonOffsetFactor=(f0||0)-order;m.polygonOffsetUnits=(f0||0)*2-2*order;m.userData=Object.assign({},base.userData);orderMats.set(k,m)}return orderMats.get(k)}
   function baseMaterial(c){
    var color=baseColor(c),metal=plannedMetal(c),key=metal?"metal":ghostOf(c)?"p"+color:color;
    // (a trim lies over the panels and their seam lines at any distance: the panel is drawn 1 step back, the seam at its
@@ -1079,7 +1098,7 @@ function byCreation(list){if(!Array.isArray(list))return list;var key=function(c
    // (a trim seen from any side and a little in front of what it lies on: through a trim nothing else is seen — the engineer, 20.11.2026
    // «сквозь нащельник не должно быть видно другие элементы»: a fold of its profile turned away from the camera was left out
    // with the faces of the back, the panel behind it showed through it as a strip)
-   if(!metal&&!ghostOf(c)&&c&&c.ft==="trim"){if(trimEach){color=trimEachColor(c.id);key="te"+c.id}else key="t"+color;if(!mats.has(key))mats.set(key,new T.MeshStandardMaterial({color:color,metalness:.13,roughness:.64,side:T.DoubleSide,polygonOffset:true,polygonOffsetFactor:-2,polygonOffsetUnits:-4,userData:{bothSides:true}}));return mats.get(key)}
+   if(!metal&&!ghostOf(c)&&c&&c.ft==="trim"){if(trimEach){color=trimKindColor(c);key="tk"+color.toString(16)}else key="t"+color;var od=drawOrder(c);if(!mats.has(key))mats.set(key,new T.MeshStandardMaterial({color:color,metalness:.13,roughness:.64,side:T.DoubleSide,polygonOffset:true,polygonOffsetFactor:-2,polygonOffsetUnits:-4,userData:{bothSides:true}}));return od?orderedMat(mats.get(key),od,-2):mats.get(key)}
    if(!mats.has(key)){
     var env=metal&&bestLook?metalMap():null,side=bestLook?T.DoubleSide:T.FrontSide;
     mats.set(key,metal?new T.MeshStandardMaterial(env?{color:color,metalness:.85,roughness:.3,envMap:env,envMapIntensity:1.15,side:side,polygonOffset:true,polygonOffsetFactor:1,polygonOffsetUnits:1}:{color:color,metalness:.35,roughness:.42,side:side,polygonOffset:true,polygonOffsetFactor:1,polygonOffsetUnits:1}):
@@ -5135,6 +5154,12 @@ function byCreation(list){if(!Array.isArray(list))return list;var key=function(c
   }
   function porchSheets(){
    porchN=0;porchAbutN=0;porchClipN=0;var byPorch={};
+   // (the sheet and the abutment of a porch — elements of their own when the scheme has them (scheme-page makes them once per
+   // porch): their own card, colour, order of drawing; a part the engineer deleted is not drawn; with no such records — as
+   // before, on the purlin)
+   var parts={},made=new Set(Array.isArray(P.porchMade)?P.porchMade.map(String):[]);porchRecs.forEach(function(c){parts[String(c.lay.porch)+"|"+String(c.lay.part)]=c});
+   var partOf=function(k,part,fallback,mat,mesh){var c=parts[k+"|"+part];if(!c&&made.has(k+"|"+part))return false;var id=c?String(c.id):fallback;mesh.userData.memberId=id;
+    if(c){dataById.set(id,c);mesh.material=orderedMat(mat,drawOrder(c),0);if(!meshesById.has(id))meshesById.set(id,[]);meshesById.get(id).push(mesh);mesh.userData.porchPart=part}return true};
    // (the walls of panels, for the sheet's end at the outer face of the wall and the abutment over it — the engineer
    // 19.11.2026, sheet 43: «профлист кончается у наружной грани стены», «где кстати нащельник над профлистом»)
    var walls=[];elems.forEach(function(c){if(c.ft!=="panel"||!c.id||!c.lay||c.lay.panel!=="wall")return;var p=memberPoints(c),u=new T.Vector3(p[1].x-p[0].x,0,p[1].z-p[0].z),L=u.length();if(L<.1)return;u.divideScalar(L);
@@ -5184,7 +5209,7 @@ function byCreation(list){if(!Array.isArray(list))return list;var key=function(c
       if(!pl){pl={n:w.n.clone().multiplyScalar(sg),d:pd,w:w,sg:sg,hit:[]};planes.push(pl)}hit.forEach(function(h){if(pl.hit.indexOf(h)<0)pl.hit.push(h)})}});
     planes.forEach(function(q){if(!junc||q.hit.length>junc.length){junc=q.hit;jw={w:q.w,sg:q.sg}}});
     var geo=new T.BufferGeometry();geo.setAttribute("position",new T.Float32BufferAttribute(pos,3));geo.computeVertexNormals();
-    var m=new T.Mesh(geo,sheetMat);m.userData.memberId=lines[0].id;m.userData.fixed=true;m.userData.footing=true;m.userData.sheet=true;steel.add(m);allMeshes.push(m);
+    var m=new T.Mesh(geo,sheetMat);m.userData.fixed=true;m.userData.footing=true;m.userData.sheet=true;if(partOf(k,"sheet",lines[0].id,sheetMat,m)){steel.add(m);allMeshes.push(m)}
     // The abutment of the sheet to the wall (sheet 43): a flashing over the sheet's end at the wall — 150 on the sheet over
     // its crests, 150 up the wall, the top turned 20 mm off the wall; along the whole line of the sheet at the face.
     if(junc&&junc.length>1){
@@ -5195,7 +5220,7 @@ function byCreation(list){if(!Array.isArray(list))return list;var key=function(c
       var ap=[],prof=[[.15,0],[0,0],[0,.15],[.02,.15]],at2=function(r,q){return r.p.clone().add(nn.clone().multiplyScalar(q[0])).setY(r.p.y+.04+q[1])};
       for(var ri=0;ri+1<row.length;ri++)for(var qi=0;qi+1<prof.length;qi++){var p1=at2(row[ri],prof[qi]),p2=at2(row[ri+1],prof[qi]),p3=at2(row[ri+1],prof[qi+1]),p4=at2(row[ri],prof[qi+1]);[p1,p2,p3,p1,p3,p4].forEach(function(p){ap.push(p.x,p.y,p.z)})}
       var ag=new T.BufferGeometry();ag.setAttribute("position",new T.Float32BufferAttribute(ap,3));ag.computeVertexNormals();
-      var am=new T.Mesh(ag,sheetMat);am.userData.memberId=lines[0].id;am.userData.fixed=true;am.userData.footing=true;am.userData.sheet=true;am.userData.porchAbut=true;steel.add(am);allMeshes.push(am);porchAbutN++}
+      var am=new T.Mesh(ag,sheetMat);am.userData.fixed=true;am.userData.footing=true;am.userData.sheet=true;am.userData.porchAbut=true;if(partOf(k,"abut",lines[0].id,sheetMat,am)){steel.add(am);allMeshes.push(am);porchAbutN++}}
     }
     porchN++
    })
@@ -9206,6 +9231,9 @@ function byCreation(list){if(!Array.isArray(list))return list;var key=function(c
    allMeshes=[];plateCells.clear();platesN=0;boltList=[];seatIndex=null;webGus=[];webTraps=[];cleatRibs=[];footRibFree.clear();dataById.clear();meshesById.clear();failures=0;weldList=[];weldRun++;conventional.clear();drillCache.clear();upperCache.clear();seatCache.clear();boltNear.clear();boltNearN=0;
    labels.forEach(function(l){l.el.remove()});labels=[];
    elems=Array.isArray(list)?list:[];
+   // (the parts of a porch — its profiled sheet and the abutment over it, elements of their own: drawn by porchSheets, out
+   // of every rule of the members — 20.11.2026)
+   porchRecs=elems.filter(isPorchPart);if(porchRecs.length)elems=elems.filter(function(c){return!isPorchPart(c)});
    // (a deck of a platform's frame with no material — «Настил» the placement adds — of the material its beams name or the
    // deck of the same structure has: the crane platforms +16,100 and +9,500, КМ3 л.24, л.25 «Н2 ПВ 510», drawn and weighed
    // as grating — the engineer 16.11.2026 «решётчатый настил … ты этот считал?»; deckOwn)
@@ -9442,7 +9470,7 @@ function byCreation(list){if(!Array.isArray(list))return list;var key=function(c
    var memberOrder=elems.filter(lattice).concat(elems.filter(lstrut),elems.filter(function(c){return!lattice(c)&&!lstrut(c)}));
    var buildOne=function(c){
     var id=String(c.id||"");if(!id)return;
-    dataById.set(id,c);
+    dataById.set(id,c);if(isPorchPart(c))return;
     var p=memberPoints(c),segments=[],seated=seatEnd.get(id);
     if(seated)[0,1].forEach(function(k){var q=seated[k];if(q)p[k?p.length-1:0]=toWorld(q.x,q.y,k?c.z2:c.z0)});
     // Welds — a layer of their own on the scheme.
@@ -14438,7 +14466,7 @@ function byCreation(list){if(!Array.isArray(list))return list;var key=function(c
     var c=dataById.get(mesh.userData.memberId);
     if(!mesh.userData.fixed)mesh.material=mesh.userData.roof?roofMaterial(c):mesh.userData.shell?shellMaterial(c):baseMaterial(c)
    });
-   trimEachFixed();
+   trimEachFixed();paintTrimLegend();
    rayTargets=allMeshes.filter(function(m){return!m.userData.small});
    var materialsRest=function(){lit=null;paintHighlight();
    // (not the number of the elements — the engineer, 03.11.2026: «5071 элементов убери»; what is drawn not as given, only;
@@ -15449,7 +15477,10 @@ function byCreation(list){if(!Array.isArray(list))return list;var key=function(c
    else if(current&&pts.length<needed())pts.push(toWorld(current.x,current.y,current.z));
    if(pts.length>1){preview=new T.Line(new T.BufferGeometry().setFromPoints(pts),previewMat);preview.renderOrder=9;helpers.add(preview)}
   }
-  function availableMarks(){return(P.marks||[]).filter(function(m){return m.left>0})}
+  // (the marks to add: steel with a remainder by the list; trims and panels of АР — every kind, the placed too, over the list
+  // if needed — the engineer 20.11.2026 «а где остальные фасонки?»: the fully placed kinds of Нщ were not in the list)
+  function markOpen(m){return m.left>0||m.geometry==="trim"||m.panel}
+  function availableMarks(){return(P.marks||[]).filter(markOpen)}
   function startPlacement(){
    if(!P.canEdit)return;
    cancelCopy();
@@ -15462,8 +15493,13 @@ function byCreation(list){if(!Array.isArray(list))return list;var key=function(c
   function selectMark(id){
    var m=(P.marks||[]).find(function(x){return String(x.id)===String(id)});
    placing.mark=m||null;placing.points=[];placing.error="";
-   placing.geometry=m?(m.geometry==="beam"&&placing.geometry==="bent"?"bent":m.geometry):"column"
+   placing.geometry=m?(m.geometry==="trim"?"beam":m.geometry==="beam"&&placing.geometry==="bent"?"bent":m.geometry):"column"
   }
+  // (a mark of a trim — «Нщ» — added as a trim: by its own template, else by the kind chosen, the mark kept — the engineer
+  // 20.11.2026 «почему пишет балка?»)
+  function trimByMark(m){if(!m||!P.onQuickTrim)return false;var tpl=typeof P.trimTemplateOf==="function"?P.trimTemplateOf(m.id):"";
+   if(!tpl&&m.geometry!=="trim")return false;var tk=trimKindsNow();if(!tpl&&!tk.length)return false;
+   placing.trim=true;placing.trimMark=String(m.id);placing.trimKind=tpl||placing.trimKind||tk[0].id;return true}
   function cancelPlacement(){
    placing=null;clearPreview();marker.visible=false;cursor.hidden=true;placePanel.hidden=true;viewport.classList.remove("placing")
   }
@@ -15473,12 +15509,13 @@ function byCreation(list){if(!Array.isArray(list))return list;var key=function(c
   }
   function paintPlacement(){
    if(!placing)return;
-   var marks=(P.marks||[]),q=placing.query.trim().toLowerCase(),list=marks.filter(function(m){return m.left>0&&(!q||String(m.title+" "+m.mark).toLowerCase().indexOf(q)>=0)});
+   var marks=(P.marks||[]),q=placing.query.trim().toLowerCase(),list=marks.filter(function(m){return markOpen(m)&&(!q||String(m.title+" "+m.mark).toLowerCase().indexOf(q)>=0)});
    var m=placing.mark,g=placing.geometry,count=needed(),ready=m&&placing.points.length>=count;
    var tk0=trimKindsNow(),tk=P.onQuickTrim&&tk0.length?tk0:null;
    if(placing.trim&&tk){var tsel=placing.trimKind||tk[0].id,tready=placing.points.length>=2;
     placePanel.innerHTML='<div class="ir-three-place-head"><b>Добавить элемент</b><button type="button" data-place="close" title="Закрыть (Esc)">×</button></div>'+
      '<div class="ir-three-place-row"><button type="button" data-place="by-mark">По марке</button><button type="button" class="primary" data-place="by-trim">Фасонный элемент</button></div>'+
+     (placing.trimMark?'<div class="ir-three-place-kind">'+escapeHtml(((P.marks||[]).find(function(x){return String(x.id)===placing.trimMark})||{}).mark||"")+' — фасонный элемент</div>':"")+
      '<label class="ir-three-place-field">Вид<select data-place="trim-kind" data-native-select="1">'+tk.map(function(x){return '<option value="'+escapeHtml(x.id)+'" '+(String(x.id)===String(tsel)?"selected":"")+'>'+escapeHtml(x.title)+'</option>'}).join("")+'</select></label>'+
      '<p class="ir-three-place-note">'+(placing.points.length<2?"Щёлкните "+pointNames().slice(placing.points.length).join(", затем ").toLowerCase()+" фасонного элемента на панели, фасонке или стали.":"Проверьте отметки и сохраните.")+'</p>'+
      placing.points.map(pointText).join("")+
@@ -15486,7 +15523,7 @@ function byCreation(list){if(!Array.isArray(list))return list;var key=function(c
      '<div class="ir-three-place-actions"><button type="button" class="primary" data-place="save" '+(tready&&!placing.busy?"":"disabled")+'>Сохранить</button><button type="button" data-place="reset" '+(placing.points.length?"":"disabled")+'>Сбросить точки</button></div>';
     bindPlacement();return}
    // (the work type first: its marks only — the engineer, 20.11.2026 «при добавлении элемента надо выборку вида работ сделать»)
-   var wl=(P.works||[]).filter(function(w){return marks.some(function(x){return x.left>0&&String(x.work)===String(w.id)})});
+   var wl=(P.works||[]).filter(function(w){return marks.some(function(x){return markOpen(x)&&String(x.work)===String(w.id)})});
    if(wl.length>1){if(!wl.some(function(w){return String(w.id)===String(placing.work)}))placing.work=String((m&&m.work&&wl.some(function(w){return String(w.id)===String(m.work)}))?m.work:wl[0].id);
     list=list.filter(function(x){return String(x.work)===String(placing.work)})}
    // (the mark in the heading — the one in the list: a search that hid the chosen mark left its name over another — «Б1 —
@@ -15495,22 +15532,22 @@ function byCreation(list){if(!Array.isArray(list))return list;var key=function(c
    placePanel.innerHTML='<div class="ir-three-place-head"><b>Добавить элемент</b><button type="button" data-place="close" title="Закрыть (Esc)">×</button></div>'+
     (tk?'<div class="ir-three-place-row"><button type="button" class="primary" data-place="by-mark">По марке</button><button type="button" data-place="by-trim">Фасонный элемент</button></div>':"")+
     (wl.length>1?'<label class="ir-three-place-field">Вид работ<select data-place="work" data-native-select="1">'+wl.map(function(w){return '<option value="'+escapeHtml(w.id)+'" '+(String(w.id)===String(placing.work)?"selected":"")+'>'+escapeHtml(w.name)+'</option>'}).join("")+'</select></label>':"")+
-    (!marks.some(function(x){return x.left>0})?'<p class="ir-three-place-note">Нет марок с остатком по ведомости. Добавьте марки или откройте форму.</p>':
+    (!marks.some(markOpen)?'<p class="ir-three-place-note">Нет марок с остатком по ведомости. Добавьте марки или откройте форму.</p>':
     '<label class="ir-three-place-field">Марка<input type="search" data-place="search" value="'+escapeHtml(placing.query)+'" placeholder="Поиск марки"></label>'+
     '<select data-place="mark" data-native-select="1" size="5">'+list.slice(0,200).map(function(x){
-     return '<option value="'+escapeHtml(x.id)+'" '+(m&&String(m.id)===String(x.id)?"selected":"")+'>'+escapeHtml(x.title||x.mark)+' · '+(kindNames[x.geometry]||x.geometry)+' · осталось '+x.left+' из '+x.total+'</option>'
+     return '<option value="'+escapeHtml(x.id)+'" '+(m&&String(m.id)===String(x.id)?"selected":"")+'>'+escapeHtml(x.title||x.mark)+' · '+(kindNames[x.geometry]||x.geometry)+(x.left>0?' · осталось '+x.left+' из '+x.total:' · размещено '+x.placed+' из '+x.total)+'</option>'
     }).join("")+'</select>')+
     (m?'<div class="ir-three-place-kind">'+escapeHtml(m.mark||m.title)+' — '+escapeHtml(kindNames[g]||g)+
      (m.geometry==="beam"?'<label class="ir-three-check"><input type="checkbox" data-place="bent" '+(g==="bent"?"checked":"")+'> ломаная (конёк)</label>':"")+'</div>'+
      (g==="bent"?'<div class="ir-three-place-row"><label>Конёк <select data-place="ridge" data-native-select="1"><option value="center" '+(placing.ridge==="center"?"selected":"")+'>посередине</option><option value="manual" '+(placing.ridge==="manual"?"selected":"")+'>указать точкой</option></select></label>'+
       (placing.ridge==="center"?'<label>Z конька, мм <input type="number" step="10" data-place="ridgeZ" value="'+escapeHtml(placing.ridgeZ)+'"></label>':"")+'</div>':"")+
      (g==="column"?'<div class="ir-three-place-row"><label>Низ, мм <input type="number" step="10" data-place="z0" value="'+placing.z0+'"></label><label>Верх, мм <input type="number" step="10" data-place="z1" value="'+placing.z1+'"></label></div>':
-      '<div class="ir-three-place-row"><label title="Высота, на которой выбираются точки, если не попали на колонну или балку">Плоскость, мм <input type="number" step="10" data-place="level" value="'+placing.level+'"></label></div>')+
+      m.geometry==="trim"?"":'<div class="ir-three-place-row"><label title="Высота, на которой выбираются точки, если не попали на колонну или балку">Плоскость, мм <input type="number" step="10" data-place="level" value="'+placing.level+'"></label></div>')+
      '<p class="ir-three-place-note">'+(g==="column"?"Щёлкните узел сетки или точку на плане.":
       "Щёлкните "+pointNames().slice(placing.points.length).join(", затем ").toLowerCase()+": верх колонны, точку на балке или узел сетки.")+'</p>'+
      placing.points.map(pointText).join("")+
-     '<div class="ir-three-place-row"><label class="ir-three-check"><input type="checkbox" data-place="series" '+(placing.series?"checked":"")+'> серия</label>'+
-     (g!=="column"?'<label class="ir-three-check"><input type="checkbox" data-place="chain" '+(placing.chain?"checked":"")+'> цепочкой</label>':"")+'</div>':"")+
+     (m.geometry==="trim"?"":'<div class="ir-three-place-row"><label class="ir-three-check"><input type="checkbox" data-place="series" '+(placing.series?"checked":"")+'> серия</label>'+
+     (g!=="column"?'<label class="ir-three-check"><input type="checkbox" data-place="chain" '+(placing.chain?"checked":"")+'> цепочкой</label>':"")+'</div>'):"")+
    (placing.error?'<p class="ir-three-action-error">'+escapeHtml(placing.error)+'</p>':"")+
    '<div class="ir-three-place-actions">'+
     (P.onQuickPlace?'<button type="button" class="primary" data-place="save" '+(ready&&!placing.busy?"":"disabled")+'>Сохранить</button>':"")+
@@ -15527,8 +15564,7 @@ function byCreation(list){if(!Array.isArray(list))return list;var key=function(c
     var s=placePanel.querySelector('[data-place="search"]');s.focus();try{s.setSelectionRange(at,at)}catch(_e){}
    });
    // (a mark of a trim picked from the list — the panel of the trims with its kind: no «балка», «плоскость», «серия» for it)
-   on("mark","change",function(e){selectMark(e.target.value);var tpl=placing.mark&&P.onQuickTrim&&typeof P.trimTemplateOf==="function"?P.trimTemplateOf(placing.mark.id):"";
-    if(tpl){placing.trim=true;placing.trimKind=tpl}drawPoints(null);paintPlacement()});
+   on("mark","change",function(e){selectMark(e.target.value);trimByMark(placing.mark);drawPoints(null);paintPlacement()});
    on("bent","change",function(e){placing.geometry=e.target.checked?"bent":"beam";placing.points=[];drawPoints(null);paintPlacement()});
    on("ridge","change",function(e){placing.ridge=e.target.value;placing.points=[];drawPoints(null);paintPlacement()});
    on("ridgeZ","change",function(e){placing.ridgeZ=e.target.value});
@@ -15539,8 +15575,8 @@ function byCreation(list){if(!Array.isArray(list))return list;var key=function(c
    on("chain","change",function(e){placing.chain=e.target.checked});
    on("reset","click",function(){placing.points=[];placing.error="";drawPoints(null);paintPlacement()});
    on("save","click",savePlacement);
-   on("by-trim","click",function(){placing.trim=true;placing.points=[];placing.error="";drawPoints(null);paintPlacement()});
-   on("by-mark","click",function(){placing.trim=false;placing.points=[];placing.error="";drawPoints(null);paintPlacement()});
+   on("by-trim","click",function(){placing.trim=true;placing.trimMark="";placing.points=[];placing.error="";drawPoints(null);paintPlacement()});
+   on("by-mark","click",function(){placing.trim=false;placing.trimMark="";placing.points=[];placing.error="";drawPoints(null);paintPlacement()});
    on("trim-kind","change",function(e){placing.trimKind=e.target.value});
    on("form","click",function(){var data=placementData(true);if(!data)return;var p=P.onPlacement;cancelPlacement();p&&p(data)});
    placePanel.querySelectorAll("[data-place-z]").forEach(function(input){
@@ -15566,10 +15602,10 @@ function byCreation(list){if(!Array.isArray(list))return list;var key=function(c
    // form; the engineer 20.11.2026, an I-beam for «Нщ»)
    if(placing&&!placing.trim&&!placing.busy&&placing.mark&&P.onQuickTrim&&typeof P.trimTemplateOf==="function"&&placing.points.length>=2){
     var tpl=P.trimTemplateOf(placing.mark.id,placing.points[0].memberId||placing.points[1].memberId);
-    if(tpl){placing.trim=true;placing.trimKind=tpl}}
+    if(tpl){placing.trim=true;placing.trimMark=String(placing.mark.id);placing.trimKind=tpl}else trimByMark(placing.mark)}
    if(placing&&placing.trim&&!placing.busy&&P.onQuickTrim){
     if(placing.points.length<2){placing.error="Укажите начало и конец.";paintPlacement();return}
-    var tk=trimKindsNow(),strip=function(p){return{ax:p.ax,ay:p.ay,dx:p.dx,dy:p.dy,z:p.z,memberId:p.memberId}},td={template:placing.trimKind||(tk[0]&&tk[0].id),start:strip(placing.points[0]),end:strip(placing.points[1])};
+    var tk=trimKindsNow(),strip=function(p){return{ax:p.ax,ay:p.ay,dx:p.dx,dy:p.dy,z:p.z,memberId:p.memberId}},td={template:placing.trimKind||(tk[0]&&tk[0].id),markId:placing.trimMark||"",start:strip(placing.points[0]),end:strip(placing.points[1])};
     placing.busy=true;placing.error="";paintPlacement();
     Promise.resolve().then(function(){return P.onQuickTrim(td)}).then(function(result){if(!placing)return;placing.busy=false;placing.points=[];P.onQuickPlaced&&P.onQuickPlaced(result);paintPlacement()})
      .catch(function(error){if(!placing)return;placing.busy=false;placing.error=String(error&&error.message||error);paintPlacement()});return}
@@ -15703,9 +15739,13 @@ function byCreation(list){if(!Array.isArray(list))return list;var key=function(c
    var g=o.geometry,P=g.attributes.position,step=Math.max(1,Math.floor(P.count/120)),pts=[],v=new T.Vector3();o.updateMatrixWorld(true);for(var i=0;i<P.count;i+=step)pts.push(v.fromBufferAttribute(P,i).applyMatrix4(o.matrixWorld).clone().add(off));
    var best=len,rc=new T.Raycaster(),hs=[];
    // (not through a trim, the steel or a panel)
-   var own=dataById.get(String(id)),ownAll=own&&!own.ft;X.all.forEach(function(f){var u=f.o.userData||{},c=dataById.get(f.id);if(f.o===o||ownAll&&String(f.id)===String(id)||!f.b.intersectsBox(sw))return;if(u.edges||u.seam||u.screw||u.weld||u.hole||u.building||u.floor||u.masonry&&!u.clad)return;if(!c&&!u.tl&&!u.wallCap)return;
+   var own=dataById.get(String(id)),ownAll=own&&!own.ft;X.all.forEach(function(f){var u=f.o.userData||{},c=dataById.get(f.id);if(f.o===o||ownAll&&String(f.id)===String(id)||!f.b.intersectsBox(sw))return;if(u.edges||u.seam||u.screw||u.weld||u.hole||u.buildingGuard||u.floor)return;if(!c&&!u.tl&&!u.wallCap)return;
     var ml=Array.isArray(f.o.material)?f.o.material:[f.o.material],sd=ml.map(function(m){return m&&m.side});ml.forEach(function(m){if(m)m.side=T.DoubleSide});
-    try{pts.forEach(function(p){rc.set(p.clone().addScaledVector(dir,-.0005),dir);rc.far=best+.002;hs.length=0;f.o.raycast(rc,hs);hs.forEach(function(h){var d=h.distance-.0005;if(d>.0004&&d-.001<best)best=Math.max(0,d-.001)})})}finally{ml.forEach(function(m,i){if(m)m.side=sd[i]})}});
+    try{pts.forEach(function(p){rc.set(p.clone().addScaledVector(dir,-.0005),dir);rc.far=best+.002;hs.length=0;f.o.raycast(rc,hs);hs.forEach(function(h){var d=h.distance-.0005;
+     // (a face the piece lies on, met head-on — it stops there: a piece in touch with a wall slid through it, the hit at 0
+     // taken for the face it lies on; along the face it slides — the engineer 20.11.2026 «сквозь стену провалился фасонный»)
+     if(d<=.0004){if(h.face&&h.face.normal.clone().transformDirection(f.o.matrixWorld).dot(dir)<-.3)best=0;return}
+     if(d-.001<best)best=Math.max(0,d-.001)})})}finally{ml.forEach(function(m,i){if(m)m.side=sd[i]})}});
    return dir.multiplyScalar(best)}
   function moveGeo(m,vec){var g=m.geometry.clone(),ps=g.attributes.position,inv=new T.Matrix4().copy(m.matrixWorld).invert(),v=new T.Vector3();m.updateMatrixWorld(true);
    for(var i=0;i<ps.count;i++){v.fromBufferAttribute(ps,i).applyMatrix4(m.matrixWorld).add(vec).applyMatrix4(inv);ps.setXYZ(i,v.x,v.y,v.z)}ps.needsUpdate=true;g.computeBoundingBox();g.computeBoundingSphere();if(g.userData)delete g.userData.outline;m.geometry=g;m.updateMatrixWorld(true);m.userData.engineerFix=true;if(m.userData)delete m.userData.sphere}
@@ -15770,7 +15810,10 @@ function byCreation(list){if(!Array.isArray(list))return list;var key=function(c
   function dragStop(d,v){var e0=d.end==="lo"?d.lo:d.hi,sg=d.end==="lo"?-1:1;if(sg*(v-e0)<=0)return{v:v};if(!d.X)d.X=trimIndex();
    var X=d.X,o=d.o,b=new T.Box3().setFromObject(o),isT=function(f){var u=f.o.userData||{},c=dataById.get(f.id);if(f.id===d.id||f.o===o)return false;
     // (a panel stops at another panel, the plinth or the foundation; a trim — at a trim or a roof)
-    if(d.kind==="panel")return Boolean(c&&c.ft==="panel"&&!u.footing||u.plinth||u.footing||u.foundation);return Boolean(u.tl!==undefined||u.wallCap||u.footTrim||c&&c.ft==="trim"||c&&c.ft==="panel"&&c.lay&&c.lay.panel==="roof"&&!u.footing)};
+    if(d.kind==="panel")return Boolean(c&&c.ft==="panel"&&!u.footing||u.plinth||u.footing||u.foundation);// (and at a wall, the masonry, the existing building and the steel — over them, never through: 20.11.2026 «сквозь стену
+    // провалился фасонный»)
+    if(u.edges||u.seam||u.screw||u.weld||u.hole||u.floor||u.buildingGuard)return false;
+    return Boolean(u.tl!==undefined||u.wallCap||u.footTrim||u.masonry||u.building||c&&(c.ft==="trim"||c.ft==="panel"||!c.ft&&!u.bolt&&!u.wood))};
    var w0=toWorld(d.pt.x,d.pt.y,d.pt.z),q0={x:d.pt.x,y:d.pt.y,z:d.pt.z},q1={x:d.pt.x,y:d.pt.y,z:d.pt.z};q0[d.ax]=e0;q1[d.ax]=v;var A=toWorld(q0.x,q0.y,q0.z),B=toWorld(q1.x,q1.y,q1.z),dir=B.clone().sub(A),len=dir.length();if(len<1e-6)return{v:v};dir.divideScalar(len);
    var best=Infinity,who=null,rc=new T.Raycaster(),hs=[],sw=b.clone();sw.expandByPoint(B);sw.expandByScalar(.003);
    var pts=[];var ex=new T.Vector3(),ey=new T.Vector3();b.getSize(ex);["x","y","z"].forEach(function(k){if(Math.abs(dir[k])>.5)return;pts.push(k)});
@@ -15849,7 +15892,7 @@ function byCreation(list){if(!Array.isArray(list))return list;var key=function(c
    flight={from:controls.target.clone(),to:k.at.clone(),camFrom:camera.position.clone(),camTo:to,t:0,ms:850,st:performance.now()};invalidate()
   };
   root.querySelector("#irThreeStats").onchange=function(e){statsOn=e.target.checked;statsTimes=[];statsMoved=performance.now();if(!statsOn)paintStats();invalidate(1100)};
-  root.querySelector("#irThreeTrimEach").onchange=function(e){trimEach=e.target.checked;root.setAttribute("data-trim-each",trimEach?"1":"0");refreshMaterials()};
+  root.querySelector("#irThreeTrimEach").onchange=function(e){trimEach=e.target.checked;root.setAttribute("data-trim-each",trimEach?"1":"0");refreshMaterials();paintTrimLegend()};
   root.setAttribute("data-trim-each","1");
   root.querySelector("#irThreeBest").onchange=function(e){boltBest=bestLook=e.target.checked;applyLook();boltCells.forEach(function(c){c.shown=-2});invalidate()};
   // (and into the sets drawn: the sets of the scene take only what is shown — the floor turned on stayed out of them)
@@ -16105,7 +16148,7 @@ function byCreation(list){if(!Array.isArray(list))return list;var key=function(c
   // The members are rebuilt only when they changed: choosing a member or a toggle on the page only repaints.
   var built="";
   function addedOnly(old,now){if(!old||!Array.isArray(now)||now.length<=old.size||now.length-old.size>5)return null;var seen=0,out=[];
-   for(var i=0;i<now.length;i++){var n=now[i];if(!n||n.id==null)return null;var w=old.get(String(n.id));if(w===undefined){out.push(n);continue}if(!sameAs(w,n))return null;seen++}return seen===old.size?out:null}
+   for(var i=0;i<now.length;i++){var n=now[i];if(!n||n.id==null)return null;var w=old.get(String(n.id));if(w===undefined){if(isPorchPart(n))return null;out.push(n);continue}if(!sameAs(w,n))return null;seen++}return seen===old.size?out:null}
   function addLocal(list){
    try{list.forEach(function(c){if(dataById.has(String(c.id)))return;elems.push(c);memberBuilder(c)});
     allMeshes.forEach(function(m){var u=m.userData||{};if(list.some(function(c){return String(c.id)===String(u.memberId)})&&!u.fixed)m.material=u.roof?roofMaterial(dataById.get(String(u.memberId))):u.shell?shellMaterial(dataById.get(String(u.memberId))):baseMaterial(dataById.get(String(u.memberId)))});
@@ -16128,6 +16171,15 @@ function byCreation(list){if(!Array.isArray(list))return list;var key=function(c
   function textsOf(list){if(P&&P.report)return null;var m=new Map();(list||[]).forEach(function(e){if(e&&e.id!=null)try{m.set(String(e.id),{o:e,t:JSON.stringify(e)})}catch(x){}});return m}
   // (the same object given again, or one of the same text)
   function sameAs(w,n){return w.o===n||w.t===JSON.stringify(n)}
+  // (only the order of drawing changed — «Назад» / «Вперёд» of the card: the materials of those elements, no rebuilding)
+  function orderOnly(old,now){if(!old||!Array.isArray(now)||now.length!==old.size)return null;var out=[];
+   var bare=function(c){var o=Object.assign({},c);if(o.lay&&typeof o.lay==="object"){o.lay=Object.assign({},o.lay);delete o.lay.order}return JSON.stringify(o)};
+   for(var i=0;i<now.length;i++){var n=now[i];if(!n||n.id==null)return null;var w=old.get(String(n.id));if(w===undefined)return null;if(sameAs(w,n))continue;
+    var was;try{was=JSON.parse(w.t)}catch(e){return null}if(bare(was)!==bare(n))return null;out.push(n);if(out.length>20)return null}return out}
+  function orderLocal(list){try{list.forEach(function(n){var id=String(n.id),c=dataById.get(id);if(!c)return;var nc=Object.assign({},c,{lay:Object.assign({},c.lay||{},{order:n.lay&&n.lay.order})});dataById.set(id,nc);
+     elems=elems.map(function(e){return String(e.id)===id?nc:e});porchRecs=porchRecs.map(function(e){return String(e.id)===id?nc:e});
+     (meshesById.get(id)||[]).forEach(function(m){var u=m.userData||{};if(u.porchPart)m.material=orderedMat(sheetMat,drawOrder(nc),0);else if(nc.ft==="trim"&&!u.stepInner&&m.material&&m.material.userData&&m.material.userData.bothSides)m.material=baseMaterial(nc)})});
+    rebatch();pickOf=null;lit=null;paintHighlight();return true}catch(e){if(window.console)console.warn("orderLocal",e&&e.stack||e);return false}}
   function sameRefs(list){if(!P.report||!builtRefs||!list||list.length!==builtRefs.length)return false;for(var i=0;i<list.length;i++)if(list[i]!==builtRefs[i])return false;return true}
   function update(next){
    // (the model still being built by steps: the new members and settings wait for it — buildSteps)
@@ -16146,6 +16198,7 @@ function byCreation(list){if(!Array.isArray(list))return list;var key=function(c
    // (and an element added by hand — built alone and merged, the rest as it stands: the engineer, 20.11.2026 «и пошло
    // поехало, минуту ждать» on one trim added)
    if(sig!==built&&fixKey===prevFix&&memberBuilder){var added=addedOnly(prevTexts,P.elements);if(added&&added.length&&addLocal(added)){built=sig;root.setAttribute("data-added",String(added.length))}}
+   if(sig!==built&&fixKey===prevFix){var ord=orderOnly(prevTexts,P.elements);if(ord&&ord.length&&orderLocal(ord)){built=sig;root.setAttribute("data-order-local",String(ord.length))}}
    if(sig!==built&&fixKey===prevFix){var gone=removedOnly(prevTexts,P.elements);if(gone&&gone.length){gone.forEach(dropMember);built=sig;try{rebatch()}catch(e){}pickOf=null;lit=null;try{paintHighlight()}catch(e){}root.setAttribute("data-dropped",String(gone.length))}}
    // (the time of a rebuild is not the time of a picture: three kinds of members switched off on the legend — three
    // rebuilds of over 0.4 s — took the window for a slow one, and it went over to the simplified drawing for good, without
@@ -16163,7 +16216,7 @@ function byCreation(list){if(!Array.isArray(list))return list;var key=function(c
    applyBackground();dims.visible=Boolean(P.showDimensions);invalidate();
    if(placing){
     var m=placing.mark&&(P.marks||[]).find(function(x){return String(x.id)===String(placing.mark.id)});
-    if(m&&m.left>0)placing.mark=m;else{var left=(P.marks||[]).filter(function(x){return x.left>0});if(left.length)selectMark(left[0].id);else placing.mark=null}
+    if(m&&markOpen(m))placing.mark=m;else{var left=(P.marks||[]).filter(markOpen);if(left.length)selectMark(left[0].id);else placing.mark=null}
     paintPlacement()
    }
   }
@@ -16377,7 +16430,7 @@ function byCreation(list){if(!Array.isArray(list))return list;var key=function(c
     var vars={};MC_VARS.forEach(function(n){vars[n]=dec(s.vars[n])});
     s.patch.forEach(function(p){var c=list[p[0]];if(!c)return;if(p[2]===null)delete c[p[1]];else c[p[1]]=JSON.parse(p[2])});
     // as buildMembers leaves the viewer: the caches empty, the members and the pieces given
-    elems=list;mcSet(vars);allMeshes=meshes;meshes.forEach(function(m){steel.add(m)});
+    porchRecs=list.filter(isPorchPart);elems=porchRecs.length?list.filter(function(c){return!isPorchPart(c)}):list;mcSet(vars);allMeshes=meshes;meshes.forEach(function(m){steel.add(m)});
     drillCache.clear();upperCache.clear();seatCache.clear();cutsCache.clear();boltNear.clear();boltNearN=0;weldList=[];weldRun++;
     return true
    }catch(err){if(err instanceof MCFail){mcWhy=err.what;return false}throw err}
