@@ -23,7 +23,18 @@
    "Строительная лицензия II категории, собственный штат специалистов и полный комплект исполнительной документации по каждому объекту."],
   adv:[["Собственный штат","Инженеры, прорабы, сварщики, монтажники"],["Работа по чертежам","КМ, КМД, АР и ТХ по проекту"],["Соблюдение сроков","Контроль работ и нормы качества"],["Документация","Исполнительные схемы, акты, журналы"]],
   services:["Металлоконструкции","Технологическое оборудование","Сэндвич-панели и профнастил","Резервуары до 3 000 м³","Изготовление и окраска","Демонтаж и реконструкция"],
-  slogan:["Мы строим не просто объекты —","мы строим доверие."],
+  // лист «Что мы делаем» — как раздел сайта a-ts.kz (server/pb_public/index.html #services; инженер 20.11.2026
+ // «такую информацию еще можно добавить»)
+ what:{lead:"Выполняем изготовление и монтаж металлоконструкций, установку технологического оборудования, демонтаж и другие строительно-монтажные работы на промышленных объектах Казахстана.",
+  items:[["Металлоконструкции","Монтаж каркасов зданий и цехов, эстакад, бункеров, площадок, лестниц и ограждений."],
+   ["Технологическое оборудование","Конвейеры, дозаторы, сушильное оборудование, мостовые краны, ёмкости, экстракторы, электролизные ванны."],
+   ["Ограждающие конструкции","Стеновые и кровельные сэндвич-панели, профнастил, нащельники, водосток, ворота, двери, зенитные фонари."],
+   ["Резервуары","Вертикальные стальные резервуары до 3 000 м³, противопожарные и кислотные резервуары, дымовые трубы."],
+   ["Изготовление","Изготовление металлоконструкций, регистров и опор трубопроводов, огрунтовка, окраска, огнезащита."],
+   ["Демонтаж и реконструкция","Демонтаж металлоконструкций, капитальный ремонт, перенос блочно-модульных зданий."],
+   ["Общестроительные работы","Фундаментные плиты, ФБС, бетонные колонны, приямки, подготовка строительной площадки."],
+   ["Документация","Полный пакет исполнительной документации по каждому объекту, закуп материалов."]]},
+ slogan:["Мы строим не просто объекты —","мы строим доверие."],
   trust:"Каждый проект — подтверждение нашего <b>профессионализма, качества исполнения и соблюдения сроков</b>. Гарантия на все виды выполненных работ."
  };
  const esc=v=>String(v??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
@@ -71,6 +82,25 @@
  const parties=objects=>{const seen=new Set(),out=[];for(const o of objects)for(const s of [o.general_contractor,o.customer]){const t=String(s||"").trim(),k=t.toLowerCase().replace(/[«»"“”'\s]/g,"");if(t&&!seen.has(k)){seen.add(k);out.push(t)}}return out};
 
  const CSS=`@page{size:297mm 210mm;margin:0}
+.gal{background:#15191d}.gal .gh{position:absolute;left:0;right:0;top:0;height:22mm;background:#fff;display:flex;align-items:center;padding:0 14mm 0 16mm;gap:6mm}
+.gal .gh:before{content:"";position:absolute;left:0;top:0;bottom:0;width:6mm;background:var(--or)}
+.gal .gh .t{min-width:0}.gal .gh small{display:block;font-size:7pt;font-weight:800;letter-spacing:1.4px;color:var(--ord)}.gal .gh b{display:block;font-size:13pt;font-weight:900;line-height:1.15;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.gal .gh .lg{margin-left:auto;flex:none;height:14mm;display:flex;align-items:center}.gal .gh .lg img{max-height:14mm;max-width:50mm;object-fit:contain}.gal .gh .lg b{font-size:10pt}
+.gal .gg{position:absolute;left:6mm;right:6mm;top:28mm;bottom:6mm;display:grid;gap:3mm}.gal .gg div{background:#3a4047 center/cover no-repeat;border-radius:1.5mm}
+.gal .n1{grid-template:1fr/1fr}.gal .n2{grid-template:1fr/1fr 1fr}.gal .n3{grid-template:1fr 1fr/1.6fr 1fr}.gal .n3 div:first-child{grid-row:span 2}
+.gal .n4{grid-template:1fr 1fr/1fr 1fr}.gal .n5{grid-template:1fr 1fr/1.5fr 1fr 1fr}.gal .n5 div:first-child{grid-row:span 2}.gal .n6{grid-template:1fr 1fr/1fr 1fr 1fr}
+.svcp:before{content:"";position:absolute;left:0;top:0;width:70mm;height:52mm;background:linear-gradient(135deg,var(--or2),var(--or));clip-path:polygon(0 0,100% 0,0 100%)}
+.svcp .sh{position:absolute;left:16mm;top:20mm;width:190mm}.svcp .sh .kick{font-size:7.5pt;font-weight:800;letter-spacing:1.4px;color:var(--ord);margin-bottom:2mm}
+.svcp h2{margin:0;font-size:34pt;font-weight:900;line-height:1;text-transform:uppercase;letter-spacing:-.5px}
+.svcp .ld{margin:5mm 0 0;font-size:10pt;line-height:1.55;color:#4b525c}
+.svcp .lg{position:absolute;right:14mm;top:13mm;height:20mm;width:60mm;display:flex;justify-content:flex-end;align-items:flex-start}.svcp .lg img{max-height:20mm;max-width:60mm;object-fit:contain}.svcp .lg b{font-size:11pt;font-weight:900}
+.svcp .sg{position:absolute;left:16mm;right:16mm;top:62mm;bottom:30mm;display:grid;grid-template-columns:repeat(4,1fr);grid-template-rows:1fr 1fr;border-top:.35mm solid var(--ink);border-bottom:.35mm solid var(--ink)}
+.svcp .sc{padding:5.5mm 6mm 4mm 0;border-left:.35mm solid var(--ink);padding-left:6mm;overflow:hidden}.svcp .sc:nth-child(4n+1){border-left:0;padding-left:0}.svcp .sc:nth-child(n+5){border-top:.35mm solid var(--ink)}
+.svcp .sc i{display:block;font-style:normal;font-size:9pt;font-weight:800;color:var(--ord);letter-spacing:.6px;margin-bottom:3mm}
+.svcp .sc b{display:block;font-size:12.5pt;font-weight:800;line-height:1.15;margin-bottom:2.5mm}.svcp .sc p{margin:0;font-size:8.2pt;line-height:1.5;color:var(--mut)}
+.svcp .bd{position:absolute;left:0;right:0;bottom:0;height:20mm;background:#1d2228;color:#fff;display:flex;align-items:center;padding:0 16mm;gap:8mm}
+.svcp .bd .sl{font-size:11pt;font-weight:800;line-height:1.25}.svcp .bd .sl i{font-style:normal;color:var(--or)}.svcp .bd .ct{margin-left:auto;text-align:right;font-size:8pt;line-height:1.6;color:#d6d9dd}
+.svcp .bd:before{content:"";position:absolute;left:0;top:0;width:6mm;bottom:0;background:var(--or)}
 :root{--or:#f5a700;--or2:#ffbf2e;--ord:#d48f00;--ink:#1d2228;--mut:#6b7380;--line:#ece7dc}
 *{box-sizing:border-box}body{margin:0;font-family:Montserrat,"Segoe UI",Arial,sans-serif;color:var(--ink);-webkit-print-color-adjust:exact;print-color-adjust:exact}
 .page{width:297mm;height:210mm;position:relative;overflow:hidden;page-break-after:always;background:#fff}.page:last-child{page-break-after:auto}.up{text-transform:uppercase}
@@ -186,6 +216,13 @@
  const CAL='<svg viewBox="0 0 24 24" fill="none" stroke="#1d2228" stroke-width="2.4" stroke-linecap="round"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/></svg>';
  const bg=src=>src?` style="background-image:url('${String(src).replace(/'/g,"%27")}')"`:"";
 
+ function servicesPage(co,logo){const w=co.what||COMPANY.what;
+  return`<section class="page svcp"><div class="lg">${logo?`<img src="${esc(logo)}" alt="">`:`<b>${esc(co.name)}</b>`}</div>
+  <div class="sh"><div class="kick up">Услуги</div><h2>Что мы делаем</h2><p class="ld">${esc(w.lead)}</p></div>
+  <div class="sg">${w.items.slice(0,8).map(([t,d],i)=>`<div class="sc"><i>${String(i+1).padStart(2,"0")}</i><b>${esc(t)}</b><p>${esc(d)}</p></div>`).join("")}</div>
+  <div class="bd"><div class="sl">${esc(co.slogan[0])} <i>${esc(co.slogan[1])}</i></div><div class="ct">${esc(co.site)} · ${esc(co.contactMail)}<br>WhatsApp ${esc(co.whatsapp)}</div></div></section>`}
+ // предпросмотр в окне «Буклет» — те же листы уменьшенными, серый фон, номер и название листа над каждым
+ const SCREEN=`body{background:#5d646c;padding:8mm 0}.page{margin:0 auto 10mm;box-shadow:0 2mm 8mm rgba(0,0,0,.35)}.pvn{width:297mm;margin:0 auto 2.5mm;color:#fff;font:600 11pt Montserrat,"Segoe UI",Arial,sans-serif}`;
  function aboutPage(objects,co,logo){
   const ps=parties(objects);
   return`<section class="page"><div class="A1"><div class="lg">${logo?`<img src="${esc(logo)}" alt="">`:`<b>${esc(co.name)}</b>`}</div>
@@ -263,12 +300,20 @@
   <div class="band"></div>${circlesOf(rest)}
   <div class="info">${placeOf(o,co)}</div>${footOf(o)}</div></section>`
  }
+ // больше фото (инженер 20.11.2026 «сделай в буклетах больше фото, а то везде 2-3»): макет листа берёт первые 4,
+ // остальные выбранные (до 6) — следующим листом «Фото с объекта» сеткой по их числу
+ const MAX_PHOTOS=10;
+ function galleryPage(o,co,logo){const ps=(o.pictures||[]).slice(4,MAX_PHOTOS);if(!ps.length)return"";
+  return`<section class="page gal"><div class="gh"><div class="t"><small class="up">Фото с объекта</small><b>${esc(o.name||"Объект")}</b></div>
+  <div class="lg">${logo?`<img src="${esc(logo)}" alt="">`:`<b>${esc(co.name)}</b>`}</div></div>
+  <div class="gg n${ps.length}">${ps.map(s=>`<div${bg(s)}></div>`).join("")}</div></section>`}
  // objects: [{name, customer, general_contractor, address, status, years, summary, works:[{name,unit,volume,plan}], pictures:[src…]}]
- function build(objects,{logo="",company={}}={}){
+ function build(objects,{logo="",company={},services=true,screen=false}={}){
   const d=new Date(),co={date:String(d.getDate()).padStart(2,"0")+"."+String(d.getMonth()+1).padStart(2,"0")+"."+d.getFullYear(),...COMPANY,...company},list=Array.isArray(objects)?objects:[];
   return`<!doctype html><html lang="ru"><head><meta charset="utf-8"><title>Буклет ${esc(co.name)}</title>
-<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800;900&display=swap" rel="stylesheet"><style>${CSS}</style></head><body>
-${aboutPage(list,co,logo)}${list.map((o,i)=>objectPage(o,co,logo,i)).join("")}</body></html>`
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800;900&display=swap" rel="stylesheet"><style>${CSS}${screen?SCREEN:""}</style></head><body>
+${(()=>{const pages=[["О компании",aboutPage(list,co,logo)],...(services?[["Что мы делаем",servicesPage(co,logo)]]:[]),...list.flatMap((o,i)=>{const g=galleryPage(o,co,logo),n=String(o.name||"Объект");return[[n,objectPage(o,co,logo,i)],...(g?[[n+" — фото",g]]:[])]})];
+ return pages.map(([t,h],i)=>(screen?`<div class="pvn">Лист ${i+1} · ${esc(t)}</div>`:"")+h).join("")})()}</body></html>`
  }
 
  // ---- в окне программы ----
@@ -289,24 +334,35 @@ ${aboutPage(list,co,logo)}${list.map((o,i)=>objectPage(o,co,logo,i)).join("")}</
  // баннер (полоса 1920×180) в буклет не годится
  const allFiles=o=>[...new Set([o.cover_full||o.cover,...(o.hero||[]),...(o.photos||[])].filter(f=>f&&f!==o.banner&&!(o.cover_full&&f===o.cover)))];
  // что отмечено по умолчанию: сохранённый выбор (object-meta «booklet_photos»), иначе первые 4
- const pickDefault=o=>{const all=allFiles(o),saved=(o.booklet?.files||[]).filter(f=>all.includes(f));return{all,files:saved.length?saved:all.slice(0,4),layout:Number(o.booklet?.layout)||0}};
+ const pickDefault=o=>{const all=allFiles(o),saved=(o.booklet?.files||[]).filter(f=>all.includes(f));return{all,files:saved.length?saved:all.slice(0,MAX_PHOTOS),layout:Number(o.booklet?.layout)||0}};
  // data: объекты так, как их собирает окно «Сайт» (siteObjectData) — cover, cover_full, photos, hero; files — выбранные
  // фото (первое — главное), layout — номер макета (0 — авто)
- async function make(data,{onProgress}={}){
+ async function make(data,{onProgress,services=true}={}){
   const profile=await root.irProject.company.get().catch(()=>({}));
   const logo=await small(await read(profile?.logo||""),1200);
   const objects=[];
   for(const [i,o] of data.entries()){
    onProgress?.(i,data.length,o.name);
-   const files=(o.files||pickDefault(o).files).slice(0,4),pictures=[];
+   const files=(o.files||pickDefault(o).files).slice(0,MAX_PHOTOS),pictures=[];
    for(const f of files){const s=await read(f);if(s)pictures.push(await small(s,pictures.length?1400:2800))}
    objects.push({...o,pictures})
   }
-  const opts={logo,company:profile?.name?{name:profile.name}:{}};
+  const opts={logo,company:profile?.name?{name:profile.name}:{},services};
   await dropTooLong(objects,opts);
   const html=build(objects,opts);
   const name="Буклет "+String(profile?.name||COMPANY.name).replace(/[«»"]/g,"")+" "+new Date().toLocaleDateString("ru-RU");
   return root.irProject.ai.invoke("ai-documents:exec-export",{format:"pdf",name,html})
+ }
+ // предпросмотр (инженер 20.11.2026 «сделать предпросмотр как каждая страница выглядеть будет»): те же листы, что уйдут
+ // в PDF, с малыми фото (pic(f) — готовая маленькая картинка из окна), краткая характеристика — по той же проверке
+ async function preview(data,{pic,services=true}={}){
+  const profile=await root.irProject.company.get().catch(()=>({}));
+  const logo=await small(await read(profile?.logo||""),600);
+  const objects=[];
+  for(const o of data){const pictures=[];for(const f of (o.files||pickDefault(o).files).slice(0,MAX_PHOTOS)){const s=(pic&&await pic(f))||await small(await read(f),900,.8);if(s)pictures.push(s)}objects.push({...o,pictures})}
+  const opts={logo,company:profile?.name?{name:profile.name}:{},services};
+  await dropTooLong(objects,opts);
+  return build(objects,{...opts,screen:true})
  }
  // краткая характеристика — только если вмещается на лист вместе со всеми видами работ, иначе её нет (инженер
  // 20.11.2026 «там где есть краткая характеристика и она не вмещается, то не выкладывай»). Лист печатается окном без
@@ -321,10 +377,10 @@ ${aboutPage(list,co,logo)}${list.map((o,i)=>objectPage(o,co,logo,i)).join("")}</
    await new Promise(ok=>{fr.onload=ok;fr.srcdoc=build(objects.map(o=>({...o,pictures:(o.pictures||[]).map(()=>"")})),opts);doc.body.appendChild(fr);setTimeout(ok,8000)});
    const d=fr.contentDocument;if(!d)return;
    await Promise.race([d.fonts?.ready,new Promise(ok=>setTimeout(ok,4000))]);
-   const pages=[...d.querySelectorAll("section.page")].slice(1);
+   const pages=[...d.querySelectorAll("section.page:not(.svcp):not(.gal)")].slice(1);
    pages.forEach((pg,i)=>{if(objects[i]?.summary&&tooLong(pg))objects[i]={...objects[i],summary:""}})
   }catch(_){}finally{fr.remove()}
  }
- const api={dropTooLong,build,make,totals,doneOf,parties,COMPANY,LAYOUTS,layoutOf,thumb,read,pickDefault};
+ const api={MAX_PHOTOS,dropTooLong,build,make,preview,totals,doneOf,parties,COMPANY,LAYOUTS,layoutOf,thumb,read,pickDefault};
  if(typeof module!=="undefined"&&module.exports)module.exports=api;else root.irBooklet=api;
 })(typeof window!=="undefined"?window:globalThis);
