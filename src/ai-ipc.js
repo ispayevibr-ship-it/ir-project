@@ -124,6 +124,20 @@ function registerAll({ipcMain,getUserDataPath,safeStorage,netFetch,dialog:native
   const ok=v=>/^#[0-9a-f]{6}$/i.test(String(v||""));
   try{w.setTitleBarOverlay(reset||!ok(color)?{color:"#f7f7f7",symbolColor:"#1f2937"}:{color,symbolColor:ok(symbolColor)?symbolColor:"#1f2937"});return true}catch{return false}
  });
+ // A page of the program in a window of its own (1.12.230, the engineer 20.11.2026: the scheme is built a minute, the
+ // program stands meanwhile): a real window with the bridge of its own, not window.open — the window opened from the
+ // page shared its process, so a scheme building there stopped the whole program. Here the other windows go on.
+ handle("ai-settings:window-open",(e,{route}={})=>{
+  const r=String(route||"");if(r.length>350||!/^\/objects(?:\/object\/\d+(?:\/[a-z0-9_-]+)*)?$/i.test(r))return false;
+  const {BrowserWindow,app}=require("electron"),path=require("path"),fs=require("fs"),dir=app.getAppPath();
+  const icon=path.join(dir,"assets","icon.ico"),id=Date.now().toString(36)+Math.random().toString(36).slice(2,6);
+  const w=new BrowserWindow({width:1280,height:820,icon:fs.existsSync(icon)?icon:undefined,autoHideMenuBar:true,titleBarStyle:"hidden",
+   titleBarOverlay:{color:"#f7f7f7",symbolColor:"#1f2937",height:38},
+   webPreferences:{preload:path.join(dir,"preload.js"),contextIsolation:true,nodeIntegration:false,spellcheck:false}});
+  try{w.setMenuBarVisibility(false)}catch{}
+  w.loadURL("irapp://app/src/tabs-shell.html?detached="+encodeURIComponent(id)+"&own=1#"+r);
+  return true
+ });
  handle("ai-settings:refocus",(e,{force}={})=>refocus(require("electron").BrowserWindow.fromWebContents(e.sender),e.sender,force===true));
  handle("ai-engine:status",()=>engine.status());
  handle("ai-engine:start",()=>engine.start());

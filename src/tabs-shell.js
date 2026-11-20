@@ -481,11 +481,15 @@
    // by an old code path, even if the script src looks up-to-date.
    if(staleSchemeButton(doc))return "показывает старую версию монтажной схемы";
    const loaded=runtimeTokenInDoc(doc);
-   if(!loaded)return "";
    const response=await fetch("./index.html?verifyRuntime="+Date.now(),{cache:"no-store"});
    if(!response.ok)return "";
-   const latest=runtimeTokenFromHtml(await response.text());
-   return latest&&loaded!==latest?"загрузила устаревший JavaScript (сборка "+loaded+" вместо "+latest+")":""
+   const html=await response.text(),latest=runtimeTokenFromHtml(html);
+   if(loaded&&latest&&loaded!==latest)return "загрузила устаревший JavaScript (сборка "+loaded+" вместо "+latest+")";
+   // (the files of the 3D loaded on demand — lazy-modules.js — by their own ?v=: a tab opened before the update kept the
+   // old scheme while the runtime was the same — the engineer 20.11.2026 «Обновление не требуется» with the old form)
+   const want=new Map();for(const m of html.matchAll(/src="\.?\/?([\w.-]+\.js)\?v=([\w.-]+)"/g))want.set(m[1],m[2]);
+   for(const el of doc.querySelectorAll("script[src*='?v=']")){const m=String(el.getAttribute("src")||"").match(/([\w.-]+\.js)\?v=([\w.-]+)/);if(m&&want.has(m[1])&&want.get(m[1])!==m[2])return "открыта на старой версии ("+m[1]+")"}
+   return ""
   }catch(_error){return ""}
  }
  function updateCurrent(version,oldUi=""){
@@ -498,8 +502,8 @@
     ["Перезапустить программу",false,installUpdate]]);
    return
   }
-  setUpdate("Обновление не требуется","Установлена последняя версия IR Project "+version+". Активная вкладка использует актуальные файлы, если она уже была загружена.");
-  updateButtons([["Закрыть",true,closeUpdate]])
+  setUpdate("Обновление не требуется","Установлена последняя версия IR Project "+version+". Если открытая вкладка выглядит по-старому, нажмите «Перезагрузить вкладку».");
+  updateButtons([["Закрыть",false,closeUpdate],["Перезагрузить вкладку",true,()=>{if(reloadCurrent())closeUpdate()}]])
  }
  function updateAvailable(version,current){
   updateLatestVersion=version||updateLatestVersion;
@@ -645,13 +649,21 @@
  if(!isDetached&&api.updater){setTimeout(autoUpdate,60000);setInterval(autoUpdate,3600000)}
  // Pages hosted in iframes delegate all update UI to this single host window.
  window.irTabUpdates={open:checkAppUpdate};
+ // (a page in a window of its own process — the button «⧉ В отдельном окне» of the scheme: scheme-page.js)
+ window.irTabWindow={open:route=>openWindow(route)};
  // Back along the pages of a tab.
  const HOME_BACK=new Set(["back","actedBack","deliveriesBack","financeBack","marksBack","fastenersBack","execDocsBack","lettersBack","trashBack","penaltiesBack","objectPhotosBack","reportsBack","scheduleBack","schemeBack","unifiedBack","wtBack"]);
  function goBack(tab){
   const trail=tab?.trail||[];if(trail.length<2)return false;
   try{const child=tab.frame.contentWindow;trail.pop();tab.goingBack=true;child.location.hash=trail[trail.length-1];return true}catch{tab.goingBack=false;return false}
  }
+ // (a window of its own process first — ai-settings:window-open; an older program without it — window.open, as before)
  function openWindow(route){
+  const own=api?.ai?.invoke;
+  if(typeof own==="function"){Promise.resolve(own("ai-settings:window-open",{route:cleanRoute(route)})).then(ok=>{if(!ok)openPopup(route)},()=>openPopup(route));return true}
+  return openPopup(route)
+ }
+ function openPopup(route){
   const url="./tabs-shell.html?detached="+encodeURIComponent(newId())+"#"+cleanRoute(route);
   const popup=window.open(url,"_blank","width=1180,height=780");
   if(!popup)alert("Не удалось открыть отдельное окно IR Project. Разрешите открывать новые окна.");
