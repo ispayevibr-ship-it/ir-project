@@ -43,6 +43,33 @@
   const n=objects.length,word=n%10===1&&n%100!==11?"объект":n%10>=2&&n%10<=4&&(n%100<10||n%100>=20)?"объекта":"объектов";
   const out=[];if(mk>0)out.push([fmt(mk,1)+" т","металлоконструкций смонтировано"]);if(skin>0)out.push([fmt(skin,0)+" м²","сэндвич-панелей и профнастила"]);
   out.push([String(n),n%10===1&&n%100!==11?"объект выполнен":word+" выполнено"]);return out}
+ // итоги объекта — как на сайте: «466,3 т металлоконструкций смонтировано» (инженер 20.11.2026 «сюда больше
+ // информации, как на сайте объемы указаны»); группы — KINDS сайта
+ const SKINDS=[["fab","т","изготовлено металлоконструкций",n=>/изготов/.test(n)],
+  ["dm","т","металлоконструкций демонтировано",n=>DEMO(n)],["dms","м²","демонтировано",n=>DEMO(n)],
+  ["eq","т","оборудования смонтировано",n=>/оборуд/.test(n)],["mk","т","металлоконструкций смонтировано",()=>true],
+  ["pn","м²","профнастила смонтировано",n=>/профнаст|профлист|проф\.\s*лист|профилирован/.test(n)],
+  ["sp","м²","сэндвич-панелей смонтировано",n=>/сэндвич|сендвич|панел/.test(n)]];
+ const ORDER=["mk","sp","pn","eq","fab","dm","dms"];
+ function objStats(o){const by=new Map();
+  for(const w of o.works||[]){const v=num(w.volume),u=unitOf(w.unit),n=String(w.name||"").toLowerCase();if(!(v>0))continue;
+   const K=SKINDS.find(([,ku,,t])=>ku===u&&t(n));if(K)by.set(K[0],(by.get(K[0])||0)+v)}
+  return ORDER.filter(k=>by.get(k)>0).slice(0,3).map(k=>{const K=SKINDS.find(x=>x[0]===k),v=by.get(k);return[fmt(v,K[1]==="т"?1:v>=1000?0:1)+" "+K[1],K[2]]})}
+ const statsOf=(o,co)=>{const st=objStats(o);return st.length?`<div class="osd up">Выполнено на ${esc(co.date)}</div><div class="ost">${st.map(([b,t])=>`<div><b>${esc(b)}</b><span>${esc(t)}</span></div>`).join("")}</div>`:""};
+ // краткая характеристика — разметка карточки объекта (summaryHtml в archive-objects.js): **жирный**, *курсив*,
+ // списки «- », заголовки «#»; пункты, слитые в одну строку («…:***- **…**- **…**»), — каждый с новой строки
+ // (инженер 20.11.2026 «текст криво показывает»)
+ const mdInline=t=>t.replace(/\*\*\*([^*]+?)\*\*\*/g,"<b><i>$1</i></b>").replace(/\*\*([^*]+?)\*\*/g,"<b>$1</b>").replace(/(^|[^*])\*([^*\s][^*]*?)\*(?!\*)/g,"$1<i>$2</i>").replace(/\*+/g,"");
+ function sumHtml(md){
+  const src=String(md??"").replace(/\r/g,"").replace(/([^\n])\s*(?=-\s+\*\*)/g,"$1\n").replace(/([^\n\s])\s*(?=[•]\s)/g,"$1\n");
+  let out="",list="";const close=()=>{if(list){out+="</"+list+">";list=""}};
+  for(const raw of src.split("\n")){const l=raw.trim();let m;
+   if((m=l.match(/^#{1,3}\s+(.*)$/))){close();out+="<h5>"+mdInline(esc(m[1]))+"</h5>"}
+   else if((m=l.match(/^[-•]\s+(.*)$/))){if(list!=="ul"){close();out+="<ul>";list="ul"}out+="<li>"+mdInline(esc(m[1]))+"</li>"}
+   else if((m=l.match(/^\d+[.)]\s+(.*)$/))){if(list!=="ol"){close();out+="<ol>";list="ol"}out+="<li>"+mdInline(esc(m[1]))+"</li>"}
+   else if(!l)close();
+   else{close();out+="<p>"+mdInline(esc(l))+"</p>"}}
+  close();return out}
  const doneOf=o=>{if(/заверш/i.test(o.status||""))return 100;let v=0,p=0;for(const w of o.works||[]){if(num(w.plan)>0){p+=Math.min(1,num(w.volume)/num(w.plan));v++}}return v?Math.round(p/v*100):0};
  const parties=objects=>{const seen=new Set(),out=[];for(const o of objects)for(const s of [o.general_contractor,o.customer]){const t=String(s||"").trim(),k=t.toLowerCase().replace(/[«»"“”'\s]/g,"");if(t&&!seen.has(k)){seen.add(k);out.push(t)}}return out};
 
@@ -55,11 +82,16 @@
 .L .in{position:absolute;left:11mm;right:9mm;top:15mm;bottom:12mm;display:flex;flex-direction:column}
 .ttl{font-size:21pt;font-weight:900;line-height:1.08;margin:0 0 2mm;position:relative;overflow-wrap:anywhere;hyphens:auto}.ttl.s{font-size:17pt}.ttl.xs{font-size:14pt}
 .sub{font-size:8pt;color:var(--mut);font-weight:600;letter-spacing:.6px;margin-bottom:6mm}
-.wks{overflow:hidden}
+.wks{overflow:hidden;flex:0 1 auto;min-height:0}
 .wk{display:grid;grid-template-columns:1fr auto;align-items:center;gap:4mm;padding:3mm 0;border-bottom:1px solid var(--line)}
 .wk b{font-size:8.4pt;font-weight:800;line-height:1.25}.vol{text-align:right;white-space:nowrap}
-.vol i{font-style:normal;font-size:16pt;font-weight:900;line-height:1}.vol s{text-decoration:none;font-size:8.5pt;font-weight:700;color:var(--ord);margin-left:1mm}
-.sum{margin-top:4mm;font-size:7.8pt;line-height:1.5;color:#3a414a;border-left:1mm solid var(--or);padding-left:3mm;white-space:pre-line;overflow:hidden;max-height:34mm}
+.vol i{font-style:normal;font-size:16pt;font-weight:900;line-height:1}.vol u,.tl u{display:block;text-decoration:none;font-size:6.6pt;font-weight:700;color:var(--mut);margin-top:.6mm}.vol s{text-decoration:none;font-size:8.5pt;font-weight:700;color:var(--ord);margin-left:1mm}
+.sum{margin-top:4mm;font-size:7.8pt;line-height:1.5;color:#3a414a;border-left:1mm solid var(--or);padding-left:3mm;overflow:hidden;max-height:34mm;flex:none}
+.sum p,.sm p,.sum h5,.sm h5{margin:0 0 1mm}.sum h5,.sm h5{font-size:1.05em;font-weight:800}.sum ul,.sum ol,.sm ul,.sm ol{margin:0 0 1mm;padding-left:4mm}.sum li,.sm li{margin:0}
+.osd{flex:none;margin-top:auto;padding-top:4mm;font-size:6pt;font-weight:800;letter-spacing:.6px;color:var(--mut)}.lay4 .O .osd{color:#4a3500}
+.ost{flex:none;padding-top:1.5mm;display:grid;grid-template-columns:repeat(3,1fr);gap:3mm}.ost div{border-top:1mm solid var(--or);padding-top:2mm}
+.ost b{display:block;font-size:12pt;font-weight:900;line-height:1.1;white-space:nowrap}.ost span{display:block;font-size:6.2pt;color:var(--mut);font-weight:600;line-height:1.3;margin-top:1mm}
+.ost+.badges{margin-top:0}
 .badges{margin-top:auto;padding-top:4mm;display:flex;gap:5mm;align-items:center}
 .ring{flex:none;width:27mm;height:27mm;border-radius:50%;background:conic-gradient(var(--or) calc(var(--p)*1%),#f1ece2 0);display:grid;place-items:center}
 .ring div{width:21.5mm;height:21.5mm;border-radius:50%;background:#fff;display:flex;flex-direction:column;align-items:center;justify-content:center}
@@ -108,7 +140,7 @@
 .lay3 .shade{position:absolute;inset:0;background:linear-gradient(90deg,rgba(18,21,25,.86),rgba(18,21,25,.55) 42%,rgba(18,21,25,0) 70%),linear-gradient(0deg,rgba(18,21,25,.7),rgba(18,21,25,0) 45%)}
 .lay3 .hd{position:absolute;left:14mm;top:16mm;width:150mm;color:#fff}.lay3 .kick{color:var(--or2)}.lay3 .ttl{font-size:27pt;margin-top:2mm}.lay3 .ttl.s{font-size:21pt}.lay3 .ttl.xs{font-size:17pt}
 .lay3 .hd:before{content:"";display:block;width:22mm;height:1.6mm;background:var(--or);margin-bottom:5mm}
-.lay3 .sm{font-size:8.6pt;line-height:1.55;color:#dfe3e8;max-width:130mm;margin:3mm 0 0;max-height:30mm;overflow:hidden;white-space:pre-line}
+.lay3 .sm{font-size:8.6pt;line-height:1.55;color:#dfe3e8;max-width:130mm;margin:3mm 0 0;max-height:30mm;overflow:hidden}
 .lay3 .thumbs{position:absolute;right:12mm;top:36mm;display:flex;flex-direction:column;gap:4mm}.lay3 .thumbs div{width:46mm;height:32mm;border-radius:2.5mm;border:1.2mm solid #fff;background:#ddd center/cover no-repeat;box-shadow:0 2mm 6mm rgba(0,0,0,.3)}
 .lay3 .tiles{position:absolute;left:14mm;right:14mm;bottom:24mm;display:flex;gap:4mm;align-items:stretch}
 .lay3 .tw{flex:1;display:grid;grid-template-columns:repeat(4,1fr);gap:3mm}
@@ -128,7 +160,7 @@
 .lay4 .info{text-align:left}.lay4 .info .yr{background:var(--or)}
 .lay4 .O{position:absolute;right:0;top:0;bottom:22mm;width:107mm;background:linear-gradient(170deg,var(--or2),var(--or) 55%,var(--ord))}
 .lay4 .O .in{position:absolute;left:10mm;right:10mm;top:14mm;bottom:9mm;display:flex;flex-direction:column}
-.lay4 .O .sub{color:#4a3500}.lay4 .O .wk{border-bottom-color:rgba(0,0,0,.12)}.lay4 .O .vol s{color:#1d2228}.lay4 .O .sum{border-left-color:#1d2228;color:#2a2410}
+.lay4 .O .sub{color:#4a3500}.lay4 .O .wk{border-bottom-color:rgba(0,0,0,.12)}.lay4 .O .vol s{color:#1d2228}.lay4 .O .sum{border-left-color:#1d2228;color:#2a2410}.lay4 .O .ost div{border-top-color:#1d2228}.lay4 .O .ost span{color:#4a3500}
 .lay4 .O .ring{background:conic-gradient(#1d2228 calc(var(--p)*1%),rgba(255,255,255,.45) 0)}.lay4 .O .doc em{background:#1d2228}
 .lay4 .f4{height:22mm;grid-template-columns:1fr 1fr}
 .lay5 .ph{position:absolute;left:0;right:0;top:0;height:112mm;background:#3a4047 center 45%/cover no-repeat;clip-path:polygon(0 0,100% 0,100% 82%,0 100%)}
@@ -166,7 +198,7 @@
   <div class="kv"><small class="up">Руководитель</small>${esc(co.head)}</div>
   <div class="kv"><small class="up">Банковские реквизиты</small>${co.bank.map(esc).join("<br>")}</div></div>
   <div class="A2"><div class="kick up">О компании</div><h2>${esc(co.title)}</h2>${co.about.map(p=>`<p>${esc(p)}</p>`).join("")}
-  <div class="nums">${totals(objects).map(([b,s])=>`<div><b>${esc(b)}</b><span>${esc(s)}</span></div>`).join("")}</div>
+  <div class="osd up" style="margin:3mm 0 0">По программе на ${esc(co.date)}</div><div class="nums">${totals(objects).map(([b,s])=>`<div><b>${esc(b)}</b><span>${esc(s)}</span></div>`).join("")}</div>
   <div class="adv">${co.adv.map(([b,s])=>`<div><b>${esc(b)}</b>${esc(s)}</div>`).join("")}</div>
   <div class="svc">${co.services.map(s=>`<span>${esc(s)}</span>`).join("")}</div>
   <div class="slogan">${esc(co.slogan[0])}<br><i>${esc(co.slogan[1])}</i></div></div>
@@ -182,7 +214,10 @@
  const LAYOUTS=["Классика","Зеркало","Обложка","Мозаика","Панорама","Тёмный"];
  const titleCls=name=>{const len=name.length,word=Math.max(...name.split(/\s+/).map(w=>w.length));return len>70||word>15?" xs":len>45||word>12?" s":""};
  const worksOf=o=>(o.works||[]).filter(w=>num(w.volume)>0||num(w.plan)>0);
- const wkRows=ws=>ws.map(w=>`<div class="wk"><b class="up">${esc(w.name)}</b><div class="vol"><i>${esc(fmt(num(w.plan)||num(w.volume)))}</i><s>${esc(unitOf(w.unit))}</s></div></div>`).join("");
+ // объём — смонтировано по программе на день выгрузки буклета, план — «из N», пока не выполнено (инженер 20.11.2026
+ // «объемы должны также браться с программы, на день выгрузки буклета»)
+ const planOf=w=>num(w.plan)>num(w.volume)?`<u>из ${esc(fmt(w.plan))}</u>`:"";
+ const wkRows=ws=>ws.map(w=>`<div class="wk"><b class="up">${esc(w.name)}</b><div class="vol"><i>${esc(fmt(num(w.volume)))}</i><s>${esc(unitOf(w.unit))}</s>${planOf(w)}</div></div>`).join("");
  const ringOf=p=>`<div class="ring" style="--p:${p}"><div><b>${p}%</b><span class="up">выполнено</span></div></div>`;
  const docOf=()=>`<div class="doc up"><em>${CHECK}</em>Полный пакет<br>исполнительной<br>документации</div>`;
  const logoOf=(co,logo,cls="")=>`<div class="logo${cls}">${logo?`<img src="${esc(logo)}" alt="">`:`<b>${esc(co.name)}</b>`}</div>`;
@@ -190,24 +225,24 @@
  const yearOf=o=>{const y=String(o.years||"").trim();return y?`<div class="yr">${CAL}${esc(y)}</div>`:""};
  const layoutOf=(o,i)=>{const n=Number(o.layout);if(n>=1&&n<=LAYOUTS.length)return n;const pics=(o.pictures||[]).length;if(!pics)return 1;
   const seq=pics>=3?[1,3,5,2,4,6]:[1,3,5,2,6];return seq[i%seq.length]};
- function textCol(o,max){const name=String(o.name||"Объект"),ws=worksOf(o),p=doneOf(o);
+ function textCol(o,max,co){const name=String(o.name||"Объект"),ws=worksOf(o),p=doneOf(o);
   return`<h1 class="ttl up${titleCls(name)}">${esc(name)}</h1>${o.customer?`<div class="sub up">${esc(o.customer)}</div>`:""}
-  <div class="wks">${wkRows(ws.slice(0,o.summary?max-2:max))}</div>${o.summary?`<div class="sum">${esc(o.summary)}</div>`:""}
-  <div class="badges">${ringOf(p)}${docOf()}</div>`}
+  <div class="wks">${wkRows(ws.slice(0,o.summary?max-3:max))}</div>${o.summary?`<div class="sum">${sumHtml(o.summary)}</div>`:""}
+  ${statsOf(o,co)}<div class="badges">${ringOf(p)}${docOf()}</div>`}
  function placeOf(o,co){const place=String(o.address||"").trim();
   return`${yearOf(o)}${place?`<h4 class="up">Место выполнения</h4><p>${esc(place)}</p>`:""}<div class="contact">${esc(co.contactMail)}<br>WhatsApp ${esc(co.whatsapp)}</div>`}
  function circlesOf(rest){return rest.length?`<div class="circles">${rest.map((s,i)=>`<div class="c${rest.length===3&&i===1?" big":""}"${bg(s)}></div>`).join("")}</div>`:""}
  function objectPage(o,co,logo,i=0){
   const lay=layoutOf(o,i),pics=o.pictures||[],main=pics[0]||"",rest=pics.slice(1,4);
-  if(lay===2)return`<section class="page lay2"><div class="L"><div class="in">${textCol(o,7)}</div></div>
+  if(lay===2)return`<section class="page lay2"><div class="L"><div class="in">${textCol(o,7,co)}</div></div>
   <div class="R"><div class="ph"${bg(main)}></div>${logoOf(co,logo)}<div class="band"></div>${circlesOf(rest)}
   <div class="info">${placeOf(o,co)}</div>${footOf(o)}</div></section>`;
   if(lay===3){const name=String(o.name||"Объект"),ws=worksOf(o).slice(0,4),p=doneOf(o),place=String(o.address||"").trim();
    return`<section class="page lay3"><div class="ph"${bg(main)}></div><div class="shade"></div>${logoOf(co,logo)}
    <div class="hd"><div class="kick up">${esc(o.years?String(o.years):"Объект")}${place?" · "+esc(place):""}</div><h1 class="ttl up${titleCls(name)}">${esc(name)}</h1>
-   ${o.summary?`<p class="sm">${esc(o.summary)}</p>`:""}</div>
+   ${o.summary?`<div class="sm">${sumHtml(o.summary)}</div>`:""}</div>
    ${rest.length?`<div class="thumbs">${rest.slice(0,3).map(s=>`<div${bg(s)}></div>`).join("")}</div>`:""}
-   <div class="tiles"><div class="tw">${ws.map(w=>`<div class="tl"><i>${esc(fmt(num(w.plan)||num(w.volume)))}<s>${esc(unitOf(w.unit))}</s></i><b class="up">${esc(w.name)}</b></div>`).join("")}</div>
+   <div class="tiles"><div class="tw">${ws.map(w=>`<div class="tl"><i>${esc(fmt(num(w.volume)))}<s>${esc(unitOf(w.unit))}</s></i>${planOf(w)}<b class="up">${esc(w.name)}</b></div>`).join("")}</div>
    <div class="tr">${ringOf(p)}</div></div>
    <div class="strip"><div><small class="up">Генеральный подрядчик</small><b>${esc(o.general_contractor||"—")}</b></div><div><small class="up">Заказчик</small><b>${esc(o.customer||"—")}</b></div><div class="doc up"><em>${CHECK}</em>Полный пакет исполнительной документации</div></div></section>`}
   if(lay===5){const name=String(o.name||"Объект"),ws=worksOf(o).slice(0,8),p=doneOf(o);
@@ -224,15 +259,15 @@
   if(lay===4){const n=Math.min(4,pics.length);
    return`<section class="page lay4"><div class="M m${n}">${pics.slice(0,4).map((s,k)=>`<div class="g g${k}"${bg(s)}></div>`).join("")}${logoOf(co,logo)}
    <div class="info">${placeOf(o,co)}</div></div>
-   <div class="O"><div class="in">${textCol(o,6)}</div></div>${footOf(o," f4")}</section>`}
-  return`<section class="page"><div class="L"><div class="in">${textCol(o,7)}</div></div>
+   <div class="O"><div class="in">${textCol(o,6,co)}</div></div>${footOf(o," f4")}</section>`}
+  return`<section class="page"><div class="L"><div class="in">${textCol(o,7,co)}</div></div>
   <div class="R"><div class="ph"${bg(main)}></div>${logoOf(co,logo)}
   <div class="band"></div>${circlesOf(rest)}
   <div class="info">${placeOf(o,co)}</div>${footOf(o)}</div></section>`
  }
  // objects: [{name, customer, general_contractor, address, status, years, summary, works:[{name,unit,volume,plan}], pictures:[src…]}]
  function build(objects,{logo="",company={}}={}){
-  const co={...COMPANY,...company},list=Array.isArray(objects)?objects:[];
+  const d=new Date(),co={date:String(d.getDate()).padStart(2,"0")+"."+String(d.getMonth()+1).padStart(2,"0")+"."+d.getFullYear(),...COMPANY,...company},list=Array.isArray(objects)?objects:[];
   return`<!doctype html><html lang="ru"><head><meta charset="utf-8"><title>Буклет ${esc(co.name)}</title>
 <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800;900&display=swap" rel="stylesheet"><style>${CSS}</style></head><body>
 ${aboutPage(list,co,logo)}${list.map((o,i)=>objectPage(o,co,logo,i)).join("")}</body></html>`
