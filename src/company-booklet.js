@@ -88,6 +88,10 @@
 .gal .gh .lg{margin-left:auto;flex:none;height:14mm;display:flex;align-items:center}.gal .gh .lg img{max-height:14mm;max-width:50mm;object-fit:contain}.gal .gh .lg b{font-size:10pt}
 .gal .gg{position:absolute;left:6mm;right:6mm;top:28mm;bottom:6mm;display:grid;gap:3mm}.gal .gg div{background:#3a4047 center/cover no-repeat;border-radius:1.5mm}
 .gal .n1{grid-template:1fr/1fr}.gal .n2{grid-template:1fr/1fr 1fr}.gal .n3{grid-template:1fr 1fr/1.6fr 1fr}.gal .n3 div:first-child{grid-row:span 2}
+.gal .n7{grid-template:1fr 1fr/repeat(4,1fr)}.gal .n7 div:first-child{grid-row:span 2}.gal .n8{grid-template:1fr 1fr/repeat(4,1fr)}.gal .n9{grid-template:repeat(3,1fr)/repeat(3,1fr)}
+.gal.wsum .gg{left:104mm}.gal .gs{position:absolute;left:6mm;top:28mm;bottom:6mm;width:94mm;background:#fff;border-radius:1.5mm;border-top:1.4mm solid var(--or);padding:6mm 6mm 5mm;overflow:hidden;display:flex;flex-direction:column}
+.gal .gs small{font-size:7pt;font-weight:800;letter-spacing:1.4px;color:var(--ord);margin-bottom:3mm}.gal .gt{font-size:8.6pt;line-height:1.55;color:#2c333b;overflow:hidden;min-height:0}.gal.gsm .gt{font-size:7.2pt;line-height:1.45}
+.gal .gt p,.gal .gt h5,.gal .gt ul,.gal .gt ol{margin:0 0 1.6mm}.gal .gt ul,.gal .gt ol{padding-left:4mm}.gal .gt h5{font-size:1.05em;font-weight:800}
 .gal .n4{grid-template:1fr 1fr/1fr 1fr}.gal .n5{grid-template:1fr 1fr/1.5fr 1fr 1fr}.gal .n5 div:first-child{grid-row:span 2}.gal .n6{grid-template:1fr 1fr/1fr 1fr 1fr}
 .svcp:before{content:"";position:absolute;left:0;top:0;width:70mm;height:52mm;background:linear-gradient(135deg,var(--or2),var(--or));clip-path:polygon(0 0,100% 0,0 100%)}
 .svcp .sh{position:absolute;left:16mm;top:20mm;width:190mm}.svcp .sh .kick{font-size:7.5pt;font-weight:800;letter-spacing:1.4px;color:var(--ord);margin-bottom:2mm}
@@ -110,8 +114,8 @@
 .ttl{font-size:21pt;font-weight:900;line-height:1.08;margin:0 0 2mm;position:relative;overflow-wrap:anywhere;hyphens:auto}.ttl.s{font-size:17pt}.ttl.xs{font-size:14pt}
 .sub{font-size:8pt;color:var(--mut);font-weight:600;letter-spacing:.6px;margin-bottom:6mm}
 .wks{overflow:hidden;flex:0 1 auto;min-height:0}
-.wk{display:grid;grid-template-columns:1fr auto;align-items:center;gap:4mm;padding:3mm 0;border-bottom:1px solid var(--line)}
-.wk b{font-size:8.4pt;font-weight:800;line-height:1.25}.vol{text-align:right;white-space:nowrap}
+.wk{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:4mm;padding:3mm 0;border-bottom:1px solid var(--line)}
+.wk b{font-size:8.4pt;font-weight:800;line-height:1.25;hyphens:auto;overflow-wrap:break-word}.vol{text-align:right;white-space:nowrap}
 .vol i{font-style:normal;font-size:16pt;font-weight:900;line-height:1}.vol u,.tl u{display:block;text-decoration:none;font-size:6.6pt;font-weight:700;color:var(--mut);margin-top:.6mm}.vol s{text-decoration:none;font-size:8.5pt;font-weight:700;color:var(--ord);margin-left:1mm}
 .sum{margin-top:4mm;font-size:7.8pt;line-height:1.5;color:#3a414a;border-left:1mm solid var(--or);padding-left:3mm;overflow:hidden;max-height:34mm;flex:none}
 .sum p,.sm p,.sum h5,.sm h5{margin:0 0 1mm}.sum h5,.sm h5{font-size:1.05em;font-weight:800}.sum ul,.sum ol,.sm ul,.sm ol{margin:0 0 1mm;padding-left:4mm}.sum li,.sm li{margin:0}
@@ -153,7 +157,6 @@
 .nums.many{gap:2.5mm 3mm;margin:2mm 0 4mm}.nums.many b{font-size:12.5pt}.nums.many span{font-size:6.2pt}.nums.many div{padding-top:1.5mm}
 .nums b{display:block;font-size:16pt;font-weight:900;line-height:1.1}.nums span{font-size:6.8pt;color:var(--mut);font-weight:600}
 .adv{display:grid;grid-template-columns:1fr 1fr;gap:3mm}.adv div{background:#faf6ee;border-radius:2mm;padding:3mm;font-size:7.4pt;line-height:1.35}.adv b{display:block;font-size:8pt;margin-bottom:.6mm}
-.svc{display:flex;flex-wrap:wrap;gap:2mm;margin-top:4mm}.svc span{font-size:7pt;font-weight:700;border:1px solid var(--or);border-radius:10mm;padding:1.2mm 3mm}
 .slogan{margin-top:auto;font-size:13pt;font-weight:900;line-height:1.2}.slogan i{font-style:normal;color:var(--or)}
 .A3{position:absolute;left:199mm;right:0;top:0;bottom:0;background:#1d2228;color:#fff;padding:13mm 9mm 12mm}.A3 .kick{color:var(--or)}
 .A3 h2{font-size:15pt;font-weight:900;margin:1mm 0 5mm;line-height:1.15}.cust{list-style:none;margin:0;padding:0;max-height:120mm;overflow:hidden}
@@ -198,7 +201,7 @@
 .lay5 .lo .ttl{font-size:18pt}.lay5 .lo .ttl.s{font-size:15pt}.lay5 .lo .ttl.xs{font-size:12.5pt}
 .lay5 .info{position:static;text-align:left;width:auto;margin-top:auto}.lay5 .info .yr{background:var(--or);margin-bottom:2mm}.lay5 .info p{font-size:8pt}.lay5 .contact{display:none}
 .lay5 .ro{position:absolute;left:128mm;right:14mm;top:118mm;bottom:22mm;display:flex;gap:6mm}
-.lay5 .ro .wks{flex:1;display:grid;grid-template-columns:1fr 1fr;column-gap:6mm;align-content:start}.lay5 .ro .wk{padding:2.4mm 0}.lay5 .ro .vol i{font-size:13pt}.lay5 .ro .wk b{font-size:7.4pt}
+.lay5 .ro .wks{flex:1;display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);column-gap:6mm;align-content:start}.lay5 .ro .wk{padding:2.4mm 0}.lay5 .ro .vol i{font-size:13pt}.lay5 .ro .wk b{font-size:7.4pt}
 .lay5 .ro .badges{flex:none;flex-direction:column;margin:0;padding:0;align-items:flex-start;justify-content:flex-end}.lay5 .ro .doc{font-size:6pt}
 .lay5 .f5{height:20mm;background:#faf6ee;padding:0 14mm}
 .lay6{background:#1d2228;color:#fff}
@@ -211,7 +214,9 @@
 .lay6 .wk{border-bottom-color:rgba(255,255,255,.12);padding:2.4mm 0;gap:2mm}.lay6 .wk b{font-size:7pt}.lay6 .vol i{font-size:12.5pt}.lay6 .vol s{color:var(--or2)}
 .lay6 .badges{gap:4mm}.lay6 .ring{background:conic-gradient(var(--or) calc(var(--p)*1%),#3a4047 0);width:24mm;height:24mm}.lay6 .ring div{background:#1d2228;width:19mm;height:19mm}.lay6 .ring span{color:#aab2bc}
 .lay6 .meta .yr{color:#1d2228;font-size:10pt;margin-bottom:1.5mm}.lay6 .meta p{margin:0;font-size:7.2pt;line-height:1.35;color:#c9ced5}
-.lay6 .gp{margin-top:5mm;font-size:7.6pt;font-weight:700;line-height:1.35}.lay6 .gp small{display:block;font-size:6pt;letter-spacing:.8px;color:var(--or2);margin-top:2.5mm}`;
+.lay6 .gp{margin-top:5mm;font-size:7.6pt;font-weight:700;line-height:1.35}.lay6 .gp small{display:block;font-size:6pt;letter-spacing:.8px;color:var(--or2);margin-top:2.5mm}
+.page.fit1 .wk{padding:1.8mm 0}.page.fit1 .vol i{font-size:13pt}.page.fit1 .wk b{font-size:7.6pt}.page.fit1 .sub{margin-bottom:3.5mm}.page.fit1 .badges{padding-top:2.5mm}.page.fit1 .osd{padding-top:2.5mm}
+.page.fit2 .wk{padding:1.3mm 0}.page.fit2 .vol i{font-size:11.5pt}.page.fit2 .wk b{font-size:7pt}.page.fit2 .sub{margin-bottom:2.5mm}.page.fit2 .badges{padding-top:2mm}.page.fit2 .osd,.page.fit2 .ost{display:none}`;
  const CHECK='<svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>';
  const CAL='<svg viewBox="0 0 24 24" fill="none" stroke="#1d2228" stroke-width="2.4" stroke-linecap="round"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/></svg>';
  const bg=src=>src?` style="background-image:url('${String(src).replace(/'/g,"%27")}')"`:"";
@@ -235,7 +240,6 @@
   <div class="A2"><div class="kick up">О компании</div><h2>${esc(co.title)}</h2>${co.about.map(p=>`<p>${esc(p)}</p>`).join("")}
   <div class="osd up" style="margin:3mm 0 0">По программе на ${esc(co.date)}</div><div class="nums${totals(objects).length>6?" many":""}">${totals(objects).map(([b,s])=>`<div><b>${esc(b)}</b><span>${esc(s)}</span></div>`).join("")}</div>
   <div class="adv">${co.adv.map(([b,s])=>`<div><b>${esc(b)}</b>${esc(s)}</div>`).join("")}</div>
-  <div class="svc">${co.services.map(s=>`<span>${esc(s)}</span>`).join("")}</div>
   <div class="slogan">${esc(co.slogan[0])}<br><i>${esc(co.slogan[1])}</i></div></div>
   <div class="A3"><div class="kick up">Нам доверяют</div><h2>Заказчики и генподрядчики</h2>
   <ul class="cust">${ps.map(p=>`<li>${esc(p)}</li>`).join("")}</ul><div class="q">${co.trust}</div></div></section>`
@@ -262,12 +266,13 @@
   const seq=pics>=3?[1,3,5,2,4,6]:[1,3,5,2,6];return seq[i%seq.length]};
  function textCol(o,max,co){const name=String(o.name||"Объект"),ws=worksOf(o),p=doneOf(o);
   return`<h1 class="ttl up${titleCls(name)}">${esc(name)}</h1>${o.customer?`<div class="sub up">${esc(o.customer)}</div>`:""}
-  <div class="wks">${wkRows(ws.slice(0,max))}</div>${o.summary?`<div class="sum">${sumHtml(o.summary)}</div>`:""}
+  <div class="wks">${wkRows(ws.slice(0,Math.min(max,o.wkMax||max)))}</div>${o.summary&&!o.sumMoved?`<div class="sum">${sumHtml(o.summary)}</div>`:""}
   ${statsOf(o,co)}<div class="badges">${ringOf(p)}${docOf()}</div>`}
  function placeOf(o,co){const place=String(o.address||"").trim();
   return`${yearOf(o)}${place?`<h4 class="up">Место выполнения</h4><p>${esc(place)}</p>`:""}<div class="contact">${esc(co.contactMail)}<br>WhatsApp ${esc(co.whatsapp)}</div>`}
  function circlesOf(rest){return rest.length?`<div class="circles">${rest.map((s,i)=>`<div class="c${rest.length===3&&i===1?" big":""}"${bg(s)}></div>`).join("")}</div>`:""}
- function objectPage(o,co,logo,i=0){
+ function objectPage(o,co,logo,i=0){const h=objectPage0(o,co,logo,i);return o.fit?h.replace('<section class="page','<section class="page fit'+o.fit):h}
+ function objectPage0(o,co,logo,i=0){
   const lay=layoutOf(o,i),pics=o.pictures||[],main=pics[0]||"",rest=pics.slice(1,4);
   if(lay===2)return`<section class="page lay2"><div class="L"><div class="in">${textCol(o,7,co)}</div></div>
   <div class="R"><div class="ph"${bg(main)}></div>${logoOf(co,logo)}<div class="band"></div>${circlesOf(rest)}
@@ -275,7 +280,7 @@
   if(lay===3){const name=String(o.name||"Объект"),ws=worksOf(o).slice(0,4),p=doneOf(o),place=String(o.address||"").trim();
    return`<section class="page lay3"><div class="ph"${bg(main)}></div><div class="shade"></div>${logoOf(co,logo)}
    <div class="hd"><div class="kick up">${esc(o.years?String(o.years):"Объект")}${place?" · "+esc(place):""}</div><h1 class="ttl up${titleCls(name)}">${esc(name)}</h1>
-   ${o.summary?`<div class="sm">${sumHtml(o.summary)}</div>`:""}</div>
+   ${o.summary&&!o.sumMoved?`<div class="sm">${sumHtml(o.summary)}</div>`:""}</div>
    ${rest.length?`<div class="thumbs">${rest.slice(0,3).map(s=>`<div${bg(s)}></div>`).join("")}</div>`:""}
    <div class="tiles"><div class="tw">${ws.map(w=>`<div class="tl"><i>${esc(fmt(num(w.volume)))}<s>${esc(unitOf(w.unit))}</s></i>${planOf(w)}<b class="up">${esc(w.name)}</b></div>`).join("")}</div>
    <div class="tr">${ringOf(p)}</div></div>
@@ -284,12 +289,12 @@
    return`<section class="page lay5"><div class="ph"${bg(main)}></div>${logoOf(co,logo)}${circlesOf(rest)}
    <div class="lo"><h1 class="ttl up${titleCls(name)}">${esc(name)}</h1>${o.customer?`<div class="sub up">${esc(o.customer)}</div>`:""}
    <div class="info">${placeOf(o,co)}</div></div>
-   <div class="ro"><div class="wks">${wkRows(ws)}</div><div class="badges">${ringOf(p)}${docOf()}</div></div>${footOf(o," f5")}</section>`}
+   <div class="ro"><div class="wks">${wkRows(ws.slice(0,o.wkMax||ws.length))}</div><div class="badges">${ringOf(p)}${docOf()}</div></div>${footOf(o," f5")}</section>`}
   if(lay===6){const name=String(o.name||"Объект"),p=doneOf(o);
    return`<section class="page lay6"><div class="fr${rest.length?"":" full"}"><div class="ph"${bg(main)}></div></div>
    ${rest.length?`<div class="row">${rest.slice(0,3).map(s=>`<div${bg(s)}></div>`).join("")}</div>`:""}
    <div class="tx">${logoOf(co,logo," l6")}<h1 class="ttl up${titleCls(name)}">${esc(name)}</h1>${o.customer?`<div class="sub up">${esc(o.customer)}</div>`:""}
-   <div class="wks">${wkRows(worksOf(o).slice(0,5))}</div><div class="badges">${ringOf(p)}<div class="meta">${yearOf(o)}<p>${esc(o.address||"")}</p></div></div>
+   <div class="wks">${wkRows(worksOf(o).slice(0,Math.min(5,o.wkMax||5)))}</div><div class="badges">${ringOf(p)}<div class="meta">${yearOf(o)}<p>${esc(o.address||"")}</p></div></div>
    <div class="gp"><small class="up">Генподрядчик</small>${esc(o.general_contractor||"—")}<small class="up">Заказчик</small>${esc(o.customer||"—")}</div></div></section>`}
   if(lay===4){const n=Math.min(4,pics.length);
    return`<section class="page lay4"><div class="M m${n}">${pics.slice(0,4).map((s,k)=>`<div class="g g${k}"${bg(s)}></div>`).join("")}${logoOf(co,logo)}
@@ -303,10 +308,15 @@
  // больше фото (инженер 20.11.2026 «сделай в буклетах больше фото, а то везде 2-3»): макет листа берёт первые 4,
  // остальные выбранные (до 6) — следующим листом «Фото с объекта» сеткой по их числу
  const MAX_PHOTOS=10;
- function galleryPage(o,co,logo){const ps=(o.pictures||[]).slice(4,MAX_PHOTOS);if(!ps.length)return"";
-  return`<section class="page gal"><div class="gh"><div class="t"><small class="up">Фото с объекта</small><b>${esc(o.name||"Объект")}</b></div>
+ // лист «Фото с объекта» — все фото, кроме главного, если их больше четырёх или краткая характеристика не вместилась на
+ // лист объекта: тогда она здесь, слева тёмной колонкой (инженер 20.11.2026 «если на страницу переносишь, то больше фото
+ // показывай с краткой информацией»)
+ function galleryPage(o,co,logo){const all=o.pictures||[],sm=o.summary&&o.sumMoved;
+  if(all.length<=4&&!sm)return"";const ps=all.length>=8?all.slice(4,MAX_PHOTOS):all.slice(all.length>1?1:0,MAX_PHOTOS);if(!ps.length&&!sm)return"";
+  return`<section class="page gal${sm?" wsum":""}${o.galSmall?" gsm":""}"><div class="gh"><div class="t"><small class="up">Фото с объекта</small><b>${esc(o.name||"Объект")}</b></div>
   <div class="lg">${logo?`<img src="${esc(logo)}" alt="">`:`<b>${esc(co.name)}</b>`}</div></div>
-  <div class="gg n${ps.length}">${ps.map(s=>`<div${bg(s)}></div>`).join("")}</div></section>`}
+  ${sm?`<div class="gs"><small class="up">Краткая характеристика</small><div class="gt">${sumHtml(o.summary)}</div></div>`:""}
+  ${ps.length?`<div class="gg n${ps.length}">${ps.map(s=>`<div${bg(s)}></div>`).join("")}</div>`:""}</section>`}
  // objects: [{name, customer, general_contractor, address, status, years, summary, works:[{name,unit,volume,plan}], pictures:[src…]}]
  function build(objects,{logo="",company={},services=true,screen=false}={}){
   const d=new Date(),co={date:String(d.getDate()).padStart(2,"0")+"."+String(d.getMonth()+1).padStart(2,"0")+"."+d.getFullYear(),...COMPANY,...company},list=Array.isArray(objects)?objects:[];
@@ -367,19 +377,32 @@ ${(()=>{const pages=[["О компании",aboutPage(list,co,logo)],...(service
  // краткая характеристика — только если вмещается на лист вместе со всеми видами работ, иначе её нет (инженер
  // 20.11.2026 «там где есть краткая характеристика и она не вмещается, то не выкладывай»). Лист печатается окном без
  // скриптов, поэтому мерим здесь: тот же HTML (без фото — на размеры они не влияют) в скрытой рамке.
- const overflows=el=>el&&el.scrollHeight>el.clientHeight+1;
- function tooLong(page){return[".wks",".sum",".sm",".in",".hd"].some(q=>[...page.querySelectorAll(q)].some(overflows))}
+ const overflows=(el,wide)=>el&&(el.scrollHeight>el.clientHeight+1||wide&&el.scrollWidth>el.clientWidth+1);
+ function tooLong(page){return[".wks",".sum",".sm",".in",".hd"].some(q=>[...page.querySelectorAll(q)].some(e=>overflows(e,q===".wks")))}
+ // всё на листе объекта видно целиком: не вмещается — краткая характеристика уходит на лист «Фото с объекта», затем
+ // виды работ плотнее (fit1), ещё плотнее без строки итогов (fit2), и только потом лишние строки снизу (wkMax) —
+ // не обрезанной наполовину строкой поверх итогов (инженер 20.11.2026 «поправь» — «Демонтаж» под «Выполнено на»)
  async function dropTooLong(objects,opts){
-  const doc=root.document;if(!doc||!objects.some(o=>o.summary))return;
-  const fr=doc.createElement("iframe");fr.setAttribute("aria-hidden","true");
-  fr.style.cssText="position:fixed;left:-10000px;top:0;width:297mm;height:210mm;border:0;visibility:hidden";
-  try{
-   await new Promise(ok=>{fr.onload=ok;fr.srcdoc=build(objects.map(o=>({...o,pictures:(o.pictures||[]).map(()=>"")})),opts);doc.body.appendChild(fr);setTimeout(ok,8000)});
-   const d=fr.contentDocument;if(!d)return;
-   await Promise.race([d.fonts?.ready,new Promise(ok=>setTimeout(ok,4000))]);
-   const pages=[...d.querySelectorAll("section.page:not(.svcp):not(.gal)")].slice(1);
-   pages.forEach((pg,i)=>{if(objects[i]?.summary&&tooLong(pg))objects[i]={...objects[i],summary:""}})
-  }catch(_){}finally{fr.remove()}
+  const doc=root.document;if(!doc||!objects.length)return;
+  for(let pass=0;pass<10;pass++){
+   const fr=doc.createElement("iframe");fr.setAttribute("aria-hidden","true");
+   fr.style.cssText="position:fixed;left:-10000px;top:0;width:297mm;height:210mm;border:0;visibility:hidden";
+   let changed=false;
+   try{
+    await new Promise(ok=>{fr.onload=ok;fr.srcdoc=build(objects.map(o=>({...o,pictures:(o.pictures||[]).map(()=>"")})),opts);doc.body.appendChild(fr);setTimeout(ok,8000)});
+    const d=fr.contentDocument;if(!d)return;
+    await Promise.race([d.fonts?.ready,new Promise(ok=>setTimeout(ok,4000))]);
+    const pages=[...d.querySelectorAll("section.page:not(.svcp):not(.gal)")].slice(1);
+    pages.forEach((pg,i)=>{const o=objects[i];if(!o||!tooLong(pg))return;changed=true;
+     if(o.summary&&!o.sumMoved)objects[i]={...o,sumMoved:true};
+     else if((o.fit||0)<2)objects[i]={...o,fit:(o.fit||0)+1};
+     else{const n=pg.querySelectorAll(".wk").length;if(n>1)objects[i]={...o,wkMax:n-1};else changed=false}});
+    const gals=[...d.querySelectorAll("section.gal.wsum")];
+    gals.forEach(g=>{const name=g.querySelector(".gh b")?.textContent;const i=objects.findIndex(o=>o.sumMoved&&!o.galSmall&&String(o.name||"Объект")===name);
+     if(i>=0&&overflows(g.querySelector(".gt"))){objects[i]={...objects[i],galSmall:true};changed=true}});
+   }catch(_){return}finally{fr.remove()}
+   if(!changed)return;
+  }
  }
  const api={MAX_PHOTOS,dropTooLong,build,make,preview,totals,doneOf,parties,COMPANY,LAYOUTS,layoutOf,thumb,read,pickDefault};
  if(typeof module!=="undefined"&&module.exports)module.exports=api;else root.irBooklet=api;
