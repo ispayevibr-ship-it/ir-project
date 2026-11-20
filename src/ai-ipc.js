@@ -128,6 +128,15 @@ function registerAll({ipcMain,getUserDataPath,safeStorage,netFetch,dialog:native
  // program stands meanwhile): a real window with the bridge of its own, not window.open — the window opened from the
  // page shared its process, so a scheme building there stopped the whole program. Here the other windows go on.
  const ownWindows=new Map();
+ // The status of an update to every live window, not to the first window only (the engineer 20.11.2026: «Error invoking
+ // remote method 'update:check': TypeError: Object has been destroyed» — the program window closed, the window of the
+ // scheme open: the updater of main.js sent to the closed one and the check failed). Its listeners are put again here
+ // (main.js comes with the installer only), after main.js has set its own.
+ setTimeout(()=>{try{const {app,BrowserWindow}=require("electron"),upd=require(require("path").join(app.getAppPath(),"src","updater.js")),ev=upd&&upd.updater;if(!ev||typeof ev.on!=="function")return;
+  const all=p=>BrowserWindow.getAllWindows().forEach(w=>{try{if(!w.isDestroyed()&&!w.webContents.isDestroyed())w.webContents.send("update:status",p)}catch{}});
+  const map={"update-available":i=>({type:"available",...i}),"update-not-available":i=>({type:"current",...i}),"download-progress":p=>({type:"progress",percent:Math.round(p.percent),transferred:p.transferred,total:p.total}),"update-downloaded":i=>({type:"downloaded",version:i.version}),"error":e=>({type:"error",message:e&&e.message})};
+  for(const n of Object.keys(map)){ev.removeAllListeners(n);ev.on(n,x=>all(map[n](x||{})))}
+ }catch(error){console.warn("IR Project: update status to all windows",error&&error.message)}},0);
  handle("ai-settings:window-open",(e,{route}={})=>{
   const r=String(route||"");if(r.length>350||!/^\/objects(?:\/object\/\d+(?:\/[a-z0-9_-]+)*)?$/i.test(r))return false;
   const {BrowserWindow,app}=require("electron"),path=require("path"),fs=require("fs"),dir=app.getAppPath();

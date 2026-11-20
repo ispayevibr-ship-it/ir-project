@@ -5608,7 +5608,7 @@ function byCreation(list){if(!Array.isArray(list))return list;var key=function(c
   // by 08 and by 01, 5 mm in the chord's leg (the scheme of the engineer 19.11.2026). By the faces of the other member
   // inside the section of the angle near its end, so a sloped chord is met where it really is. data-brace-ends.
   var braceEndsN=0;
-  function braceEnds(){
+  function braceEnds(more){
    braceEndsN=0;var bodies=[],others=[],gus=new Map();
    var clipB=function(P,lo,hi){for(var d=0;d<3;d++){[[lo[d],1],[hi[d],-1]].forEach(function(e){if(!P.length)return;var out=[];for(var i=0;i<P.length;i++){var a=P[i],b=P[(i+1)%P.length],da=(a[d]-e[0])*e[1],db=(b[d]-e[0])*e[1];if(da>=0)out.push(a);if((da>=0)!==(db>=0)){var t=da/(da-db);out.push([a[0]+(b[0]-a[0])*t,a[1]+(b[1]-a[1])*t,a[2]+(b[2]-a[2])*t])}}P=out})}return P};
    steelMeshes(function(o,mid){var u=o.userData||{},c=dataById.get(mid);if(!c||c.ft||!o.geometry||u.bolt||u.weld||u.screw||u.anchor||u.hole||u.wood)return;o.updateMatrixWorld(true);
@@ -5619,7 +5619,7 @@ function byCreation(list){if(!Array.isArray(list))return list;var key=function(c
    var obbTouch=function(A,Bq){if(!A.b.clone().expandByScalar(.003).intersectsBox(Bq.b))return false;var a=obbOf(A),b=obbOf(Bq),d=b.c.clone().sub(a.c),axes=a.a.concat(b.a);
     a.a.forEach(function(u){b.a.forEach(function(v){var x=u.clone().cross(v);if(x.lengthSq()>1e-8)axes.push(x.normalize())})});
     return axes.every(function(n){var ra=0,rb=0;for(var i=0;i<3;i++){ra+=a.h[i]*Math.abs(a.a[i].dot(n));rb+=b.h[i]*Math.abs(b.a[i].dot(n))}return Math.abs(d.dot(n))<=ra+rb})};
-   bodies.forEach(function(B){var m=B.o,g=m.geometry;if(!g.boundingBox)g.computeBoundingBox();var gb=g.boundingBox,G0=gb.min.z,Lg=gb.max.z-gb.min.z;if(Lg<=0)return;
+   var beEach=function(B){var m=B.o,g=m.geometry;if(!g.boundingBox)g.computeBoundingBox();var gb=g.boundingBox,G0=gb.min.z,Lg=gb.max.z-gb.min.z;if(Lg<=0)return;
     // (the angle's section as its two legs — not its box: another member in the open corner of the L is not in it)
     var c=dataById.get(B.id),tm=/L\s*\d+(?:[×xх*]\d+)?[×xх*](\d+(?:[.,]\d+)?)/.exec(String(c.profile||"")),tk=tm?parseFloat(tm[1].replace(",","."))/1000:0,sh=g.parameters&&g.parameters.shapes;sh=Array.isArray(sh)?sh[0]:sh;
     if(!tk||!sh||!sh.getPoints)return;var pts=sh.getPoints(),inS=function(x,y){var o=false;for(var i=0,j=pts.length-1;i<pts.length;j=i++){var a=pts[i],b=pts[j];if((a.y>y)!==(b.y>y)&&x<(b.x-a.x)*(y-a.y)/(b.y-a.y)+a.x)o=!o}return o};
@@ -5662,8 +5662,8 @@ function byCreation(list){if(!Array.isArray(list))return list;var key=function(c
      var W0=m.getWorldPosition(new T.Vector3()),D0=new T.Vector3().setFromMatrixColumn(m.matrixWorld,2),sz0=m.scale.z;
      [[m,0,sp[0]],[m2,sp[1],1]].forEach(function(r){var mm=r[0],f=r[2]-r[1],dw=mm.parent.worldToLocal(W0.clone().add(D0.clone().multiplyScalar(G0+r[1]*Lg-f*G0)));mm.position.copy(dw);mm.userData=Object.assign({},m.userData);mm.scale.z=sz0*f});
      m.updateMatrixWorld(true);m2.updateMatrixWorld(true);braceEndsN++;return}
-    if(!hit||z1-z0<.5)return;var f=z1-z0,dir=new T.Vector3().setFromMatrixColumn(m.matrixWorld,2),dw=m.parent.worldToLocal(m.getWorldPosition(new T.Vector3()).add(dir.multiplyScalar(G0+z0*Lg-f*G0)));m.position.copy(dw);m.scale.z*=f;m.updateMatrixWorld(true);braceEndsN++});
-   try{root.setAttribute("data-brace-ends",String(braceEndsN))}catch(e){}
+    if(!hit||z1-z0<.5)return;var f=z1-z0,dir=new T.Vector3().setFromMatrixColumn(m.matrixWorld,2),dw=m.parent.worldToLocal(m.getWorldPosition(new T.Vector3()).add(dir.multiplyScalar(G0+z0*Lg-f*G0)));m.position.copy(dw);m.scale.z*=f;m.updateMatrixWorld(true);braceEndsN++};
+   chunked(bodies,beEach,function(){try{root.setAttribute("data-brace-ends",String(braceEndsN))}catch(e){}},"Обрезка сэндвича и фасонок",more)
   }
   // A light post (a column of a wall frame, section up to 250 mm) beside steel it runs into sideways by up to 12 mm — the
   // flange of a purlin ending at the column, the rib of a girt's seat on the column: moved off it by that depth +0.5 mm, if it
@@ -15756,7 +15756,10 @@ function byCreation(list){if(!Array.isArray(list))return list;var key=function(c
    var g=o.geometry,P=g.attributes.position,step=Math.max(1,Math.floor(P.count/120)),pts=[],v=new T.Vector3();o.updateMatrixWorld(true);for(var i=0;i<P.count;i+=step)pts.push(v.fromBufferAttribute(P,i).applyMatrix4(o.matrixWorld).clone().add(off));
    var best=len,rc=new T.Raycaster(),hs=[];
    // (not through a trim, the steel or a panel)
-   var own=dataById.get(String(id)),ownAll=own&&!own.ft;X.all.forEach(function(f){var u=f.o.userData||{},c=dataById.get(f.id);if(f.o===o||ownAll&&String(f.id)===String(id)||!f.b.intersectsBox(sw))return;if(u.edges||u.seam||u.screw||u.weld||u.hole||u.buildingGuard||u.floor)return;if(!c&&!u.tl&&!u.wallCap)return;
+   var own=dataById.get(String(id)),ownAll=Boolean(own);
+   // (the other pieces of the same member — the shelves of a trim at its bends, the pieces cut round steel — never stop
+   // it: a trim moved whole stood still, each shelf held by the next one, the engineer 20.11.2026 «не двигается»)
+X.all.forEach(function(f){var u=f.o.userData||{},c=dataById.get(f.id);if(f.o===o||ownAll&&String(f.id)===String(id)||!f.b.intersectsBox(sw))return;if(u.edges||u.seam||u.screw||u.weld||u.hole||u.buildingGuard||u.floor)return;if(!c&&!u.tl&&!u.wallCap)return;
     var ml=Array.isArray(f.o.material)?f.o.material:[f.o.material],sd=ml.map(function(m){return m&&m.side});ml.forEach(function(m){if(m)m.side=T.DoubleSide});
     try{pts.forEach(function(p){rc.set(p.clone().addScaledVector(dir,-.0005),dir);rc.far=best+.002;hs.length=0;f.o.raycast(rc,hs);hs.forEach(function(h){var d=h.distance-.0005;
      // (a face the piece lies on, met head-on — it stops there: a piece in touch with a wall slid through it, the hit at 0
@@ -16251,6 +16254,10 @@ function byCreation(list){if(!Array.isArray(list))return list;var key=function(c
    if(building){building.next=next;return}
    var keepPlace=P.lastTopZ,keepLevel=P.lastLevel,mode=colorMode;
    P=next;P.lastTopZ=keepPlace;P.lastLevel=keepLevel;
+   // (the button «＋ Элемент» with the right of editing as it is now — the scheme opened for viewing had none, and after
+   // «Режим редактирования» it did not come: the engineer 20.11.2026 «где кнопка добавить элемент»)
+   try{var addB=root.querySelector("#irThreeAdd");if(P.canEdit&&!addB){var cnt=root.querySelector("#irThreeCount");if(cnt&&cnt.parentNode){addB=document.createElement("button");addB.className="ir-three-add";addB.id="irThreeAdd";addB.title="Добавить элемент";addB.textContent="＋ Элемент";addB.addEventListener("click",function(){placing?cancelPlacement():startPlacement()});cnt.parentNode.appendChild(addB)}}
+    else if(!P.canEdit&&addB){if(placing)cancelPlacement();addB.remove()}}catch(e){}
    allElems=P.elements||[];secFilter();paintSecs();
    // The page opened again over the built model waits for its own first picture (its loading screen stayed forever:
    // the model was drawn behind it, but only the first opening was told so).
@@ -17023,7 +17030,7 @@ function byCreation(list){if(!Array.isArray(list))return list;var key=function(c
    root.setAttribute("data-step-foot",String(stepFootN)+"/"+footJoinN)
   }
   var cornerSplitN=0;
-  function cornerClose(){
+  function cornerClose(more){
    var W={x:[],z:[]},add=function(o){W[o.ax].push(o);return o};
    // (all that is drawn of a wall: its panels and what closed it before — the fillers of the corners and of the slits are
    // kept in the list of the meshes only; not the concrete under it)
@@ -17056,7 +17063,7 @@ function byCreation(list){if(!Array.isArray(list))return list;var key=function(c
    var down=new T.Vector3(0,-1,0),o3=new T.Vector3(),feet=0,allW=W.x.concat(W.z),rcF=new T.Raycaster(),upF=new T.Vector3(0,1,0);
    // (how far over the lowest point of its foot the underside of the panel is at a: 0 where level or not found)
    var footUp=function(P,a){var b=P.b,mid=(b.min[P.tx]+b.max[P.tx])/2,y=b.min.y,f=0;[-.3,0,.3].forEach(function(k){var q=new T.Vector3();q[P.ax]=a;q[P.tx]=mid+k*(b.max[P.tx]-b.min[P.tx]);q.y=y-.02;rcF.set(q,upF);rcF.far=.65;var h=rcF.intersectObject(P.m,false)[0];if(h){var v=h.point.y-y;if(v>.001&&v<.6&&(f===0||v<f))f=v}});return f>0?f+.002:0};
-   allW.slice().forEach(function(P){var b=P.b,ax=P.ax,tx=P.tx,a0=b.min[ax],a1=b.max[ax],mid=(b.min[tx]+b.max[tx])/2,t=b.max[tx]-b.min[tx],y=b.min.y;if(a1-a0<.03||y<.5)return;
+   var a2List=allW.slice(),a2Each=function(P){var b=P.b,ax=P.ax,tx=P.tx,a0=b.min[ax],a1=b.max[ax],mid=(b.min[tx]+b.max[tx])/2,t=b.max[tx]-b.min[tx],y=b.min.y;if(a1-a0<.03||y<.5)return;
     var dAt=function(a){o3.set(ax==="x"?a:mid,y+.01,ax==="x"?mid:a);var d=Infinity;
      var occ=false;allW.forEach(function(o){if(o===P)return;var q=o.b;if(o3.x<q.min.x-.001||o3.x>q.max.x+.001||o3.z<q.min.z-.001||o3.z>q.max.z+.001||q.min.y>=y-.012)return;if(q.max.y>y+.012){occ=true;return}if(o.id===P.id&&y-q.max.y>.012){occ=true;return}d=Math.min(d,y-q.max.y)});// (not over a piece of the same panel: that is its own hole by the АР — Пс-139 of row Л, the duct opening 700×345 filled; the engineer, 17.11.2026 «эт что кусок сэндвича в отверстие»)
      if(occ||d<.012)return 0;if(d<=.1)return d;
@@ -17088,7 +17095,7 @@ function byCreation(list){if(!Array.isArray(list))return list;var key=function(c
      if(Math.abs(d0-d1)>.001||f0>.001||f1>.001){for(var si=0;si<sp0.count;si++){var lo=(ax==="x"?sp0.getX(si):sp0.getZ(si))<0;if(sp0.getY(si)<0)sp0.setY(si,d/2-(lo?d0:d1));else sp0.setY(si,d/2+(lo?f0:f1))}sp0.needsUpdate=true;sg0.computeVertexNormals();sg0.computeBoundingBox();sg0.computeBoundingSphere()}
      var m=new T.Mesh(sg0,P.m.material);m.position.set(ax==="x"?(s0+s1)/2:mid,y-d/2,ax==="x"?mid:(s0+s1)/2);
      m.userData.memberId=P.id;m.userData.fixed=true;m.userData.footing=true;m.userData.masonry=true;m.userData.clad=true;m.userData.panelFill=true;steel.add(m);m.updateMatrixWorld(true);allMeshes.push(m);
-     add({id:P.id,m:m,b:new T.Box3().setFromObject(m),ax:ax,tx:tx});feet++}});
+     add({id:P.id,m:m,b:new T.Box3().setFromObject(m),ax:ax,tx:tx});feet++}};chunked(a2List,a2Each,function(){
    // (b)
    var all=W.x.concat(W.z),inWall=function(x,z,y){return all.some(function(o){var q=o.b;return x>q.min.x&&x<q.max.x&&z>q.min.z&&z<q.max.z&&y>q.min.y&&y<q.max.y})};
    var cs=[];W.x.forEach(function(P){[-1,1].forEach(function(sg){var b=P.b,e=sg>0?b.max.x:b.min.x;
@@ -17174,6 +17181,7 @@ function byCreation(list){if(!Array.isArray(list))return list;var key=function(c
       if(gone){drop(m);extN++;return}
       if(!ch||b-a<.02)return;m.geometry=new T.BoxGeometry(it.q.width,it.q.height,b-a);m.position[ax]=(a+b)/2;m.updateMatrixWorld(true);extN++})})})();
    root.setAttribute("data-corner-close",fills+"/"+feet+"/"+made+"/"+cutN+"/"+extN+"/"+cornerSplitN)
+   },"Обрезка сэндвича и фасонок",more)
   }
 
   // 2. A corner trim (lay.trim corner) ending short of the top of the walls it covers («нащельник не до конца верха» — О8/Н,
@@ -18910,7 +18918,7 @@ function byCreation(list){if(!Array.isArray(list))return list;var key=function(c
    if(root)root.setAttribute("data-foot-ends",String(n))
   }
   var steelGapN=0,steelPartN=0,densePartN=0,ownHitN=0;
-  function gapClose(){
+  function gapClose(more){
    gapCloseN=0;gapFillN=0;steelGapN=0;steelPartN=0;densePartN=0;ownHitN=0;var walls=new Map();elems.forEach(function(c){if(c.ft!=="panel"||!c.id||!c.lay||c.lay.panel!=="wall")return;var p=memberPoints(c);if(p.length<2)return;walls.set(String(c.id),Math.abs(p[p.length-1].x-p[0].x)>=Math.abs(p[p.length-1].z-p[0].z)?"x":"z")});
    if(!walls.size)return;
    var all=[],C=1,grid=new Map(),key=function(i,j,k){return i+","+j+","+k};
@@ -18921,7 +18929,7 @@ function byCreation(list){if(!Array.isArray(list))return list;var key=function(c
     m.updateMatrixWorld(true);var b=new T.Box3().setFromObject(m);if(b.isEmpty())return;var e={m:m,b:b,id:String(u.memberId)};all.push(e);put(e)});
    var near=function(b){var s=new Set();for(var i=Math.floor(b.min.x/C);i<=Math.floor(b.max.x/C);i++)for(var j=Math.floor(b.min.y/C);j<=Math.floor(b.max.y/C);j++)for(var k=Math.floor(b.min.z/C);k<=Math.floor(b.max.z/C);k++){var g=grid.get(key(i,j,k));if(g)g.forEach(function(e){if(e.b.intersectsBox(b))s.add(e)})}return Array.from(s)};
    var rc=new T.Raycaster(),v=new T.Vector3();
-   all.slice().forEach(function(E){if(!walls.has(E.id))return;var u=E.m.userData||{};if(u.footing&&!u.clad||u.gapFill)return;var b=E.b,al=walls.get(E.id),th=al==="x"?"z":"x",t=b.max[th]-b.min[th];
+   var gcList=all.slice(),gcEach=function(E){if(!walls.has(E.id))return;var u=E.m.userData||{};if(u.footing&&!u.clad||u.gapFill)return;var b=E.b,al=walls.get(E.id),th=al==="x"?"z":"x",t=b.max[th]-b.min[th];
     if(t<.03||t>.3||b.max[al]-b.min[al]<.05||b.max.y-b.min.y<.05)return;var isBox=E.m.geometry.type==="BoxGeometry";
     var edges=[[al,-1],[al,1]];if(isBox){if(b.min.y>.5)edges.push(["y",-1]);edges.push(["y",1])}
     edges.forEach(function(ed){var ax=ed[0],sg=ed[1],at=sg<0?b.min[ax]:b.max[ax];
@@ -19009,8 +19017,10 @@ function byCreation(list){if(!Array.isArray(list))return list;var key=function(c
       var sz=new T.Vector3(),c=new T.Vector3();sz[ax]=g;sz[oth]=q1-q0;sz[th]=t;c[ax]=at+sg*g/2;c[oth]=(q0+q1)/2;c[th]=(b.min[th]+b.max[th])/2;
       if(!ownFree(sz,c)){ownHitN++;return}
       var f=new T.Mesh(new T.BoxGeometry(sz.x,sz.y,sz.z),E.m.material);f.position.copy(c);f.userData={memberId:u.memberId,gapFill:true,fixed:true};
-      E.m.parent.add(f);f.updateMatrixWorld(true);allMeshes.push(f);var l=meshesById.get(E.id);if(l)l.push(f);var fe={m:f,b:new T.Box3().setFromObject(f),id:E.id};all.push(fe);put(fe);gapFillN++})})});
+      E.m.parent.add(f);f.updateMatrixWorld(true);allMeshes.push(f);var l=meshesById.get(E.id);if(l)l.push(f);var fe={m:f,b:new T.Box3().setFromObject(f),id:E.id};all.push(fe);put(fe);gapFillN++})})};
+   chunked(gcList,gcEach,function(){
    root.setAttribute("data-gap-close",gapCloseN+"/"+gapFillN+"/"+steelGapN+"/"+steelPartN+"/"+densePartN+"/"+ownHitN)
+   },"Обрезка сэндвича",more)
   }
   function capCorners(){
    capCornerN=0;var gs=new Map();
@@ -19733,8 +19743,8 @@ function byCreation(list){if(!Array.isArray(list))return list;var key=function(c
    // a groove along the inner face of row А 14 mm under Пк-18 — up again)
    try{wallTopsUp()}catch(e){if(window.console)console.warn("wallTopsUp",e&&e.stack||e)}
     },
-    function(){
-   try{gapClose()}catch(e){if(window.console)console.warn("gapClose",e&&e.stack||e)}
+    function(more){
+   try{gapClose(more)}catch(e){if(window.console)console.warn("gapClose",e&&e.stack||e)}
     },
     function(){
    try{stubTrims()}catch(e){if(window.console)console.warn("stubTrims",e&&e.stack||e)}
@@ -19769,9 +19779,9 @@ function byCreation(list){if(!Array.isArray(list))return list;var key=function(c
     function(){
    try{cornerGapFill()}catch(e){if(window.console)console.warn("cornerGapFill",e&&e.stack||e)}
     },
-    function(){
+    function(more){
    // (the engineer's own trims as he made them, the trims he took away — away: edRestore)
-   try{edRestore()}catch(e){if(window.console)console.warn("edRestore",e&&e.stack||e)}
+   try{edRestore(more)}catch(e){if(window.console)console.warn("edRestore",e&&e.stack||e)}
     },
     function(){
    // (and every piece of a panel cut away by any step above — out of the lists, not only out of the scene: dropPiece)
@@ -19793,8 +19803,8 @@ function byCreation(list){if(!Array.isArray(list))return list;var key=function(c
     function(){
    root.setAttribute("data-panel-cuts",panelCutsN+"/"+Math.round(performance.now()-t0)+"ms");root.setAttribute("data-cut-outline",cutRectN+"/"+cutFillN+"/"+cutBackN);root.setAttribute("data-cut-through",String(cutThroughN));root.setAttribute("data-cut-recentred",String(recentred));root.setAttribute("data-plate-down",String(plateDownN))
     }];
-   if(queue){var safe=function(f){return function(){try{f()}catch(e){if(window.console)console.warn("panelSteelCuts",e&&e.stack||e)}}},push=function(f){queue.push({w:0,text:"Обрезка сэндвича",run:safe(f)})};
-    for(var pi=0;pi<panels.length;pi+=20)(function(a){push(function(){panels.slice(a,a+20).forEach(cutOne)})})(pi);rest.forEach(push);return}
+   if(queue){var safe=function(f){return function(m){try{f(m)}catch(e){if(window.console)console.warn("panelSteelCuts",e&&e.stack||e)}}},push=function(f){queue.push({w:0,text:"Обрезка сэндвича",run:safe(f)})};
+    for(var pi=0;pi<panels.length;pi+=5)(function(a){push(function(){panels.slice(a,a+5).forEach(cutOne)})})(pi);rest.forEach(push);return}
    panels.forEach(cutOne);rest.forEach(function(f){f()})
   }
   // The lines of a panel cut round the steel: only its real edges — not where one piece of it lies against another piece
@@ -19971,14 +19981,23 @@ function byCreation(list){if(!Array.isArray(list))return list;var key=function(c
    var ok=f?applyFix(f):true;if(ok&&f&&(f.action==="cut"||f.action==="rect"||f.action==="ends")){var mid=String(f.member_id||"");if(mid&&dataById.get(mid)&&dataById.get(mid).ft==="panel")try{cutLines(mid)}catch(e){}}
    if(f&&!unsavedFixes.some(function(q){return fixKeyOf(q)===fixKeyOf(f)}))unsavedFixes.push(f);
    P.trimFixes=Array.isArray(list)?(f?list.slice():fixesIn(list)):(P.trimFixes||[]).concat([f]);appliedFixes=P.trimFixes.slice();builtFixKey=JSON.stringify(P.trimFixes);built=signature(P.elements);try{rebatch()}catch(e){}pickOf=null;lit=null;try{paintHighlight()}catch(e){}invalidate();return ok}
-  function edRestore(){
+  function edRestore(more){
    edN=0;fixN=0;
    (edSnap||[]).forEach(function(e){var keep=new Set(e.ms.map(function(x){return x.m})),l=meshesById.get(e.id)||[];
     l.forEach(function(m){if(m.isMesh&&!keep.has(m)&&m.parent&&!m.userData.edges){m.parent.remove(m)}});
     e.ms.forEach(function(x){var m=x.m;m.geometry=x.g;m.position.copy(x.p);m.quaternion.copy(x.q);m.scale.copy(x.s);m.userData=x.ud;if(!m.parent)x.par.add(m);m.visible=true;m.updateMatrixWorld(true)});
     meshesById.set(e.id,l.filter(function(m){return keep.has(m)||!m.isMesh||m.userData.edges}));edN++});
-   (Array.isArray(P.trimFixes)?P.trimFixes:[]).forEach(function(f){try{fixStop(f)}catch(e){}if(applyFix(f))fixN++});
-   root.setAttribute("data-engineer-trims",edN+"/"+fixN)
+   chunked((Array.isArray(P.trimFixes)?P.trimFixes:[]).slice(),function(f){try{fixStop(f)}catch(e){}if(applyFix(f))fixN++},function(){root.setAttribute("data-engineer-trims",edN+"/"+fixN)},"Правки инженера",more)
+  }
+  // A long step of the building by pieces of ~60 ms (the engineer 20.11.2026 «что с фоновой?»: the window of the scheme
+  // stood seconds in one step — the cut of the sandwich 4…5 s): each piece is a step of its own in the queue of buildSteps,
+  // the window answers between them. The same order of the same items — the model is the same; without a queue — at once.
+  cornerClose.chunky=true;
+  function chunked(list,each,tail,text,more){
+   if(!more){for(var i0=0;i0<list.length;i0++)each(list[i0]);tail();return}
+   var i=0,step=function(m){var t=performance.now();try{while(i<list.length){each(list[i++]);if(performance.now()-t>60)break}if(i<list.length)m.push({w:0,text:text,run:step});else tail()}catch(e){if(window.console)console.warn(text,e&&e.stack||e)}};
+   // (an error stops the step, as it stopped the whole function before — the building goes on)
+   more.push({w:0,text:text,run:step})
   }
   function lowerGround(sub){
    // (each pass its own step: the window opens without a long stop — the passes in the same order, outside the steps all at once)
@@ -20006,7 +20025,7 @@ function byCreation(list){if(!Array.isArray(list))return list;var key=function(c
     function(){abutOverGutters();},
     function(){plinthWalls();},
     // (the passes of the walls and the trims each its own step: buildSteps gives the list for the steps a step adds)
-    function(more){[stepTopsUnder,stepFeetOnRoof,wallTopsUp,capCorners,wallGapFills,cornerTrimTops,abutMissing,abutCorners,gutterEndCaps,tierUnderAbutment,toiletCubicles,revealMiters,revealBottoms,profileClear,cornerClose,stepFootLine,footTrims,roofOverWall,cornerUpPost,abutSeat,trimStandOff,parapetToFace,cornerOverLow,cornerToRoof,cornerTopsUp,cornerUnderRoof,gableUnderDeck,gableSeat,stepInnerCorners,tierAtWindows,trimUncross,gutterUnderRoof,stubTrims,gableReturns,screwsFind].forEach(function(f){var g=function(){try{f()}catch(e){if(window.console)console.warn(f.name,e&&e.stack||e)}};if(more)more.push({w:0,text:"Обрезка сэндвича и фасонок",run:g});else g()})},
+    function(more){[stepTopsUnder,stepFeetOnRoof,wallTopsUp,capCorners,wallGapFills,cornerTrimTops,abutMissing,abutCorners,gutterEndCaps,tierUnderAbutment,toiletCubicles,revealMiters,revealBottoms,profileClear,cornerClose,stepFootLine,footTrims,roofOverWall,cornerUpPost,abutSeat,trimStandOff,parapetToFace,cornerOverLow,cornerToRoof,cornerTopsUp,cornerUnderRoof,gableUnderDeck,gableSeat,stepInnerCorners,tierAtWindows,trimUncross,gutterUnderRoof,stubTrims,gableReturns,screwsFind].forEach(function(f){var g=function(m){try{f(f.chunky?m:undefined)}catch(e){if(window.console)console.warn(f.name,e&&e.stack||e)}};if(more)more.push({w:0,text:"Обрезка сэндвича и фасонок",run:g});else g()})},
     function(){roofDrains();},
     function(){try{gableAtDrains()}catch(e){if(window.console)console.warn("gableAtDrains",e&&e.stack||e)}},
     function(){try{eaveOver()}catch(e){if(window.console)console.warn("eaveOver",e&&e.stack||e)}},
@@ -20016,7 +20035,7 @@ function byCreation(list){if(!Array.isArray(list))return list;var key=function(c
     function(){try{gussetJoin()}catch(e){if(window.console)console.warn("gussetJoin",e&&e.stack||e)}},
     function(){try{cleatClear()}catch(e){if(window.console)console.warn("cleatClear",e&&e.stack||e)}},
     function(){try{postPlates()}catch(e){if(window.console)console.warn("postPlates",e&&e.stack||e)}},
-    function(){try{braceEnds()}catch(e){if(window.console)console.warn("braceEnds",e&&e.stack||e)}},
+    function(more){try{braceEnds(more)}catch(e){if(window.console)console.warn("braceEnds",e&&e.stack||e)}},
     function(){try{postShift()}catch(e){if(window.console)console.warn("postShift",e&&e.stack||e)}},
     function(){try{cornerSteel()}catch(e){if(window.console)console.warn("cornerSteel",e&&e.stack||e)}},
     function(){try{boltsAir()}catch(e){if(window.console)console.warn("boltsAir",e&&e.stack||e)}},

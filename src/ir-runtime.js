@@ -1919,6 +1919,10 @@ const fittingSection=c=>c.ft==="flight"||c.ft==="ladder"||c.ft==="deck"?(c.fd>0?
  // Меню правой кнопкой у курсора (инженер 20.11.2026 «при нажатии правой кнопкой можно редактировать элемент»): те же
  // действия, что в карточке выбранного элемента, — какие у него есть; пункт нажимает кнопку карточки.
  let ctxMenu=null;
+ // Карточка без кнопок (инженер 20.11.2026 «столько кнопок, куда что, убери лишнее»): действия — правой кнопкой мыши по
+ // элементу (contextMenu нажимает эти же кнопки, они в карточке скрыты); во время режима правки видно только поле его
+ // мм («Тянуть край», «Резать линией») — блок режима; без режима карточка только сведения.
+ function cardActs(mode,order,acts,em){return`<div class="scheme-card-acts"${em?"":" hidden"}>${mode||""}</div><div class="scheme-card-acts" hidden>${order||""}${acts||""}</div>`}
  function contextMenu(at){
   ctxMenu?.remove();ctxMenu=null;if(!at||!canEdit())return;
   const ITEMS=[["Изменить","[data-scheme-edit]"],["Двигать","[data-edit-move]"],["Двигать целиком","[data-trim-mode='whole']"],["Двигать одну полку","[data-trim-mode='piece']"],["Тянуть край","[data-edit-pull]"],["Срезать по линии","[data-trim-line]"],["Резать линией","[data-panel-mode='line']"],["Вырез прямоугольником","[data-panel-mode='rect']"],["Сделать угол","[data-trim-corner]"],["Показать позади","[data-order-step='-1']"],["Показать поверх","[data-order-step='1']"],["Этот поверх","[data-trim-over]"],["Убрать кусок","[data-trim-hide]"],["Отменить последнее","[data-trim-undo-last]"],["Удалить элемент","[data-scheme-delete]"]];
@@ -2644,7 +2648,7 @@ const fittingSection=c=>c.ft==="flight"||c.ft==="ladder"||c.ft==="deck"?(c.fd>0?
  }
  function renderDetails(){
   const panel=document.getElementById("schemeDetails");if(!panel)return;const c=selected();
-  if(!c){panel.innerHTML=sideToggleHtml()+pickerHtml()+`<div class="scheme-detail-empty"><b>Элемент не выбран</b><span>Нажмите на элемент на схеме или добавьте новый.</span>${canEdit()?'<button type="button" data-scheme-add>＋ Добавить элемент</button>':""}</div>`;panel.querySelector("[data-scheme-add]")?.addEventListener("click",()=>window.irThreeSchemeView?.startPlacement?.()??openEditor());bindElementPicker(panel);return}
+  if(!c){panel.innerHTML=sideToggleHtml()+pickerHtml()+`<div class="scheme-detail-empty"><b>Элемент не выбран</b><span>Нажмите на элемент на схеме или добавьте новый.</span>${canEdit()?'<button type="button" data-scheme-add>＋ Добавить элемент</button>':""}</div>`;panel.querySelector("[data-scheme-add]")?.addEventListener("click",()=>{const V=window.irThreeSchemeView;if(V?.startPlacement)V.startPlacement();else openEditor()});bindElementPicker(panel);return}
   // The name as the register of the program has it now (it goes first: the engineer, 26.10.2026), else as placed.
   const a=axisText(c),between=c.dx||c.dy,linked=linkedMark(c),progress=markProgress(linked),name=String(linked?.name||"").trim()||c.mark_name;
   const progressHtml=progress?.total>0?`<div class="scheme-mark-progress">
@@ -2706,8 +2710,8 @@ const fittingSection=c=>c.ft==="flight"||c.ft==="ladder"||c.ft==="deck"?(c.fd>0?
    const V=window.irThreeSchemeView,day=mountDay(linked,progress),fitTrim=c.ft==="trim"||c.ft==="panel"&&Boolean(trimHtml);
    Object.assign(e,{status_date:day.date,status_more:day.more,sheet:sheetOfRecord(c),mass_kmd:markMass(c,linked),model:V?.card?.(c.id)||null,
     spec:Array.isArray(c.parts?.rows)?c.parts:null,kgm:t=>V?.massPerMetre?.(t,c.profile_standard)??null});
-   panel.innerHTML=sideToggleHtml()+pickerHtml()+`<div class="ec-card"><div class="scheme-detail-title"><span>Выбранный элемент</span></div>${EC.head(e)}${fitTrim?trimHtml:""}${EC.facts(e)}${EC.nodes(e)}${EC.tools(e)}${EC.parts(e)}${EC.traits(e,grid)}${EC.drawings(e)}${fitTrim?"":'<div class="ec-mark-host"></div>'}
-    ${progressHtml}${fastenersHtml(c)}${drillHtml(c)}${cutsHtml(c)}${platesHtml(c)}${fitTrim?"":EC.coords(e)}</div>${fitTrim?"":trimHtml}${orderHtml}${actionsHtml}`;
+   panel.innerHTML=sideToggleHtml()+pickerHtml()+`<div class="ec-card"><div class="scheme-detail-title"><span>Выбранный элемент</span></div>${EC.head(e)}${EC.facts(e)}${EC.nodes(e)}${EC.parts(e)}${EC.traits(e,grid)}${EC.drawings(e)}${fitTrim?"":'<div class="ec-mark-host"></div>'}
+    ${progressHtml}${fastenersHtml(c)}${drillHtml(c)}${cutsHtml(c)}${platesHtml(c)}${fitTrim?"":EC.coords(e)}</div>${cardActs(trimHtml||steelHtml,orderHtml,actionsHtml,em)}`;
    EC.bind(panel,String(c.id));
   }else
   panel.innerHTML=sideToggleHtml()+pickerHtml()+`<div class="scheme-detail-title"><span>Выбранный элемент</span><b>${esc(c.mark||"—")}</b>${name?`<small>${esc(name)}</small>`:""}</div>${instanceHtml(c)}
@@ -2728,7 +2732,7 @@ const fittingSection=c=>c.ft==="flight"||c.ft==="ladder"||c.ft==="deck"?(c.fd>0?
    ${progressHtml}
    ${fastenersHtml(c)}${drillHtml(c)}${cutsHtml(c)}${platesHtml(c)}${partsHtml(c)}
    ${between?`<div class="scheme-between"><b>Элемент между осями</b><span>${esc(a.x)} / ${esc(a.y)}</span><small>Положение вычисляется от выбранных базовых осей и сохраняется точно в миллиметрах.</small></div>`:""}
-   ${trimHtml||steelHtml}${orderHtml}${actionsHtml}`;
+   ${cardActs(trimHtml||steelHtml,orderHtml,actionsHtml,em)}`;
   loadMarkCard(panel,c);
   panel.querySelectorAll("[data-order-step]").forEach(b=>b.addEventListener("click",async()=>{if(!canEdit())return;const row=arr(rows).find(r=>String(r.id)===String(c.id));if(!row)return;
    const next=Math.max(-2,Math.min(2,orderOf(c)+Number(b.dataset.orderStep))),d=row.data||{},data={...d,layout:{...(d.layout||{}),order:next}};b.disabled=true;
