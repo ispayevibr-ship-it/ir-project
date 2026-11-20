@@ -502,6 +502,9 @@ window.irSchemePage=async function(objectId,opts){
  const schemeGroups=()=>{const scoped=workMarks(),placed=workRecords();if(frameMode)return[{key:"all",label:"Весь каркас",marks:scoped.length,placed:placed.length},...frameCategories.map(key=>({key,label:frameLabels[key],marks:scoped.filter(m=>markGroup(m).key===key).length,placed:placed.filter(r=>recordMarkGroup(r).key===key).length})).filter(g=>g.marks>0||g.placed>0||g.key===activeScheme)];return[{key:"all",label:"Общая схема",marks:scoped.length,placed:placed.length},...customViews().map(v=>({key:"view:"+v.id,label:v.data?.name||v.title||"Новая сетка",marks:scoped.filter(m=>groupKeys(v).includes(markGroup(m).key)).length,placed:placed.filter(r=>inView(r,v)).length}))]};
  const records=()=>{const v=activeView();return activeScheme==="all"?workRecords():frameMode?workRecords().filter(r=>recordMarkGroup(r).key===activeScheme):v?workRecords().filter(r=>inView(r,v)):[]};
  const activeGroup=()=>schemeGroups().find(g=>g.key===activeScheme)||schemeGroups()[0];
+ // (adding in «Все виды работ вместе»: the marks of every work type of the object, the work type chosen first in the
+ // window of adding — the engineer 20.11.2026 «где кнопка добавить элемент»; with one work type chosen — its own marks)
+ const addMarks=()=>{if(!frameMode)return activeMarks();const live=new Set(enabledWorks().map(w=>w.id));return marks.filter(m=>live.has(String(m.work_type_id||""))||isTrimMark(m))};
  const activeMarks=()=>{const scoped=workMarks(),v=activeView();return activeScheme==="all"?scoped:frameMode?scoped.filter(m=>markGroup(m).key===activeScheme):v?scoped.filter(m=>groupKeys(v).includes(markGroup(m).key)):[]};
  if(!activeWorkId)activeWorkId=enabledWorks()[0]?.id||String(workRows[0]?.id||"");
  refreshGridModel();
@@ -651,7 +654,7 @@ const fittingSection=c=>c.ft==="flight"||c.ft==="ladder"||c.ft==="deck"?(c.fd>0?
  async function createFrameMember(placement){
   if(!canEdit())throw Error("Нет прав для изменения монтажной схемы.");
   const mark=marks.find(m=>m.id===String(placement?.markId||""));
-  if(!mark||!activeMarks().some(m=>m.id===mark.id)||!markAvailable(mark))throw Error("Марка отсутствует или все экземпляры уже размещены.");
+  if(!mark||!addMarks().some(m=>m.id===mark.id)||!markAvailable(mark))throw Error("Марка отсутствует или все экземпляры уже размещены.");
   const kind=guessGeometry(mark);
   if(kind!==placement.geometry&&!(kind==="beam"&&placement.geometry==="bent"))throw Error("Выбранная марка и тип конструкции не совпадают.");
   const existingAnchors=allRecords();
@@ -1011,10 +1014,10 @@ const fittingSection=c=>c.ft==="flight"||c.ft==="ladder"||c.ft==="deck"?(c.fd>0?
    maxZ:members.reduce((m,c)=>Math.max(m,num(c.z0),num(c.z2),num(c.mz)),0),
    colorMode:schemeColorMode,showLabels:labelsVisible,showDimensions:dimensionsVisible,
    background:currentBackground(),backgroundColor:currentCustomBackground(),
-   canEdit:Boolean(canEdit()&&activeWorkId),
+   canEdit:Boolean(canEdit()&&(activeWorkId||frameMode)),
    editGlobal:editOn,
    // Marks with their remaining quantity for placing new members by clicks.
-   marks:activeMarks().map(m=>{const q=markPlacement(m);return{id:m.id,title:markLabel(m),mark:m.mark||m.title,total:q.total,placed:q.placed,left:q.left,geometry:isTrimMark(m)?"trim":guessGeometry(m),panel:isPanelMark(m),work:markWork(m)}}),
+   marks:addMarks().map(m=>{const q=markPlacement(m);return{id:m.id,title:markLabel(m),mark:m.mark||m.title,total:q.total,placed:q.placed,left:q.left,geometry:isTrimMark(m)?"trim":guessGeometry(m),panel:isPanelMark(m),work:markWork(m)}}),
    works:enabledWorks().map(w=>({id:w.id,name:workTitle(w)})),porchMade,
    onColorModeChange:next=>changeColorMode(next),
    onSelect:id=>{selectedId=id;renderDetails()},
