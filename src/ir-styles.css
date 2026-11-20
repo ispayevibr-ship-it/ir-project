@@ -1684,12 +1684,18 @@ html[data-theme="dark"] .scheme-lock-button.on,body.dark .scheme-lock-button.on{
 .scheme-trim-drag{display:flex;gap:6px;align-items:center;flex-wrap:wrap;font-size:12px}
 .scheme-trim-drag button.on{background:var(--accent,#2563eb);color:#fff;border-color:transparent}
 /* Фасонные — цвет по виду: легенда в «Вид ▾» (1.12.231) */
+.ir-three-edit-bar{position:absolute;left:50%;top:54px;transform:translateX(-50%);z-index:30;display:flex;align-items:center;gap:8px;padding:6px 8px 6px 14px;border-radius:10px;background:#1e293b;color:#fff;font:13px "Segoe UI",system-ui,sans-serif;box-shadow:0 6px 20px rgba(0,0,0,.25)}
+.ir-three-edit-bar[hidden]{display:none}
+.ir-three-edit-bar button{border:0;border-radius:7px;padding:6px 14px;font:inherit;cursor:pointer;background:#475569;color:#fff}
+.ir-three-edit-bar button.ok{background:#16a34a}
+.ir-three-edit-bar button:hover{filter:brightness(1.12)}
 .ir-three-trim-legend{display:flex;flex-direction:column;gap:3px;margin:-2px 0 8px 21px}
 .ir-three-trim-legend[hidden]{display:none}
 .ir-three-trim-key{display:flex;align-items:center;gap:6px;font-size:10px;color:#4c6c80}
 .ir-three-trim-key i{width:12px;height:8px;border-radius:2px;flex:0 0 auto;box-shadow:0 0 0 1px rgba(0,0,0,.15)}
 .scheme-order-row{align-items:center}
 .scheme-order-row span{font-size:12px;margin-right:auto}
+.ir-three-place-sketch{margin:2px 0 6px;display:flex;justify-content:center}
 
 
 /* #39: src/section-action-buttons.css */

@@ -1380,15 +1380,21 @@ window.irSchemePage=async function(objectId,opts){
  // of the scheme, made once by one who may edit; a part deleted by the engineer is not made again — the list of the made
  // in object-meta «scheme_porch_parts» (the 3D does not draw a made part that is gone).
  try{
+  const PORCH_SRC=["work_type_id","source_sheet","source_file","source_page","source_section","source_document_id"];
   const PORCH=/Крыльцо\s+(Кр\d+[^—]*?)\s*—\s*(прогон|балка конька)/i,by=new Map(),have=new Set();
   for(const r of arr(rows)){const d=r.data||{};if(String(d.fitting_type||"")==="porch_part"&&d.layout)have.add(String(d.layout.porch)+"|"+String(d.layout.part));
    const m=PORCH.exec(String(d.mark_name||r.title||""));if(m&&d.geometry_type!=="column"&&d.absolute_x2_mm!==undefined){if(!by.has(m[1]))by.set(m[1],[]);by.get(m[1]).push(d)}}
+  // (a part made before — in the work type and on the sheet of its porch, КМ3 л.32–43, not «вручную»: the engineer 20.11.2026
+  // «почему профлист в ручной? он где то в км должен быть»)
+  for(const r of arr(rows)){const d=r.data||{};if(String(d.fitting_type||"")!=="porch_part"||!d.layout)continue;const src=(by.get(String(d.layout.porch))||[])[0];if(!src)continue;
+   const fix={};for(const f of PORCH_SRC)if(src[f]!==undefined&&d[f]===undefined)fix[f]=src[f];if(d.engineer_added)fix.engineer_added=false;if(!Object.keys(fix).length)continue;
+   r.data={...d,...fix};if(!headless&&canEdit())schemeApi.update(r.id,{record_type:r.record_type||"scheme_column",parent_id:r.parent_id,title:r.title,data:r.data}).catch(()=>{})}
   const metaRow=arr(await metaApi.list()).find(r=>r.record_type==="scheme_porch_parts"),made=new Set(arr(metaRow?.data?.keys).map(String));
   const add=[];if(!headless&&canEdit())for(const[k,ls]of by)if(ls.length>=2)for(const part of["sheet","abut"]){const kk=k+"|"+part;if(!have.has(kk)&&!made.has(kk))add.push([k,part,ls[0]])}
   if(add.length){const used=new Set(arr(rows).map(r=>String(r.title||r.data?.position||"")));let n=0;
    for(const[k,part,src]of add){let title;do{title="PRC-"+String(++n).padStart(4,"0")}while(used.has(title));used.add(title);
-    const keep=["axis_x","axis_y","offset_x_mm","offset_y_mm","absolute_x_mm","absolute_y_mm","absolute_x2_mm","absolute_y2_mm","end_axis_x","end_axis_y","end_offset_x_mm","end_offset_y_mm","z0_mm","z1_mm","end_z_mm","work_type_id"];
-    const data={entity_type:"column",position:title,geometry_type:"beam",fitting_type:"porch_part",layout:{porch:k,part},status:"planned",scheme_view_id:"all",engineer_added:true,
+    const keep=["axis_x","axis_y","offset_x_mm","offset_y_mm","absolute_x_mm","absolute_y_mm","absolute_x2_mm","absolute_y2_mm","end_axis_x","end_axis_y","end_offset_x_mm","end_offset_y_mm","z0_mm","z1_mm","end_z_mm","work_type_id",...PORCH_SRC];
+    const data={entity_type:"column",position:title,geometry_type:"beam",fitting_type:"porch_part",layout:{porch:k,part},status:"planned",scheme_view_id:"all",
      mark:(part==="sheet"?"Профлист ":"Нащельник ")+k,mark_name:"Крыльцо "+k+" — "+(part==="sheet"?"профлист":"нащельник над профлистом"),type_name:part==="sheet"?"Профлист крыльца":"Нащельник над профлистом"};
     for(const f of keep)if(src[f]!==undefined)data[f]=src[f];
     await schemeApi.create({record_type:"scheme_column",title,data});made.add(k+"|"+part)}
@@ -1846,7 +1852,7 @@ const fittingSection=c=>c.ft==="flight"||c.ft==="ladder"||c.ft==="deck"?(c.fd>0?
  let ctxMenu=null;
  function contextMenu(at){
   ctxMenu?.remove();ctxMenu=null;if(!at||!canEdit())return;
-  const ITEMS=[["Изменить","[data-scheme-edit]"],["Двигать целиком","[data-trim-mode='whole']"],["Двигать одну полку","[data-trim-mode='piece']"],["Срезать по линии","[data-trim-line]"],["Сделать угол","[data-trim-corner]"],["Показать позади","[data-order-step='-1']"],["Показать поверх","[data-order-step='1']"],["Этот поверх","[data-trim-over]"],["Убрать кусок","[data-trim-hide]"],["Отменить последнее","[data-trim-undo-last]"],["Удалить элемент","[data-scheme-delete]"]];
+  const ITEMS=[["Изменить","[data-scheme-edit]"],["Двигать","[data-edit-move]"],["Двигать целиком","[data-trim-mode='whole']"],["Двигать одну полку","[data-trim-mode='piece']"],["Тянуть край","[data-edit-pull]"],["Срезать по линии","[data-trim-line]"],["Резать линией","[data-panel-mode='line']"],["Вырез прямоугольником","[data-panel-mode='rect']"],["Сделать угол","[data-trim-corner]"],["Показать позади","[data-order-step='-1']"],["Показать поверх","[data-order-step='1']"],["Этот поверх","[data-trim-over]"],["Убрать кусок","[data-trim-hide]"],["Отменить последнее","[data-trim-undo-last]"],["Удалить элемент","[data-scheme-delete]"]];
   let tries=0;
   const show=()=>{
    const box=document.getElementById("schemeDetails");const found=box?ITEMS.map(([t,q])=>[t,box.querySelector(q)]).filter(x=>x[1]&&!x[1].disabled):[];
@@ -1879,7 +1885,7 @@ const fittingSection=c=>c.ft==="flight"||c.ft==="ladder"||c.ft==="deck"?(c.fd>0?
   const seen=new Map();
   // (the records keep fitting_type and layout — ft and lay are the names of the 3D: 1.12.229 looked for those and found none)
   for(const r of allRecords()){const lay=trimLay(r);if(!lay)continue;const pos=String(lay.shape?.pos||""),k=String(lay.trim||"")+"|"+pos;if(seen.has(k))continue;
-   seen.set(k,{id:String(r.id),title:(pos?"поз. "+pos+" · ":"")+String(r.mark_name||r.mark||r.title||"Фасонный элемент")+(lay.ral?" · RAL "+lay.ral:"")})}
+   seen.set(k,{id:String(r.id),sketch:trimSketch(lay,150,80),title:(pos?"поз. "+pos+" · ":"")+String(r.mark_name||r.mark||r.title||"Фасонный элемент")+(lay.ral?" · RAL "+lay.ral:"")})}
   return[...seen.values()].sort((a,b)=>a.title.localeCompare(b.title,"ru"))
  }
  async function createTrimPiece(placement){
@@ -2130,6 +2136,7 @@ const fittingSection=c=>c.ft==="flight"||c.ft==="ladder"||c.ft==="deck"?(c.fd>0?
    onSelect:id=>{selectedId=id;renderDetails()},
    // (the right click on a member: the actions of its card in a menu at the cursor — the engineer, 20.11.2026)
    onContextMenu:canEdit()?at=>contextMenu(at):null,
+   onEditMode:()=>{if(selectedId)renderDetails()},
    onAdd:()=>{if(canEdit()&&activeWorkId)openEditor()},
    // (a trim chosen by its mark — «Нщ» — is built by its own profile on the face of the panel, as the other trims, not as
    // a beam of the form: the template — the trim clicked on, if of that mark, else the first of that mark; the engineer,
@@ -2185,7 +2192,7 @@ const fittingSection=c=>c.ft==="flight"||c.ft==="ladder"||c.ft==="deck"?(c.fd>0?
     param_sources:c.param_sources&&typeof c.param_sources==="object"?c.param_sources:undefined,
     // The card in plain words of the exported page (src/scheme-element-card.js): what a new analysis gives after an edit,
     // what to check, an element placed by hand.
-    pdf_new:c.pdf_new&&typeof c.pdf_new==="object"?c.pdf_new:undefined,check_note:c.check_note?String(c.check_note):undefined,manual:c.import_batch?undefined:true,
+    pdf_new:c.pdf_new&&typeof c.pdf_new==="object"?c.pdf_new:undefined,check_note:c.check_note?String(c.check_note):undefined,manual:c.import_batch||c.ft==="porch_part"?undefined:true,
     engineer_confirmed:c.engineer_confirmed&&typeof c.engineer_confirmed==="object"?c.engineer_confirmed:undefined,engineer_edited:c.engineer_edited?true:undefined,
     // The top of the card as in the report of 21.10.2026: the day of mounting, the sheet, the mass of the КМД.
     status_date:day.date||undefined,status_more:day.more||undefined,sheet:sheetOfRecord(c)||undefined,mass_kmd:markMass(c,lm)||undefined}});
@@ -2289,6 +2296,7 @@ const fittingSection=c=>c.ft==="flight"||c.ft==="ladder"||c.ft==="deck"?(c.fd>0?
  // 20.11.2026 «что есть что из фасонки вообще не понятно»)
  function markShown(c){const l=c?.lay||c?.layout,ft=String(c?.ft||c?.fitting_type||""),pos=ft==="trim"&&l?.shape?.pos;if(ft!=="trim")return String(c?.mark||"");
   const nm=String(c?.mark_name||"").trim();return(pos?"поз. "+pos:String(c?.mark||"Нщ"))+(nm?" · "+nm:"")}
+ const trimSketch=(lay,W,H)=>window.irSchemeElementCard?.trimSketch?.(lay,W,H)||"";
  function pickerRecords(){
   // (one comparer for the whole list: the comparison of strings with options built a new one at each of the ~60 000 comparisons of
   // 5000 members, and the list is drawn anew at every choice on the scheme — «монтажная схема подвисает», 03.11.2026)
@@ -2539,7 +2547,10 @@ const fittingSection=c=>c.ft==="flight"||c.ft==="ladder"||c.ft==="deck"?(c.fd>0?
    try{const ok=await trimFixSave(c,data);if(st)st.textContent=ok===false?"Сохранено; кусок не найден на модели — правка придёт при следующей перестройке.":ok?.stop?"Готово, конец упёрся в «"+ok.stop+"» — сквозь нельзя.":"Готово — на модели и в выгрузке.";setTimeout(()=>{if(String(selectedId)===String(c.id))renderDetails()},400)}
    catch(error){if(st)st.textContent="Не сохранено: "+String(error?.message||error)}finally{if(btn)btn.disabled=false}};
   panel.querySelector("[data-trim-apply]")?.addEventListener("click",e=>{const a=num(lo.value),b=num(hi.value);if(!(b-a>5)){if(st)st.textContent="Конец должен быть дальше начала больше чем на 5 мм.";return}save({x:pk.x,y:pk.y,z:pk.z,action:"ends",ax:pk.ax,lo:Math.round(a),hi:Math.round(b)},e.currentTarget)});
-  panel.querySelectorAll("[data-trim-mode]").forEach(btn=>btn.addEventListener("click",()=>{V?.setDragWhole?.(btn.dataset.trimMode==="whole");panel.querySelectorAll("[data-trim-mode]").forEach(x=>x.classList.toggle("on",x===btn))}));
+  panel.querySelectorAll("[data-trim-mode]").forEach(btn=>btn.addEventListener("click",()=>{V?.setDragWhole?.(btn.dataset.trimMode==="whole");renderDetails()}));
+  // (the modes of editing — nothing changes by the mouse before one is chosen; the bar «Сохранить · Отмена» on the scheme)
+  panel.querySelectorAll("[data-edit-pull]:not([data-panel-mode])").forEach(btn=>btn.addEventListener("click",()=>{V?.editStart?.("pull");renderDetails()}));
+  panel.querySelectorAll("[data-edit-move]").forEach(btn=>btn.addEventListener("click",()=>{V?.editStart?.("move");renderDetails()}));
   panel.querySelector("[data-trim-hide]")?.addEventListener("click",e=>save({x:pk.x,y:pk.y,z:pk.z,action:"hide"},e.currentTarget));
   panel.querySelector("[data-trim-corner]")?.addEventListener("click",()=>{const m=V?.setPairMode?.("mitre");if(st)st.textContent=m?"Щёлкните второй кусок в углу.":"Сначала щёлкните на схеме кусок этого элемента."});
   panel.querySelector("[data-trim-line]")?.addEventListener("click",()=>{const m=V?.setPanelMode?.("line");if(st)st.textContent=m==="line"?"Щёлкните две точки линии реза на полке, затем часть, которую убрать.":"Сначала выберите кусок на схеме."});
@@ -2581,8 +2592,8 @@ const fittingSection=c=>c.ft==="flight"||c.ft==="ladder"||c.ft==="deck"?(c.fd>0?
   const axWord={z:["Низ куска, мм","Верх куска, мм","по высоте"],x:["Начало куска, мм","Конец куска, мм","вдоль цифровых осей"],y:["Начало куска, мм","Конец куска, мм","вдоль буквенных осей"]};
   // (a sandwich panel clicked — its edges on two axes, its area, the modes of the mouse: pull an edge, cut by a line, cut out
   // a rectangle — the engineer, 20.11.2026 «сделай также с сэндвич панелями, но только чтобы сэндвич можно было резать как хочешь»)
-  const pm=window.irThreeSchemeView?.panelMode?.()||"pull",pAx=a=>a==="z"?["Низ, мм","Верх, мм","по высоте"]:axWord[a];
-  const panelHtml=pk&&pk.panel?`<div class="scheme-trim-fix"><b>Сэндвич-панель под щелчком${pk.area!=null?" · площадь "+fmt(pk.area)+" м²":""}</b><div class="scheme-trim-drag"><span>Мышью:</span><button type="button" data-panel-mode="pull" class="${pm==="pull"?"on":""}">Тянуть край</button><button type="button" data-panel-mode="line" class="${pm==="line"?"on":""}">Резать линией</button><button type="button" data-panel-mode="rect" class="${pm==="rect"?"on":""}">Вырез прямоугольником</button></div><small>${pm==="line"?"Щёлкните на панели две точки — линия реза под любым углом, третьим щелчком — часть, которую убрать.":pm==="rect"?"Нажмите на панели и протяните прямоугольник — в панели будет вырез, у края или в середине.":"Нажмите на панель ближе к верху, низу или боку и тяните — край двигается по 10 мм и упирается в соседнюю панель, ниже фундамента не идёт."} Куски панели остаются одной панелью, без линий между ними. Вокруг стали программа вырезает сама, с зазором 1,5 мм.</small>
+  const em=window.irThreeSchemeView?.editMode?.()||"",pm=em==="line"||em==="rect"||em==="pull"?em:"",pAx=a=>a==="z"?["Низ, мм","Верх, мм","по высоте"]:axWord[a];
+  const panelHtml=pk&&pk.panel?`<div class="scheme-trim-fix"><b>Сэндвич-панель под щелчком${pk.area!=null?" · площадь "+fmt(pk.area)+" м²":""}</b><div class="scheme-trim-drag"><button type="button" data-panel-mode="pull" data-edit-pull class="${pm==="pull"?"on":""}">Тянуть край</button><button type="button" data-panel-mode="line" class="${pm==="line"?"on":""}">Резать линией</button><button type="button" data-panel-mode="rect" class="${pm==="rect"?"on":""}">Вырез прямоугольником</button></div><small>${pm==="line"?"Щёлкните на панели две точки — линия реза под любым углом, третьим щелчком — часть, которую убрать.":pm==="rect"?"Нажмите на панели и протяните прямоугольник — в панели будет вырез, у края или в середине.":pm==="pull"?"Нажмите на панель ближе к верху, низу или боку и тяните.":"Выберите режим кнопкой выше, после правки — «Сохранить»."}</small>
     <div class="scheme-trim-fix-row"><label>${esc(pAx(pk.ax)[0])}<input data-panel-lo inputmode="decimal" value="${pk.lo}"></label><label>${esc(pAx(pk.ax)[1])}<input data-panel-hi inputmode="decimal" value="${pk.hi}"></label></div>
     ${pk.ax2?`<div class="scheme-trim-fix-row"><label>${esc(pAx(pk.ax2)[0])}<input data-panel-lo2 inputmode="decimal" value="${pk.lo2}"></label><label>${esc(pAx(pk.ax2)[1])}<input data-panel-hi2 inputmode="decimal" value="${pk.hi2}"></label></div>`:""}
     <div class="scheme-detail-actions"><button type="button" class="ok" data-panel-apply>Применить</button><button type="button" class="danger" data-trim-hide>Убрать этот кусок</button></div>${fixedHere.length?`<div class="scheme-detail-actions"><button type="button" data-trim-undo-last>↶ Отменить последнюю правку</button><button type="button" data-trim-undo>Вернуть как строит программа (${fixedHere.length})</button></div>`:""}<span class="scheme-trim-fix-state" data-trim-state></span></div>`:"";
@@ -2591,13 +2602,13 @@ const fittingSection=c=>c.ft==="flight"||c.ft==="ladder"||c.ft==="deck"?(c.fd>0?
   const whole=window.irThreeSchemeView?.dragWhole?.();
   // (a member of steel — carried whole by the mouse, with its details, bolts and welds; undo as for the trims — the engineer,
   // 20.11.2026 «сталь тоже двигать мышью»)
-  const steelHtml=canEdit()&&!c.ft&&window.irThreeSchemeView?.pickInfo?`<div class="scheme-trim-fix"><b>Перенос мышью</b><small class="scheme-trim-hint" title="Нажмите на выделенный элемент и тяните: переносится весь, со всеми деталями и болтами. Сквозь другую сталь, фасонку и панель нельзя — упирается. Правка ложится сразу, без перестройки схемы.">Тяните выделенный элемент мышью.</small>${fixedHere.length?`<div class="scheme-detail-actions"><button type="button" data-trim-undo-last>↶ Отменить последний перенос</button><button type="button" data-trim-undo>Вернуть как строит программа</button></div>`:""}</div>`:"";
+  const steelHtml=canEdit()&&!c.ft&&window.irThreeSchemeView?.pickInfo?`<div class="scheme-trim-fix"><b>Перенос</b><div class="scheme-trim-drag"><button type="button" data-edit-move class="${(window.irThreeSchemeView?.editMode?.()||"")==="move"?"on":""}" title="Переносить мышью весь элемент со всеми деталями и болтами; сквозь другую сталь нельзя — упирается">Двигать</button></div>${fixedHere.length?`<div class="scheme-detail-actions"><button type="button" data-trim-undo-last>↶ Отменить последний перенос</button><button type="button" data-trim-undo>Вернуть как строит программа</button></div>`:""}</div>`:"";
   // (the order of drawing of a trim or a part of a porch — «Назад» / «Вперёд»: over the others or behind them where two lie
   // in one place; the engineer 20.11.2026 «очерёдность … поменять в каждом элементе»)
   const orderOf=r=>{const l=r.lay||{};if(l.order!==undefined&&l.order!==null&&l.order!==""&&Number.isFinite(Number(l.order)))return Math.max(-2,Math.min(2,Math.round(Number(l.order))));if(r.ft==="trim"&&(l.trim==="reveal"||l.trim==="sill"))return-1;if(r.ft==="porch_part"&&l.part==="abut")return 1;return 0};
   const ORDER_WORD={"-2":"в самом низу","-1":"позади","0":"обычная","1":"впереди","2":"поверх всех"};
   const orderHtml=canEdit()&&(c.ft==="trim"||c.ft==="porch_part")?`<div class="scheme-detail-actions scheme-order-row"><span>Очерёдность: <b>${ORDER_WORD[String(orderOf(c))]}</b></span><button type="button" data-order-step="-1" ${orderOf(c)<=-2?"disabled":""} title="Показывать позади соседних элементов">Назад</button><button type="button" data-order-step="1" ${orderOf(c)>=2?"disabled":""} title="Показывать поверх соседних элементов">Вперёд</button></div>`:"";
-  const trimHtml=panelHtml||(canEdit()&&(pk||fixedHere.length)?`<div class="scheme-trim-fix"><b>Фасонный элемент</b>${pk?`<div class="scheme-trim-drag"><button type="button" data-trim-mode="whole" class="${whole?"on":""}" title="Тянуть все полки и куски этого элемента вместе">Весь элемент</button><button type="button" data-trim-mode="piece" class="${whole?"":"on"}" title="Тянуть только кусок под щелчком">Одну полку</button></div><small class="scheme-trim-hint" title="Мышью: за конец — длина, за середину — перенос куда угодно. Сквозь другой фасонный элемент нельзя — упирается. Ваша правка не сбрасывается при обновлении схемы.">Мышью: за конец — длина, за середину — перенос.</small>
+  const trimHtml=panelHtml||(canEdit()&&(pk||fixedHere.length)?`<div class="scheme-trim-fix"><b>Фасонный элемент</b>${pk?`<div class="scheme-trim-drag"><button type="button" data-trim-mode="whole" class="${em==="move"&&whole?"on":""}" title="Переносить мышью все полки и куски этого элемента вместе">Двигать целиком</button><button type="button" data-trim-mode="piece" class="${em==="move"&&!whole?"on":""}" title="Переносить мышью только кусок под щелчком">Двигать полку</button><button type="button" data-edit-pull class="${em==="pull"?"on":""}" title="Тянуть мышью конец куска — длина">Тянуть край</button></div>
     <div class="scheme-trim-fix-row"><label>${pk.ax==="z"?"Низ":"Начало"}, мм<input data-trim-lo inputmode="decimal" value="${pk.lo}"></label><label>${pk.ax==="z"?"Верх":"Конец"}, мм<input data-trim-hi inputmode="decimal" value="${pk.hi}"></label><label>Длина, мм<input data-trim-len inputmode="decimal" value="${pk.hi-pk.lo}"></label></div>
     <div class="scheme-detail-actions"><button type="button" class="ok" data-trim-apply>Применить</button><button type="button" class="danger" data-trim-hide>Убрать кусок</button><button type="button" data-trim-corner title="Щёлкните потом второй кусок в углу: оба обрежутся на ус и сомкнутся впритык">Сделать угол</button><button type="button" data-trim-over title="Щёлкните потом второй кусок: этот пройдёт поверх него до его дальней грани, тот упрётся">Этот поверх</button><button type="button" data-trim-line title="Щёлкните две точки на полке — линия реза под любым углом, затем часть, которую убрать. «Одну полку» — режется только она, «Весь элемент» — весь профиль у линии">Срезать по линии</button></div>`:""}${fixedHere.length?`<div class="scheme-detail-actions"><button type="button" data-trim-undo-last>↶ Отменить</button><button type="button" data-trim-undo title="Убрать все ваши правки этого элемента (${fixedHere.length})">Вернуть как было</button></div>`:""}<span class="scheme-trim-fix-state" data-trim-state></span></div>`:"");
   // The card in plain words, by the drawings (src/scheme-element-card.js): what it is, its section, where it stands, what
@@ -2610,7 +2621,7 @@ const fittingSection=c=>c.ft==="flight"||c.ft==="ladder"||c.ft==="deck"?(c.fd>0?
     x:c.x,y:c.y,x2:c.x2,y2:c.y2,z0:c.z0,z2:c.z2,mx:c.mx,my:c.my,mz:c.mz,r:c.r,ri:c.ri,sw:c.sw,ft:c.ft,
     doc:String(c.source_import_doc||""),src_section:c.source_section?sectionOfRecord(c):"",src_sheet:String(c.source_sheet||""),src_file:String(c.source_file||""),instance_status:String(c.instance_status||""),preliminary:isPreliminary(c),
     reasons:Array.isArray(c.instance_reasons)?c.instance_reasons.map(String):[],sources:c.param_sources&&typeof c.param_sources==="object"?c.param_sources:null,
-    pdf_new:c.pdf_new&&typeof c.pdf_new==="object"?c.pdf_new:null,check_note:String(c.check_note||""),manual:!c.import_batch,
+    pdf_new:c.pdf_new&&typeof c.pdf_new==="object"?c.pdf_new:null,check_note:String(c.check_note||""),manual:!c.import_batch&&c.ft!=="porch_part",
     confirmed:c.engineer_confirmed&&typeof c.engineer_confirmed==="object"?c.engineer_confirmed:null,edited:Boolean(c.engineer_edited)};
    // (the axes as on the drawing — 01…010, not «О1…О10»: axName of the card; the engineer, 17.11.2026 «03 и О3 разные вещи»)
    const AX=window.irSchemeElementCard?.axName||String,rnAX=m=>Object.fromEntries([...m].map(([k,v])=>[AX(k),v]));

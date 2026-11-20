@@ -138,11 +138,25 @@
  // of the specification of its assembly sheet with their colours on the model (parts). e.model — what the 3D gives of the
  // member (irThreeSchemeView.card: mass_kg, bolts, nodes, colors, lit), e.spec — its parts (c.parts), e.kgm(section) —
  // kilograms in a metre of a section (irThreeSchemeView.massPerMetre).
+ // The section of a trim drawn small with the lengths of its shelves (1.12.231, the engineer 20.11.2026 «что есть что из
+ // фасонки вообще не понятно»): by the sketch of its position from the sheet (shape.legs_mm, bends_deg), else its two shelves.
+ // Inline colours — the same in the program and in the exported scheme.
+ function trimSketch(lay,W,H){W=W||170;H=H||100;var sh=lay&&lay.shape,legs=sh&&Array.isArray(sh.legs_mm)&&sh.legs_mm.length?sh.legs_mm.map(Number):lay&&Array.isArray(lay.legs)?lay.legs.map(function(l){return Number(l&&l[3])||0}).filter(function(v){return v>0}):[];
+  if(!legs.length)return"";var bends=sh&&Array.isArray(sh.bends_deg)&&Array.isArray(sh.legs_mm)?sh.bends_deg.map(Number):legs.map(function(){return 90});
+  var x=0,y=0,a=0,pts=[[0,0]],mids=[];legs.forEach(function(L,i){var r=a*Math.PI/180,nx=x+L*Math.cos(r),ny=y+L*Math.sin(r);mids.push([(x+nx)/2,(y+ny)/2,r,L]);x=nx;y=ny;pts.push([x,y]);a+=Number(bends[i])||0});
+  var xs=pts.map(function(p){return p[0]}),ys=pts.map(function(p){return p[1]}),x0=Math.min.apply(null,xs),x1=Math.max.apply(null,xs),y0=Math.min.apply(null,ys),y1=Math.max.apply(null,ys),pad=16,k=Math.min((W-2*pad)/Math.max(1,x1-x0),(H-2*pad)/Math.max(1,y1-y0));
+  var X=function(v){return pad+(v-x0)*k+((W-2*pad)-(x1-x0)*k)/2},Y=function(v){return H-pad-(v-y0)*k-((H-2*pad)-(y1-y0)*k)/2},big=Math.max.apply(null,legs);
+  // (the longer shelves first, a label not over another — the small folds of the edges unsigned)
+  var put=[],txt=mids.filter(function(m){return m[3]>=big*.15&&m[3]>=15}).sort(function(p,q){return q[3]-p[3]}).map(function(m){var ox=-Math.sin(m[2])*9,oy=Math.cos(m[2])*9,tx=X(m[0])+ox,ty=Y(m[1])-oy+3;
+   if(put.some(function(q){return Math.abs(q[0]-tx)<18&&Math.abs(q[1]-ty)<11}))return"";put.push([tx,ty]);return'<text x="'+tx.toFixed(1)+'" y="'+ty.toFixed(1)+'" font-size="9" fill="currentColor" text-anchor="middle">'+Math.round(m[3])+'</text>'}).join("");
+  return'<svg viewBox="0 0 '+W+' '+H+'" width="'+W+'" height="'+H+'" role="img" aria-label="Сечение фасонного элемента"><polyline fill="none" stroke="#2777c7" stroke-width="2.2" stroke-linejoin="round" stroke-linecap="round" points="'+pts.map(function(p){return X(p[0]).toFixed(1)+","+Y(p[1]).toFixed(1)}).join(" ")+'"/>'+txt+'</svg>'}
+ function trimSketchBox(e){if(!e||e.ft!=="trim"||!e.lay)return"";var sv=trimSketch(e.lay);if(!sv)return"";var s=e.lay.shape||{};
+  return'<div class="ec-sketch" style="margin:2px 0;padding:6px 8px;border:1px solid rgba(120,140,160,.28);border-radius:8px"><b style="display:block;font-size:12px;margin-bottom:3px">Сечение'+(s.pos?" поз. "+esc(s.pos):"")+(s.developed_mm?" · развёртка "+esc(s.developed_mm)+" мм":"")+'</b>'+sv+'</div>'}
  function head(e){
   var cls=e.status==="mounted"?"ec-ok":e.status==="partial"?"ec-partial":"ec-wait";
   return'<div class="ec-head"><div><b class="ec-mark">'+esc(e.mark||"—")+'</b>'+(e.name?'<span class="ec-name">'+esc(e.name)+'</span>':"")+'</div></div>'+
    '<div class="ec-badge"><span class="ec-status '+cls+'"'+(e.status_title?' title="'+esc(e.status_title)+'"':"")+'>'+esc((e.status_label||"")+(e.status_date?" "+e.status_date:""))+'</span>'+
-   (e.status_more?'<small>'+esc(e.status_more)+'</small>':"")+'</div>'
+   (e.status_more?'<small>'+esc(e.status_more)+'</small>':"")+'</div>'+trimSketchBox(e)
  }
  // Kilograms as the report writes them: «74», «4,6».
  function kgs(v){var n=num(v);return n>=100?fmt(n):String(Math.round(n*10)/10).replace(".",",")}
@@ -246,7 +260,7 @@
  // letter О is not used for axes (ГОСТ 21.101), and on the АР and КМ of ИР-71535 the axes across are 01…010 — the
  // engineer, 17.11.2026: «03 и О3 разные вещи, ты читаешь с чертежа О3, хотя там 03». In any text: «О3/К», «О3 (−60 мм)».
  function axName(s){return String(s==null?"":s).replace(/(^|[^0-9A-Za-zА-Яа-яЁё])[ОO](?=\d)/g,"$10")}
- var api={axName:axName,drawingSheet:drawingSheet,made:made,FOUND:FOUND,esc:esc,fmt:fmt,level:level,axisOf:axisOf,position:position,fasteners:fasteners,traits:traits,section:section,head:head,facts:facts,nodes:nodes,tools:tools,parts:parts,bind:bind,kgs:kgs,sheetName:sheetName,drawings:drawings,coords:coords};
+ var api={trimSketch:trimSketch,axName:axName,drawingSheet:drawingSheet,made:made,FOUND:FOUND,esc:esc,fmt:fmt,level:level,axisOf:axisOf,position:position,fasteners:fasteners,traits:traits,section:section,head:head,facts:facts,nodes:nodes,tools:tools,parts:parts,bind:bind,kgs:kgs,sheetName:sheetName,drawings:drawings,coords:coords};
  root.irSchemeElementCard=api;
  if(typeof module==="object"&&module.exports)module.exports=api;
 })(typeof window!=="undefined"?window:globalThis);
