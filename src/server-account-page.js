@@ -150,6 +150,7 @@
 .ir-bk-obj{border-radius:12px}.ir-bk-obj.on{background:#fffaf0;box-shadow:0 0 0 1px #f0d98f}.ir-bk-box{padding:4px 12px 12px}
 .ir-bk-tools{display:flex;align-items:center;gap:10px;font-size:12.5px;color:#4d6a80;margin:2px 0 8px}.ir-bk-tools label{display:flex;align-items:center;gap:6px;margin:0;font-weight:600;white-space:nowrap}.ir-bk-tools select{font:inherit;padding:4px 8px;border:1px solid #d9e4ee;border-radius:8px;margin-left:6px}
 .ir-bk-ph{display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:8px}
+.ir-bk-lk{background:#eef7ef;border:1px solid #bfe0c4;border-radius:10px;padding:8px 12px;color:#245c2e}.ir-bk-closed .ir-bk-t{display:block;cursor:default}.ir-bk-closed{grid-template-columns:repeat(auto-fill,minmax(90px,110px))}
 .ir-bk-t{position:relative;padding:0;border:2px solid #d9e4ee;border-radius:10px;overflow:hidden;background:#eef2f5;cursor:pointer;aspect-ratio:4/3}
 .ir-bk-t img{width:100%;height:100%;object-fit:cover;display:block}.ir-bk-t:hover{border-color:#a9c6df}.ir-bk-t.on{border-color:#d9a520;box-shadow:0 0 0 3px #f6e2a6}
 .ir-bk-opt{display:flex;align-items:center;gap:6px;font-size:12.5px;font-weight:600;color:#33485a;margin:0;white-space:nowrap}
@@ -497,9 +498,13 @@
  // отдельную где Сайт Буклет»): отметить объекты, у каждого выбрать фото (по порядку щелчков, первое — главное) и макет
  // листа. Выбор хранится у объекта — запись object-meta «booklet_photos» {files, layout}.
  const BOOKLET="booklet_photos";
- async function saveBooklet(id,files,layout){
+ // locked — сохранённый лист объекта {at, date, files, layout, data}: объёмы, текст, фото и макет на день сохранения, лист
+ // больше не меняется, пока не нажать «Редактировать» (инженер 20.11.2026 «если страница устраивает, то нажимаю сохранить
+ // и она больше не меняется … пока не нажму редактировать»); undefined — оставить как было, null — снять
+ async function saveBooklet(id,files,layout,locked){
   const api=irProject.data.forObject(id).section("object-meta"),rows=await api.list().catch(()=>[]),r=rows.find(x=>x.record_type===BOOKLET);
-  const body={record_type:BOOKLET,title:"Фото для буклета",data:{entity_type:BOOKLET,files,layout}};
+  const was=r?.data?.locked||null,lk=locked===undefined?was:locked;
+  const body={record_type:BOOKLET,title:"Фото для буклета",data:{entity_type:BOOKLET,files:lk?lk.files:files,layout:lk?lk.layout:layout,...(lk?{locked:lk}:{})}};
   if(!r)await api.create(body);else await api.update(r.id,body)
  }
  async function bookletWindow(parent){
@@ -521,19 +526,30 @@
   const setProg=(pct,title,sub,cls="")=>{prog.hidden=false;prog.className="ir-so-prog"+(cls?" "+cls:"");$("[data-pb]").style.width=Math.max(0,Math.min(100,pct)).toFixed(1)+"%";
    $("[data-pp]").textContent=Math.round(pct)+"%";$("[data-pt]").textContent=title;$("[data-ps]").textContent=sub||""};
   const drawN=()=>{$("[data-n]").textContent=chosen.length?"Объектов в буклете: "+chosen.length:"Отметьте объекты";go.disabled=pv.disabled=!chosen.length||!window.irBooklet};
+  const today=()=>{const t=new Date();return String(t.getDate()).padStart(2,"0")+"."+String(t.getMonth()+1).padStart(2,"0")+"."+t.getFullYear()};
+  const LOCK_KEYS=["name","customer","general_contractor","address","status","years","summary","works"];
   const photosHtml=id=>{const x=info.get(id);if(!x)return`<div class="ir-so-empty">Загружаем фото…</div>`;
-   if(!x.all.length)return`<div class="ir-so-empty">У объекта нет фото</div>`;
-   return`<div class="ir-bk-tools"><span>Щёлкайте фото по порядку: <b>1</b> — главное, <b>2–4</b> — на листе объекта, <b>5–${irBooklet.MAX_PHOTOS}</b> — отдельным листом «Фото с объекта». Выбрано: ${x.files.length} из ${irBooklet.MAX_PHOTOS}</span><span class="grow"></span><label>Макет <select data-lay>${["Авто",...irBooklet.LAYOUTS].map((t,i)=>`<option value="${i}"${x.layout===i?" selected":""}>${esc(t)}</option>`).join("")}</select></label></div>
+   if(x.locked){const L=x.locked,lay=["Авто",...irBooklet.LAYOUTS][Number(L.layout)||0]||"Авто";
+    return`<div class="ir-bk-tools ir-bk-lk"><span>🔒 <b>Лист сохранён ${esc(L.date||"")}</b> — объёмы, текст, фото (${(L.files||[]).length}) и макет «${esc(lay)}» больше не меняются</span><span class="grow"></span><button type="button" class="ir-acc-btn small" data-edit>Редактировать</button></div>
+    <div class="ir-bk-ph ir-bk-closed">${(L.files||[]).map((f,k)=>{const t=thumbs.get(f);return`<span class="ir-bk-t on">${t?`<img src="${esc(t)}" alt="">`:'<span class="ir-hero-no">…</span>'}<b>${k+1}</b></span>`}).join("")}</div>`}
+   if(!x.all.length)return`<div class="ir-so-empty">У объекта нет фото</div><div class="ir-bk-tools"><span class="grow"></span><button type="button" class="ir-acc-btn small main" data-lock>Сохранить лист</button></div>`;
+   return`<div class="ir-bk-tools"><span>Щёлкайте фото по порядку: <b>1</b> — главное, <b>2–4</b> — на листе объекта, <b>5–${irBooklet.MAX_PHOTOS}</b> — отдельным листом «Фото с объекта». Выбрано: ${x.files.length} из ${irBooklet.MAX_PHOTOS}</span><span class="grow"></span><label>Макет <select data-lay>${["Авто",...irBooklet.LAYOUTS].map((t,i)=>`<option value="${i}"${x.layout===i?" selected":""}>${esc(t)}</option>`).join("")}</select></label><button type="button" class="ir-acc-btn small main" data-lock title="Лист объекта больше не меняется — объёмы, текст, фото и макет на сегодня, пока не нажать «Редактировать»">Сохранить лист</button></div>
    <div class="ir-bk-ph">${x.all.slice(0,SHOW).map((f,k)=>{const n=x.files.indexOf(f)+1,t=thumbs.get(f);return`<button type="button" class="ir-bk-t${n?" on":""}" data-k="${k}">${t?`<img src="${esc(t)}" alt="">`:'<span class="ir-hero-no">…</span>'}${n?`<b>${n}</b>`:""}</button>`}).join("")}</div>
    ${x.all.length>SHOW?`<div class="ir-acc-help">Показаны первые ${SHOW} фото из ${x.all.length}.</div>`:""}`};
   const drawObj=id=>{const box=list.querySelector(`[data-box="${id}"]`);if(!box)return;box.innerHTML=photosHtml(id);const x=info.get(id);if(!x)return;
    box.querySelector("[data-lay]")?.addEventListener("change",e=>{x.layout=Number(e.target.value)||0});
+   const busy=b=>{b.disabled=true;b.textContent="Сохраняем…"};
+   box.querySelector("[data-lock]")?.addEventListener("click",async e=>{busy(e.target);
+    const L={at:new Date().toISOString(),date:today(),files:[...x.files],layout:x.layout,data:Object.fromEntries(LOCK_KEYS.map(k=>[k,x.data[k]]))};
+    try{await saveBooklet(id,L.files,L.layout,L);x.locked=L}catch(err){bad(err)}drawObj(id)});
+   box.querySelector("[data-edit]")?.addEventListener("click",async e=>{busy(e.target);
+    try{await saveBooklet(id,x.locked.files,x.locked.layout,null);x.files=[...x.locked.files];x.layout=Number(x.locked.layout)||0;x.locked=null}catch(err){bad(err)}drawObj(id)});
    box.querySelectorAll("[data-k]").forEach(b=>b.onclick=()=>{const f=x.all[Number(b.dataset.k)],i=x.files.indexOf(f);
     if(i>=0)x.files.splice(i,1);else if(x.files.length<irBooklet.MAX_PHOTOS)x.files.push(f);else return;drawObj(id)})};
   async function load(id){if(info.has(id))return drawObj(id);
    const o=objects.find(x=>Number(x.id)===id);let data;try{data=await siteObjectData(o,0)}catch(e){bad(e);return}
-   const p=irBooklet.pickDefault(data);info.set(id,{data,...p});drawObj(id);
-   for(const f of p.all.slice(0,SHOW)){if(thumbs.has(f))continue;thumbs.set(f,await irBooklet.thumb(await irBooklet.read(f)));if(d.isConnected)drawObj(id)}}
+   const p=irBooklet.pickDefault(data);info.set(id,{data,...p,locked:data.booklet?.locked||null});drawObj(id);
+   for(const f of [...new Set([...(data.booklet?.locked?.files||[]),...p.all.slice(0,SHOW)])]){if(thumbs.has(f))continue;thumbs.set(f,await irBooklet.thumb(await irBooklet.read(f)));if(d.isConnected)drawObj(id)}}
   const draw=()=>{
    $("[data-tabs]").innerHTML=TABS.map(([k,t])=>{const n=k==="all"?objects.length:objects.filter(o=>STATUS_TAG(o.status||"")===k).length;
     return n||k==="all"||k===tab?`<button type="button" class="${k===tab?"on":""}" data-tab="${k}">${t}<span>${n}</span></button>`:""}).join("");
@@ -553,6 +569,7 @@
   const services=()=>$("[data-svc]").checked;
   async function collect(save){const data=[];for(const [i,id] of chosen.entries()){const o=objects.find(x=>Number(x.id)===id);setProg(i/chosen.length*20,"Собираем объекты…",(i+1)+" из "+chosen.length+" — "+(o?.name||""));
     if(!info.has(id))await load(id);const x=info.get(id);if(!x)continue;
+    if(x.locked){const L=x.locked;data.push({...x.data,...L.data,asOf:L.date,files:L.files||[],layout:Number(L.layout)||0});continue}
     if(save)await saveBooklet(id,x.files,x.layout).catch(()=>{});data.push({...x.data,files:x.files,layout:x.layout})}return data}
   // предпросмотр — те же листы, что уйдут в PDF, уменьшенными, с малыми фото (инженер 20.11.2026 «сделать
   // предомостр как каждая страница выглядеть будет»)
