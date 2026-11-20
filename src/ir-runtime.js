@@ -1406,7 +1406,9 @@ window.irSchemePage=async function(objectId,opts){
    return}
   const n3=editInfo3d().n,had=(editStage?editStage.ops.length:0)+n3;if(had&&!confirm(`Выйти без сохранения? Правки (${stageOps(editStage?.ops||[]).length+n3}) не запишутся, схема вернётся как была до режима редактирования.`)){restoreKeyboardAfterConfirm();return}
   if(had)restoreKeyboardAfterConfirm();
-  try{V?.editCancel?.()}catch(e){}
+  // (the 3D lays its pieces back; where the model is not as before the mode, it is built again from the rows given back
+  // just below — draw(), not from the edited ones)
+  try{V?.editCancel?.({later:true})}catch(e){}
   if(editStage?.ops.length)rows=editStage.snap;editStage=null;editOn=false;
   if(selectedId&&!allRecords().some(x=>sameId(x.id,selectedId)))selectedId="";
   draw()}
@@ -2791,7 +2793,14 @@ const fittingSection=c=>c.ft==="flight"||c.ft==="ladder"||c.ft==="deck"?(c.fd>0?
    ${between?`<div class="scheme-between"><b>Элемент между осями</b><span>${esc(a.x)} / ${esc(a.y)}</span><small>Положение вычисляется от выбранных базовых осей и сохраняется точно в миллиметрах.</small></div>`:""}
    ${cardActs(trimHtml||steelHtml,orderHtml,actionsHtml,em)}`;
   loadMarkCard(panel,c);
+  // («Показать поверх» of a trim going through the steel or a panel — the trim lifted over them by the 3D, an edit of the
+  // mode; the order of drawing only where it goes through nothing: the engineer 20.11.2026 «когда нажимаешь показать сверху,
+  // он ее выше поднимает, но не ставит поверх металла»)
   panel.querySelectorAll("[data-order-step]").forEach(b=>b.addEventListener("click",async()=>{if(!canEdit())return;const row=arr(rows).find(r=>String(r.id)===String(c.id));if(!row)return;
+   const stEl=panel.querySelector("[data-trim-state]");
+   if(Number(b.dataset.orderStep)>0&&c.ft==="trim"&&window.irThreeSchemeView?.liftOver){const lf=window.irThreeSchemeView.liftOver(c.id);
+    if(lf?.mm>0){if(stEl)stEl.textContent=`Поднята поверх металла и панелей на ${lf.mm} мм. «Сохранить» — записать, «↶» — отменить.`;try{paintEditState()}catch(e){}return}
+    if(lf?.mm<0&&stEl)stEl.textContent=`Чтобы пройти поверх, её надо поднять на ${-lf.mm} мм — не поднимаю; изменена только очерёдность показа.`}
    const next=Math.max(-2,Math.min(2,orderOf(c)+Number(b.dataset.orderStep))),d=row.data||{},data={...d,layout:{...(d.layout||{}),order:next}};b.disabled=true;
    try{const saved=await schemeApi.update(row.id,{record_type:row.record_type||"scheme_column",parent_id:row.parent_id,title:row.title,data});if(!rememberSavedSchemeRecord(saved))rows=arr(rows).map(r=>String(r.id)===String(row.id)?{...r,data}:r);refreshAfterMemberChange()}
    catch(error){alert(String(error?.message||error));b.disabled=false}}));

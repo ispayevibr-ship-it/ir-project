@@ -223,7 +223,9 @@ window.irSchemePage=async function(objectId,opts){
    return}
   const n3=editInfo3d().n,had=(editStage?editStage.ops.length:0)+n3;if(had&&!confirm(`Выйти без сохранения? Правки (${stageOps(editStage?.ops||[]).length+n3}) не запишутся, схема вернётся как была до режима редактирования.`)){restoreKeyboardAfterConfirm();return}
   if(had)restoreKeyboardAfterConfirm();
-  try{V?.editCancel?.()}catch(e){}
+  // (the 3D lays its pieces back; where the model is not as before the mode, it is built again from the rows given back
+  // just below — draw(), not from the edited ones)
+  try{V?.editCancel?.({later:true})}catch(e){}
   if(editStage?.ops.length)rows=editStage.snap;editStage=null;editOn=false;
   if(selectedId&&!allRecords().some(x=>sameId(x.id,selectedId)))selectedId="";
   draw()}
@@ -1559,7 +1561,7 @@ const fittingSection=c=>c.ft==="flight"||c.ft==="ladder"||c.ft==="deck"?(c.fd>0?
   // in one place; the engineer 20.11.2026 «очерёдность … поменять в каждом элементе»)
   const orderOf=r=>{const l=r.lay||{};if(l.order!==undefined&&l.order!==null&&l.order!==""&&Number.isFinite(Number(l.order)))return Math.max(-2,Math.min(2,Math.round(Number(l.order))));if(r.ft==="trim"&&(l.trim==="reveal"||l.trim==="sill"))return-1;if(r.ft==="porch_part"&&l.part==="abut")return 1;return 0};
   const ORDER_WORD={"-2":"в самом низу","-1":"позади","0":"обычная","1":"впереди","2":"поверх всех"};
-  const orderHtml=canEdit()&&(c.ft==="trim"||c.ft==="porch_part")?`<div class="scheme-detail-actions scheme-order-row"><span>Очерёдность: <b>${ORDER_WORD[String(orderOf(c))]}</b></span><button type="button" data-order-step="-1" ${orderOf(c)<=-2?"disabled":""} title="Показывать позади соседних элементов">Назад</button><button type="button" data-order-step="1" ${orderOf(c)>=2?"disabled":""} title="Показывать поверх соседних элементов">Вперёд</button></div>`:"";
+  const orderHtml=canEdit()&&(c.ft==="trim"||c.ft==="porch_part")?`<div class="scheme-detail-actions scheme-order-row"><span>Очерёдность: <b>${ORDER_WORD[String(orderOf(c))]}</b></span><button type="button" data-order-step="-1" ${orderOf(c)<=-2?"disabled":""} title="Показывать позади соседних элементов">Назад</button><button type="button" data-order-step="1" ${orderOf(c)>=2?"disabled":""} title="Поверх: проходящую сквозь металл или панель — поднять поверх них, иначе показывать поверх соседних">Вперёд</button></div>`:"";
   const trimHtml=panelHtml||(canEdit()&&(pk||fixedHere.length)?`<div class="scheme-trim-fix"><b>Фасонный элемент</b>${pk?`<div class="scheme-trim-drag"><button type="button" data-trim-mode="whole" class="${em==="move"&&whole?"on":""}" title="Переносить мышью все полки и куски этого элемента вместе">Двигать целиком</button><button type="button" data-trim-mode="piece" class="${em==="move"&&!whole?"on":""}" title="Переносить мышью только кусок под щелчком">Двигать полку</button><button type="button" data-edit-pull class="${em==="pull"?"on":""}" title="Тянуть мышью конец куска — длина">Тянуть край</button></div>
     <div class="scheme-trim-fix-row"><label>${pk.ax==="z"?"Низ":"Начало"}, мм<input data-trim-lo inputmode="decimal" value="${pk.lo}"></label><label>${pk.ax==="z"?"Верх":"Конец"}, мм<input data-trim-hi inputmode="decimal" value="${pk.hi}"></label><label>Длина, мм<input data-trim-len inputmode="decimal" value="${pk.hi-pk.lo}"></label></div>
     <div class="scheme-detail-actions"><button type="button" class="ok" data-trim-apply>Применить</button><button type="button" class="danger" data-trim-hide>Убрать кусок</button><button type="button" data-trim-corner title="Щёлкните потом второй кусок в углу: оба обрежутся на ус и сомкнутся впритык">Сделать угол</button><button type="button" data-trim-over title="Щёлкните потом второй кусок: этот пройдёт поверх него до его дальней грани, тот упрётся">Этот поверх</button><button type="button" data-trim-line title="Щёлкните две точки на полке — линия реза под любым углом, затем часть, которую убрать. «Одну полку» — режется только она, «Весь элемент» — весь профиль у линии">Срезать по линии</button></div>`:""}${fixedHere.length?`<div class="scheme-detail-actions"><button type="button" data-trim-undo-last>↶ Отменить</button><button type="button" data-trim-undo title="Убрать все ваши правки этого элемента (${fixedHere.length})">Вернуть как было</button></div>`:""}<span class="scheme-trim-fix-state" data-trim-state></span></div>`:"");
@@ -1608,7 +1610,14 @@ const fittingSection=c=>c.ft==="flight"||c.ft==="ladder"||c.ft==="deck"?(c.fd>0?
    ${between?`<div class="scheme-between"><b>Элемент между осями</b><span>${esc(a.x)} / ${esc(a.y)}</span><small>Положение вычисляется от выбранных базовых осей и сохраняется точно в миллиметрах.</small></div>`:""}
    ${cardActs(trimHtml||steelHtml,orderHtml,actionsHtml,em)}`;
   loadMarkCard(panel,c);
+  // («Показать поверх» of a trim going through the steel or a panel — the trim lifted over them by the 3D, an edit of the
+  // mode; the order of drawing only where it goes through nothing: the engineer 20.11.2026 «когда нажимаешь показать сверху,
+  // он ее выше поднимает, но не ставит поверх металла»)
   panel.querySelectorAll("[data-order-step]").forEach(b=>b.addEventListener("click",async()=>{if(!canEdit())return;const row=arr(rows).find(r=>String(r.id)===String(c.id));if(!row)return;
+   const stEl=panel.querySelector("[data-trim-state]");
+   if(Number(b.dataset.orderStep)>0&&c.ft==="trim"&&window.irThreeSchemeView?.liftOver){const lf=window.irThreeSchemeView.liftOver(c.id);
+    if(lf?.mm>0){if(stEl)stEl.textContent=`Поднята поверх металла и панелей на ${lf.mm} мм. «Сохранить» — записать, «↶» — отменить.`;try{paintEditState()}catch(e){}return}
+    if(lf?.mm<0&&stEl)stEl.textContent=`Чтобы пройти поверх, её надо поднять на ${-lf.mm} мм — не поднимаю; изменена только очерёдность показа.`}
    const next=Math.max(-2,Math.min(2,orderOf(c)+Number(b.dataset.orderStep))),d=row.data||{},data={...d,layout:{...(d.layout||{}),order:next}};b.disabled=true;
    try{const saved=await schemeApi.update(row.id,{record_type:row.record_type||"scheme_column",parent_id:row.parent_id,title:row.title,data});if(!rememberSavedSchemeRecord(saved))rows=arr(rows).map(r=>String(r.id)===String(row.id)?{...r,data}:r);refreshAfterMemberChange()}
    catch(error){alert(String(error?.message||error));b.disabled=false}}));
