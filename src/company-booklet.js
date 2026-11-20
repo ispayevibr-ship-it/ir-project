@@ -215,8 +215,10 @@
 .lay6 .badges{gap:4mm}.lay6 .ring{background:conic-gradient(var(--or) calc(var(--p)*1%),#3a4047 0);width:24mm;height:24mm}.lay6 .ring div{background:#1d2228;width:19mm;height:19mm}.lay6 .ring span{color:#aab2bc}
 .lay6 .meta .yr{color:#1d2228;font-size:10pt;margin-bottom:1.5mm}.lay6 .meta p{margin:0;font-size:7.2pt;line-height:1.35;color:#c9ced5}
 .lay6 .gp{margin-top:5mm;font-size:7.6pt;font-weight:700;line-height:1.35}.lay6 .gp small{display:block;font-size:6pt;letter-spacing:.8px;color:var(--or2);margin-top:2.5mm}
-.page.fit1 .wk{padding:1.8mm 0}.page.fit1 .vol i{font-size:13pt}.page.fit1 .wk b{font-size:7.6pt}.page.fit1 .sub{margin-bottom:3.5mm}.page.fit1 .badges{padding-top:2.5mm}.page.fit1 .osd{padding-top:2.5mm}
-.page.fit2 .wk{padding:1.3mm 0}.page.fit2 .vol i{font-size:11.5pt}.page.fit2 .wk b{font-size:7pt}.page.fit2 .sub{margin-bottom:2.5mm}.page.fit2 .badges{padding-top:2mm}.page.fit2 .osd,.page.fit2 .ost{display:none}`;
+.page.fit1 .wk{padding:2mm 0}.page.fit1 .vol i{font-size:14pt}.page.fit1 .wk b{font-size:7.8pt}.page.fit1 .sub{margin-bottom:4mm}.page.fit1 .badges{padding-top:3mm}.page.fit1 .osd{padding-top:3mm}
+.page.fit2 .wk{padding:1.5mm 0}.page.fit2 .vol i{font-size:12.5pt}.page.fit2 .wk b{font-size:7.1pt}.page.fit2 .vol s{font-size:7.5pt}.page.fit2 .sub{margin-bottom:3mm}.page.fit2 .badges{padding-top:2.5mm}.page.fit2 .osd{padding-top:2.5mm}.page.fit2 .ost b{font-size:11pt}
+.page.fit3 .wk{padding:1.1mm 0;gap:3mm}.page.fit3 .vol i{font-size:11pt}.page.fit3 .wk b{font-size:6.4pt;line-height:1.2}.page.fit3 .vol s{font-size:6.8pt}.page.fit3 .vol u{font-size:5.8pt}.page.fit3 .sub{margin-bottom:2.5mm}.page.fit3 .badges{padding-top:2mm}.page.fit3 .osd{padding-top:2mm}.page.fit3 .ost b{font-size:10pt}.page.fit3 .ost span{font-size:5.6pt}
+.page.fit4 .wk{padding:.9mm 0;gap:3mm}.page.fit4 .vol i{font-size:10pt}.page.fit4 .wk b{font-size:5.9pt;line-height:1.2}.page.fit4 .vol s{font-size:6.4pt}.page.fit4 .vol u{font-size:5.4pt}.page.fit4 .sub{margin-bottom:2mm}.page.fit4 .badges{padding-top:2mm}.page.fit4 .osd,.page.fit4 .ost{display:none}`;
  const CHECK='<svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>';
  const CAL='<svg viewBox="0 0 24 24" fill="none" stroke="#1d2228" stroke-width="2.4" stroke-linecap="round"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/></svg>';
  const bg=src=>src?` style="background-image:url('${String(src).replace(/'/g,"%27")}')"`:"";
@@ -274,7 +276,7 @@
  function objectPage(o,co,logo,i=0){const h=objectPage0(o,co,logo,i);return o.fit?h.replace('<section class="page','<section class="page fit'+o.fit):h}
  function objectPage0(o,co,logo,i=0){
   const lay=layoutOf(o,i),pics=o.pictures||[],main=pics[0]||"",rest=pics.slice(1,4);
-  if(lay===2)return`<section class="page lay2"><div class="L"><div class="in">${textCol(o,7,co)}</div></div>
+  if(lay===2)return`<section class="page lay2"><div class="L"><div class="in">${textCol(o,12,co)}</div></div>
   <div class="R"><div class="ph"${bg(main)}></div>${logoOf(co,logo)}<div class="band"></div>${circlesOf(rest)}
   <div class="info">${placeOf(o,co)}</div>${footOf(o)}</div></section>`;
   if(lay===3){const name=String(o.name||"Объект"),ws=worksOf(o).slice(0,4),p=doneOf(o),place=String(o.address||"").trim();
@@ -285,7 +287,7 @@
    <div class="tiles"><div class="tw">${ws.map(w=>`<div class="tl"><i>${esc(fmt(num(w.volume)))}<s>${esc(unitOf(w.unit))}</s></i>${planOf(w)}<b class="up">${esc(w.name)}</b></div>`).join("")}</div>
    <div class="tr">${ringOf(p)}</div></div>
    <div class="strip"><div><small class="up">Генеральный подрядчик</small><b>${esc(o.general_contractor||"—")}</b></div><div><small class="up">Заказчик</small><b>${esc(o.customer||"—")}</b></div><div class="doc up"><em>${CHECK}</em>Полный пакет исполнительной документации</div></div></section>`}
-  if(lay===5){const name=String(o.name||"Объект"),ws=worksOf(o).slice(0,8),p=doneOf(o);
+  if(lay===5){const name=String(o.name||"Объект"),ws=worksOf(o).slice(0,12),p=doneOf(o);
    return`<section class="page lay5"><div class="ph"${bg(main)}></div>${logoOf(co,logo)}${circlesOf(rest)}
    <div class="lo"><h1 class="ttl up${titleCls(name)}">${esc(name)}</h1>${o.customer?`<div class="sub up">${esc(o.customer)}</div>`:""}
    <div class="info">${placeOf(o,co)}</div></div>
@@ -294,13 +296,13 @@
    return`<section class="page lay6"><div class="fr${rest.length?"":" full"}"><div class="ph"${bg(main)}></div></div>
    ${rest.length?`<div class="row">${rest.slice(0,3).map(s=>`<div${bg(s)}></div>`).join("")}</div>`:""}
    <div class="tx">${logoOf(co,logo," l6")}<h1 class="ttl up${titleCls(name)}">${esc(name)}</h1>${o.customer?`<div class="sub up">${esc(o.customer)}</div>`:""}
-   <div class="wks">${wkRows(worksOf(o).slice(0,Math.min(5,o.wkMax||5)))}</div><div class="badges">${ringOf(p)}<div class="meta">${yearOf(o)}<p>${esc(o.address||"")}</p></div></div>
+   <div class="wks">${wkRows(worksOf(o).slice(0,Math.min(8,o.wkMax||8)))}</div><div class="badges">${ringOf(p)}<div class="meta">${yearOf(o)}<p>${esc(o.address||"")}</p></div></div>
    <div class="gp"><small class="up">Генподрядчик</small>${esc(o.general_contractor||"—")}<small class="up">Заказчик</small>${esc(o.customer||"—")}</div></div></section>`}
   if(lay===4){const n=Math.min(4,pics.length);
    return`<section class="page lay4"><div class="M m${n}">${pics.slice(0,4).map((s,k)=>`<div class="g g${k}"${bg(s)}></div>`).join("")}${logoOf(co,logo)}
    <div class="info">${placeOf(o,co)}</div></div>
-   <div class="O"><div class="in">${textCol(o,6,co)}</div></div>${footOf(o," f4")}</section>`}
-  return`<section class="page"><div class="L"><div class="in">${textCol(o,7,co)}</div></div>
+   <div class="O"><div class="in">${textCol(o,12,co)}</div></div>${footOf(o," f4")}</section>`}
+  return`<section class="page"><div class="L"><div class="in">${textCol(o,12,co)}</div></div>
   <div class="R"><div class="ph"${bg(main)}></div>${logoOf(co,logo)}
   <div class="band"></div>${circlesOf(rest)}
   <div class="info">${placeOf(o,co)}</div>${footOf(o)}</div></section>`
@@ -380,11 +382,11 @@ ${(()=>{const pages=[["О компании",aboutPage(list,co,logo)],...(service
  const overflows=(el,wide)=>el&&(el.scrollHeight>el.clientHeight+1||wide&&el.scrollWidth>el.clientWidth+1);
  function tooLong(page){return[".wks",".sum",".sm",".in",".hd"].some(q=>[...page.querySelectorAll(q)].some(e=>overflows(e,q===".wks")))}
  // всё на листе объекта видно целиком: не вмещается — краткая характеристика уходит на лист «Фото с объекта», затем
- // виды работ плотнее (fit1), ещё плотнее без строки итогов (fit2), и только потом лишние строки снизу (wkMax) —
+ // шрифт видов работ меньше по шагам (fit1–fit3, инженер «если не вмещается, то уменьшает размер шрифта»), без строки итогов (fit4), и только потом лишние строки снизу (wkMax); строка, не вместившаяся целиком, уходит в невидимую колонку справа —
  // не обрезанной наполовину строкой поверх итогов (инженер 20.11.2026 «поправь» — «Демонтаж» под «Выполнено на»)
  async function dropTooLong(objects,opts){
   const doc=root.document;if(!doc||!objects.length)return;
-  for(let pass=0;pass<10;pass++){
+  for(let pass=0;pass<14;pass++){
    const fr=doc.createElement("iframe");fr.setAttribute("aria-hidden","true");
    fr.style.cssText="position:fixed;left:-10000px;top:0;width:297mm;height:210mm;border:0;visibility:hidden";
    let changed=false;
@@ -395,7 +397,7 @@ ${(()=>{const pages=[["О компании",aboutPage(list,co,logo)],...(service
     const pages=[...d.querySelectorAll("section.page:not(.svcp):not(.gal)")].slice(1);
     pages.forEach((pg,i)=>{const o=objects[i];if(!o||!tooLong(pg))return;changed=true;
      if(o.summary&&!o.sumMoved)objects[i]={...o,sumMoved:true};
-     else if((o.fit||0)<2)objects[i]={...o,fit:(o.fit||0)+1};
+     else if((o.fit||0)<4)objects[i]={...o,fit:(o.fit||0)+1};
      else{const n=pg.querySelectorAll(".wk").length;if(n>1)objects[i]={...o,wkMax:n-1};else changed=false}});
     const gals=[...d.querySelectorAll("section.gal.wsum")];
     gals.forEach(g=>{const name=g.querySelector(".gh b")?.textContent;const i=objects.findIndex(o=>o.sumMoved&&!o.galSmall&&String(o.name||"Объект")===name);
