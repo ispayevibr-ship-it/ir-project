@@ -15828,6 +15828,8 @@ function byCreation(list){if(!Array.isArray(list))return list;var key=function(c
     editBar.innerHTML='<span data-edit-word></span><button type="button" class="ok" data-edit-save>Сохранить</button><button type="button" data-edit-cancel>Отмена</button>';
     editBar.querySelector("[data-edit-save]").onclick=function(){editSave()};editBar.querySelector("[data-edit-cancel]").onclick=function(){editCancel()};root.appendChild(editBar)}
    editBar.hidden=!editSess;root.setAttribute("data-edit-mode",editSess?editSess.kind:"");if(!editSess)return;
+   // (in the page's «Режим редактирования» the mode only hands its edits to the page, which keeps them until «Сохранить» — «Готово»)
+   editBar.querySelector("[data-edit-save]").textContent=P.editGlobal?"Готово":"Сохранить";
    editBar.querySelector("[data-edit-word]").textContent="Режим правки: "+EDIT_WORD[editSess.kind]+(editSess.pending.length?" · изменений "+editSess.pending.length:"")}
   function panelDown(e,hit){var ek=hit&&hit.o?editKind(hit.o):null;if(panelMode==="pull"||P.report||typeof P.onTrimFix!=="function"||!hit||!hit.o||String(hit.id)!==String(selected)||!(ek==="panel"||ek==="trim"&&panelMode==="line"))return false;
    // (a trim cut by a line on the face clicked — «как мне вот так обрезать угол?», the engineer 20.11.2026: the plane through
@@ -20520,7 +20522,7 @@ function byCreation(list){if(!Array.isArray(list))return list;var key=function(c
    try{out.parts=e.enc(derivedParts)}catch(x){out.parts="!"}
    return JSON.stringify(out).replace(/,"id":\d+/g,"").replace(/\{"R":\d+\}/g,'"R"').replace(/\{"MT":\d+\}/g,'"MT"').replace(/\{"G":\d+\}/g,'"G"').replace(/\{"T":"[A-Za-z0-9]+","b":\d+\}/g,'"B"')
   }
-  return{host:host,key:key,root:root,bolts:boltsForCheck,update:update,metalDetail:function(){var d=[];metalOf(d);return d},setSpecs:function(r){specList=Array.isArray(r)?r:[];specAsked=true;metalRows=null;if(metalEl&&!metalEl.hidden)metalPaint()},modelText:modelText,camAt:function(){return camera.position.toArray().concat(controls.target.toArray())},formPreview:formPreview,pickInfo:pickInfo,trimFix:trimFix,setDragWhole:setDragWhole,dragWhole:function(){return dragWhole},setPanelMode:setPanelMode,panelMode:function(){return panelMode},setPairMode:setPairMode,editStart:editStart,editSave:editSave,editCancel:editCancel,editMode:function(){return editSess?editSess.kind:""},focus:focus,look:look,startCopy:startCopy,startPlacement:startPlacement,nodes:nodeList,openNode:openNode,snapshots:snapshots,card:card,lightPart:lightPart,
+  return{host:host,key:key,root:root,bolts:boltsForCheck,update:update,metalDetail:function(){var d=[];metalOf(d);return d},setSpecs:function(r){specList=Array.isArray(r)?r:[];specAsked=true;metalRows=null;if(metalEl&&!metalEl.hidden)metalPaint()},modelText:modelText,camAt:function(){return camera.position.toArray().concat(controls.target.toArray())},formPreview:formPreview,pickInfo:pickInfo,trimFix:trimFix,setDragWhole:setDragWhole,dragWhole:function(){return dragWhole},setPanelMode:setPanelMode,panelMode:function(){return panelMode},setPairMode:setPairMode,editStart:editStart,editSave:editSave,editCancel:editCancel,editMode:function(){return editSess?editSess.kind:""},rebuild:function(){built="";update(P)},focus:focus,look:look,startCopy:startCopy,startPlacement:startPlacement,nodes:nodeList,openNode:openNode,snapshots:snapshots,card:card,lightPart:lightPart,
    dispose:function(){
     cameraMemory[memoryKey]={position:camera.position.clone(),target:controls.target.clone(),up:camera.up.clone()};
     alive=false;clearExplode();cancelCopy();cancelPlacement();if(raf)cancelAnimationFrame(raf);if(awayTimer)clearTimeout(awayTimer);
@@ -20564,5 +20566,5 @@ function byCreation(list){if(!Array.isArray(list))return list;var key=function(c
   formPreview:function(p){return call("formPreview",p)},
   pickInfo:function(){return call("pickInfo")||null},
   trimFix:function(f,l){return call("trimFix",f,l)},
-  setDragWhole:function(v){return call("setDragWhole",v)},dragWhole:function(){return Boolean(call("dragWhole"))},setPanelMode:function(v){return call("setPanelMode",v)},panelMode:function(){return call("panelMode")||"pull"},setPairMode:function(v){return call("setPairMode",v)},editStart:function(v){return call("editStart",v)},editSave:function(){return call("editSave")},editCancel:function(){return call("editCancel")},editMode:function(){return call("editMode")||""}}
+  setDragWhole:function(v){return call("setDragWhole",v)},dragWhole:function(){return Boolean(call("dragWhole"))},setPanelMode:function(v){return call("setPanelMode",v)},panelMode:function(){return call("panelMode")||"pull"},setPairMode:function(v){return call("setPairMode",v)},editStart:function(v){return call("editStart",v)},editSave:function(){return call("editSave")},editCancel:function(){return call("editCancel")},rebuild:function(){return call("rebuild")},editMode:function(){return call("editMode")||""}}
 })();

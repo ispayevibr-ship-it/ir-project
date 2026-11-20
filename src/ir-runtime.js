@@ -1269,7 +1269,7 @@ window.irSchemePage=async function(objectId,opts){
   irSchemeLoading.setBar(bar,share,what)
  };
  try{
- const app=document.getElementById("app"),root=irProject.data.forObject(oid),schemeApi=root.section("scheme"),object=await irProject.data.objects.get(oid);
+ const app=document.getElementById("app"),root=irProject.data.forObject(oid),realApi=root.section("scheme"),object=await irProject.data.objects.get(oid);
  if(location.hash!==requestedRoute){loading.cancel();return}
  if(!object){loading.cancel();if(!headless)location.hash="/objects";return}
  loading.progress(.04,"Читаем элементы схемы из базы");
@@ -1289,7 +1289,59 @@ window.irSchemePage=async function(objectId,opts){
  let lockRow=null;
  const readLock=async()=>{try{lockRow=arr(await metaApi.list()).find(r=>r.record_type===LOCK&&r.data?.value===true)||null}catch{lockRow=null}return lockRow};
  const mayEdit=()=>window.irAccess?window.irAccess.canEdit("scheme"):false;
- const canEdit=()=>mayEdit()&&!lockRow;
+ // Режим редактирования (просьба инженера 20.11.2026: «захожу, только могу смотреть. перехожу в режим редактирования.
+ // редактирую (чтобы ничего не висло…), далее нажимаю сохранить и схема перестраивается»): схема открывается только для
+ // просмотра; кнопка «✎ Режим редактирования» включает правку. Пока режим включён, правки не пишутся в базу — копятся в
+ // памяти окна (editStage), 3D меняется на месте; «Сохранить» записывает их по порядку и один раз перестраивает схему,
+ // «Отмена» возвращает всё как было до входа в режим. canWrite — право и запрет (самоисправления при открытии схемы).
+ let editOn=false,editStage=null;
+ const canWrite=()=>mayEdit()&&!lockRow;
+ const canEdit=()=>canWrite()&&editOn;
+ const clone=v=>v==null?v:JSON.parse(JSON.stringify(v));
+ const newStage=()=>({ops:[],n:0,rows:arr(rows).slice(),snap:clone(arr(rows))});
+ const sameId=(a,b)=>String(a)===String(b);
+ const schemeApi={
+  list:()=>editStage?Promise.resolve(editStage.rows.slice()):realApi.list(),
+  get:id=>editStage?Promise.resolve(editStage.rows.find(r=>sameId(r.id,id))||null):typeof realApi.get==="function"?realApi.get(id):realApi.list().then(l=>arr(l).find(r=>sameId(r.id,id))||null),
+  create:p=>{if(!editStage)return realApi.create(p);const rec={...clone(p),id:"edit"+(++editStage.n)};editStage.rows=[rec,...editStage.rows];editStage.ops.push({op:"create",id:rec.id,p:clone(p)});paintEditState();return Promise.resolve(rec)},
+  update:(id,p)=>{if(!editStage)return realApi.update(id,p);let rec=null;editStage.rows=editStage.rows.map(r=>sameId(r.id,id)?(rec={...r,...clone(p),id:r.id}):r);editStage.ops.push({op:"update",id,p:clone(p)});paintEditState();return Promise.resolve(rec)},
+  remove:id=>{if(!editStage)return realApi.remove(id);editStage.rows=editStage.rows.filter(r=>!sameId(r.id,id));editStage.ops.push({op:"remove",id});paintEditState();return Promise.resolve(true)}
+ };
+ // (an element added and removed in the same session is not written at all; ids of added ones inside later records —
+ // a fix of an added trim — are replaced by the ids the base gives)
+ const stageOps=list=>{const dropped=new Set(list.filter(o=>o.op==="remove"&&/^edit\d+$/.test(String(o.id))).map(o=>String(o.id)));
+  return list.filter(o=>!dropped.has(String(o.id))&&!(o.p&&dropped.size&&[...dropped].some(k=>JSON.stringify(o.p).includes('"'+k+'"'))))};
+ const mapIds=(p,map)=>p==null?p:JSON.parse(JSON.stringify(p).replace(/"(edit\d+)"/g,(m,k)=>map.has(k)?JSON.stringify(map.get(k)):m));
+ function paintEditState(){const n=editStage?stageOps(editStage.ops).length:0;
+  const b=document.getElementById("schemeEditSave");if(b){b.textContent=n?`Сохранить (${n})`:"Сохранить";b.disabled=!n}
+  const w=document.getElementById("schemeEditWord");if(w)w.textContent=n?`Правок: ${n}`:"Правок нет"}
+ function editEnter(){if(!canWrite()||editOn)return;editOn=true;editStage=newStage();draw()}
+ async function editLeave(save){
+  if(!editOn)return;const V=window.irThreeSchemeView;
+  if(save){
+   try{await V?.editSave?.()}catch(e){}
+   const ops=stageOps(editStage?.ops||[]),map=new Map(),btn=document.getElementById("schemeEditSave");let i=0,removed=false;
+   try{for(const o of ops){if(btn)btn.textContent=`Сохраняется… ${++i}/${ops.length}`;
+     const id=map.has(String(o.id))?map.get(String(o.id)):o.id;
+     if(o.op==="create"){const saved=await realApi.create(mapIds(o.p,map));if(saved?.id!=null)map.set(String(o.id),saved.id)}
+     else if(o.op==="update")await realApi.update(id,mapIds(o.p,map));
+     else{await realApi.remove(id);removed=true}}
+   }catch(error){alert(`Сохранено ${Math.max(0,i-1)} из ${ops.length} правок. Остальные не записались: `+String(error?.message||error))}
+   const jr=editStage?.journal||[];
+   editStage=null;editOn=false;rows=await realApi.list().catch(()=>rows);if(removed)bumpTrash();
+   for(const[e,a,x]of jr)try{journalNow(e!=null&&map.has(String(e))?map.get(String(e)):e,a,x)}catch(err){}
+   if(selectedId&&!allRecords().some(x=>sameId(x.id,selectedId)))selectedId=map.has(String(selectedId))?String(map.get(String(selectedId))):"";
+   if(ops.length&&document.querySelector("#schemeCanvas .ir-three-root")){draw();try{V?.rebuild?.()}catch(e){}}else draw();
+   return}
+  try{V?.editCancel?.()}catch(e){}
+  const had=editStage?editStage.ops.length:0;if(had&&!confirm(`Отменить все правки (${stageOps(editStage.ops).length})? Схема вернётся как была до режима редактирования.`)){restoreKeyboardAfterConfirm();return}
+  if(had)restoreKeyboardAfterConfirm();
+  if(had)rows=editStage.snap;editStage=null;editOn=false;
+  if(selectedId&&!allRecords().some(x=>sameId(x.id,selectedId)))selectedId="";
+  draw()}
+ // (clearing, «Вернуть», «Удалённые» go through the main program straight to the base: only without unsaved edits)
+ const direct=async fn=>{if(editStage&&stageOps(editStage.ops).length){alert("Сначала нажмите «Сохранить» или «Отмена» в режиме редактирования.");return}
+  const keep=!!editStage;editStage=null;try{return await fn()}finally{if(keep&&editOn)editStage=newStage()}};
  await readLock();
  const num=v=>{const n=Number(String(v??"").trim().replace(/\s/g,"").replace(",","."));return Number.isFinite(n)?n:0};
  // (one number format for the page: toLocaleString with options builds a new one at each call — several thousand
@@ -1388,9 +1440,9 @@ window.irSchemePage=async function(objectId,opts){
   // «почему профлист в ручной? он где то в км должен быть»)
   for(const r of arr(rows)){const d=r.data||{};if(String(d.fitting_type||"")!=="porch_part"||!d.layout)continue;const src=(by.get(String(d.layout.porch))||[])[0];if(!src)continue;
    const fix={};for(const f of PORCH_SRC)if(src[f]!==undefined&&d[f]===undefined)fix[f]=src[f];if(d.engineer_added)fix.engineer_added=false;if(!Object.keys(fix).length)continue;
-   r.data={...d,...fix};if(!headless&&canEdit())schemeApi.update(r.id,{record_type:r.record_type||"scheme_column",parent_id:r.parent_id,title:r.title,data:r.data}).catch(()=>{})}
+   r.data={...d,...fix};if(!headless&&canWrite())realApi.update(r.id,{record_type:r.record_type||"scheme_column",parent_id:r.parent_id,title:r.title,data:r.data}).catch(()=>{})}
   const metaRow=arr(await metaApi.list()).find(r=>r.record_type==="scheme_porch_parts"),made=new Set(arr(metaRow?.data?.keys).map(String));
-  const add=[];if(!headless&&canEdit())for(const[k,ls]of by)if(ls.length>=2)for(const part of["sheet","abut"]){const kk=k+"|"+part;if(!have.has(kk)&&!made.has(kk))add.push([k,part,ls[0]])}
+  const add=[];if(!headless&&canWrite())for(const[k,ls]of by)if(ls.length>=2)for(const part of["sheet","abut"]){const kk=k+"|"+part;if(!have.has(kk)&&!made.has(kk))add.push([k,part,ls[0]])}
   if(add.length){const used=new Set(arr(rows).map(r=>String(r.title||r.data?.position||"")));let n=0;
    for(const[k,part,src]of add){let title;do{title="PRC-"+String(++n).padStart(4,"0")}while(used.has(title));used.add(title);
     const keep=["axis_x","axis_y","offset_x_mm","offset_y_mm","absolute_x_mm","absolute_y_mm","absolute_x2_mm","absolute_y2_mm","end_axis_x","end_axis_y","end_offset_x_mm","end_offset_y_mm","z0_mm","z1_mm","end_z_mm","work_type_id",...PORCH_SRC];
@@ -2129,6 +2181,7 @@ const fittingSection=c=>c.ft==="flight"||c.ft==="ladder"||c.ft==="deck"?(c.fd>0?
    colorMode:schemeColorMode,showLabels:labelsVisible,showDimensions:dimensionsVisible,
    background:currentBackground(),backgroundColor:currentCustomBackground(),
    canEdit:Boolean(canEdit()&&activeWorkId),
+   editGlobal:editOn,
    // Marks with their remaining quantity for placing new members by clicks.
    marks:activeMarks().map(m=>{const q=markPlacement(m);return{id:m.id,title:markLabel(m),mark:m.mark||m.title,total:q.total,placed:q.placed,left:q.left,geometry:isTrimMark(m)?"trim":guessGeometry(m),panel:isPanelMark(m),work:markWork(m)}}),
    works:enabledWorks().map(w=>({id:w.id,name:workTitle(w)})),porchMade,
@@ -2265,6 +2318,8 @@ const fittingSection=c=>c.ft==="flight"||c.ft==="ladder"||c.ft==="deck"?(c.fd>0?
   autoLinkTimer=setTimeout(()=>{autoLinkTimer=0;autoLinkNow()},autoLinkFirst?5e3:AUTO_LINK_WAIT);autoLinkFirst=false
  }
  async function autoLinkNow(){
+  // (unsaved edits of the mode of editing do not go to the link — after «Сохранить» it updates)
+  if(editStage){autoLinkLater();return}
   if(autoLinkBusy||!autoLinkOk()||!document.getElementById("schemeShareLink"))return;
   autoLinkBusy=true;
   try{
@@ -2391,7 +2446,9 @@ const fittingSection=c=>c.ft==="flight"||c.ft==="ladder"||c.ft==="deck"?(c.fd>0?
   if(n)refreshAfterMemberChange();
   return n
  }
- function journalAuto(elementId,action,extra){
+ // (in the mode of editing the journal of edits is written with «Сохранить», and not at all with «Отмена»)
+ function journalAuto(elementId,action,extra){if(editStage){(editStage.journal||(editStage.journal=[])).push([elementId,action,extra]);return Promise.resolve()}return journalNow(elementId,action,extra)}
+ function journalNow(elementId,action,extra){
   if(!irProject.ai?.invoke||(!elementId&&action!=="grid"))return Promise.resolve(null);
   return irProject.ai.invoke("ai-montage:journal-add",{objectId:oid,elementId:elementId?String(elementId):undefined,action,auto:true,objectName:String(object?.name||object?.title||""),...(extra||{})})
    .then(r=>{if(r?.entry&&elementId)journalSent.set(String(elementId),journalStamp(r.entry.text+(r.entry.rule?" → правило: "+r.entry.rule.mark+" — "+r.entry.rule.typeName:"")));return r})
@@ -3231,7 +3288,7 @@ const fittingSection=c=>c.ft==="flight"||c.ft==="ladder"||c.ft==="deck"?(c.fd>0?
  function bumpTrash(){loadTrashCount().then(()=>{const b=document.getElementById("schemeTrash");if(b)b.textContent="🗑 Удалённые"+(schemeTrashCount?" ("+schemeTrashCount+")":"")}).catch(()=>{})}
  async function openSchemeTrash(){
   if(!window.irTrash){alert("Корзина заработает после перезапуска программы: закройте IR Project и откройте снова.");return}
-  window.irTrash.open({objectId:oid,section:"scheme",title:"Удалённое со схемы",onRestored:async()=>{rows=await schemeApi.list().catch(()=>rows);await loadSnapshot();refreshGridModel();draw()}})
+  window.irTrash.open({objectId:oid,section:"scheme",title:"Удалённое со схемы",onRestored:async()=>{rows=await realApi.list().catch(()=>rows);if(editStage)editStage=newStage();await loadSnapshot();refreshGridModel();draw()}})
  }
  async function clearScheme(){
   if(!canEdit())return;
@@ -3327,11 +3384,12 @@ const fittingSection=c=>c.ft==="flight"||c.ft==="ladder"||c.ft==="deck"?(c.fd>0?
   const shownNow=columns();
   if(selectedId&&!shownNow.some(c=>c.id===selectedId))selectedId="";
   const s=stats(),mp=statusCounts(),works=enabledWorks(),currentWork=works.find(w=>w.id===activeWorkId)||null,workOptions='<option value="__frame__" '+(frameMode?'selected':'')+'>Все виды работ вместе</option>'+works.map(w=>'<option value="'+esc(w.id)+'" '+(!frameMode&&w.id===activeWorkId?'selected':'')+'>'+esc(w.name)+(w.code?' · '+esc(w.code):'')+'</option>').join(""),groupOptions=schemeGroups().map(g=>`<option value="${esc(g.key)}" ${g.key===activeScheme?"selected":""}>${esc(g.label)} · ${g.marks} марок · ${g.placed} элементов</option>`).join(""),editActions=canEdit()?`<button type="button" class="scheme-grid-button" id="schemeGridConfig">⚙ Параметры сетки</button>${irProject.ai?.invoke?`<button type="button" class="scheme-grid-button danger" id="schemeClear" ${s.total?"":"disabled"} title="Удалить все элементы схемы; копия сохраняется">Очистить схему</button>${prelimLive().length?`<button type="button" class="scheme-grid-button danger" id="schemeClearPrelim" title="Удалить все предварительные элементы — определённые по чертежам не полностью (бледные). Смонтированные остаются. Следующая расстановка их заново не ставит. Копия сохраняется — их можно вернуть кнопкой «Вернуть».">Удалить все предварительные (${prelimLive().length})</button>`:""}${leftovers().length?`<button type="button" class="scheme-grid-button danger" id="schemeClearMissing" title="Удалить элементы, которых нет в новом анализе чертежей, — остатки прежних расстановок. Смонтированные и изменённые вами остаются. Копия сохраняется — их можно вернуть кнопкой «Вернуть».">Убрать «нет в анализе» (${leftovers().length})</button>`:""}${schemeSnapshot?`<button type="button" class="scheme-grid-button" id="schemeRestore" title="Вернуть элементы, удалённые очисткой ${esc(new Date(schemeSnapshot.at).toLocaleString("ru-RU"))}">↺ Вернуть (${schemeSnapshot.count})</button>`:""}${`<button type="button" class="scheme-grid-button" id="schemeTrash" title="Удалённое со схемы за последние 7 дней: элементы, марки целиком, сетки, очистки — можно вернуть">🗑 Удалённые${schemeTrashCount?" ("+schemeTrashCount+")":""}</button>`}`:""}${!frameMode&&activeWorkId?`<button type="button" class="scheme-grid-button" id="schemeNewView">＋ Добавить сетку</button>${activeView()?`<button type="button" class="scheme-grid-button" id="schemeEditView">Изменить</button><button type="button" class="scheme-grid-button danger" id="schemeDeleteView">Удалить сетку</button>`:""}`:""}`:"",lockWho=lockRow?[lockRow.data?.by,lockRow.data?.at?new Date(lockRow.data.at).toLocaleString("ru-RU",{day:"2-digit",month:"2-digit",year:"numeric",hour:"2-digit",minute:"2-digit"}):""].filter(Boolean).join(", "):"",
-   lockAction=mayEdit()?(lockRow?`<button type="button" class="scheme-grid-button scheme-lock-button on" id="schemeLock" aria-pressed="true" title="Снять запрет: схему снова можно менять вручную и расстановкой по чертежам">🔓 Разрешить редактирование</button>`:`<button type="button" class="scheme-grid-button scheme-lock-button" id="schemeLock" aria-pressed="false" title="Запретить любые изменения схемы — вручную, расстановкой по чертежам и автоматически — пока запрет не снимут">🔒 Запретить к редактированию</button>`):"",
+   editAction=canWrite()?(editOn?`<span class="scheme-edit-state" role="status"><b>✎ Режим редактирования</b><small id="schemeEditWord">Правок нет</small><button type="button" class="scheme-grid-button ok" id="schemeEditSave" disabled>Сохранить</button><button type="button" class="scheme-grid-button" id="schemeEditCancel">Отмена</button></span>`:`<button type="button" class="scheme-grid-button scheme-edit-on" id="schemeEditOn" title="Включить правку схемы: правки видны сразу, записываются кнопкой «Сохранить»">✎ Режим редактирования</button>`):"",
+   lockAction=mayEdit()&&!editOn?(lockRow?`<button type="button" class="scheme-grid-button scheme-lock-button on" id="schemeLock" aria-pressed="true" title="Снять запрет: схему снова можно менять вручную и расстановкой по чертежам">🔓 Разрешить редактирование</button>`:`<button type="button" class="scheme-grid-button scheme-lock-button" id="schemeLock" aria-pressed="false" title="Запретить любые изменения схемы — вручную, расстановкой по чертежам и автоматически — пока запрет не снимут">🔒 Запретить к редактированию</button>`):"",
    lockBanner=lockRow?`<div class="scheme-lock-banner" role="status">🔒 <b>Схема запрещена к редактированию</b>${lockWho?`<span>${esc(lockWho)}</span>`:""}<small>Изменения вручную, расстановка по чертежам и автоматические изменения не вносятся, пока запрет не снимут.</small></div>`:"",
    emptyOverlay=activeWorkId?(s.total?"":`<div class="scheme-empty-overlay"><b>Схема пока пустая</b><span>Нажмите «Добавить элемент» и выберите марку для этой монтажной схемы${window.irAiRecognitionPage?" или загрузите чертежи в «ИИ-распознавание»":""}.</span></div>`):`<div class="scheme-empty-overlay"><b>Монтажная схема не включена</b><span>Откройте «Виды работ» и включите галочку «Нужна монтажная схема» у нужного вида работ.</span></div>`;
   app.innerHTML=`<div class="scheme-page">
-   <div class="scheme-head"><button class="back" id="schemeBack">← Назад</button><div><h1>Монтажная схема</h1><p>${esc(object.name||"")}${frameMode?"":currentWork?` · ${esc(currentWork.name)}`:""} · ${esc(activeGroup().label)}</p></div><div class="scheme-head-actions">${window.irAiRecognitionPage?`<a class="scheme-grid-button scheme-ai-button" id="schemeAiRecognition" href="#/objects/object/${esc(oid)}/ai-recognition" title="Загрузить чертежи КМ / КМД / АР и расставить элементы на этой схеме">ИИ-распознавание</a>`:""}<label class="scheme-type-select-wrap work"><span>Режим / вид работ</span><select id="schemeWorkSelect">${workOptions}</select></label><label class="scheme-type-select-wrap"><span>Схема</span><select id="schemeTypeSelect" ${frameMode||activeWorkId?"":"disabled"}>${groupOptions}</select></label>${editActions}${lockAction}${ownWindowAction()}</div></div>${lockBanner}
+   <div class="scheme-head"><button class="back" id="schemeBack">← Назад</button><div><h1>Монтажная схема</h1><p>${esc(object.name||"")}${frameMode?"":currentWork?` · ${esc(currentWork.name)}`:""} · ${esc(activeGroup().label)}</p></div><div class="scheme-head-actions">${window.irAiRecognitionPage?`<a class="scheme-grid-button scheme-ai-button" id="schemeAiRecognition" href="#/objects/object/${esc(oid)}/ai-recognition" title="Загрузить чертежи КМ / КМД / АР и расставить элементы на этой схеме">ИИ-распознавание</a>`:""}<label class="scheme-type-select-wrap work"><span>Режим / вид работ</span><select id="schemeWorkSelect">${workOptions}</select></label><label class="scheme-type-select-wrap"><span>Схема</span><select id="schemeTypeSelect" ${frameMode||activeWorkId?"":"disabled"}>${groupOptions}</select></label>${editAction}${editActions}${lockAction}${ownWindowAction()}</div></div>${lockBanner}
    <details class="scheme-data" id="schemeDataPanel" ${dataPanelOpen?"open":""}><summary><b>Данные схемы</b><small>оси ${fmt(spanX)} × ${fmt(spanY)} мм · на схеме ${s.total} · готовность ${mp.pct}% · смонтировано ${fmt(mp.mounted)} из ${fmt(mp.total)} шт.</small><span class="scheme-data-act"><i class="when-open">Скрыть</i><i class="when-closed">Показать</i></span></summary>
    <div class="scheme-summary">
     <div><span>Оси ${esc(axesX[0])}–${esc(axesX.at(-1))}</span><b>${fmt(spanX)} мм</b><small>${gridDirX==="ltr"?"Слева направо":"Справа налево"}: ${esc(axesX[0])} → ${esc(axesX.at(-1))} · ${gridXSpans.length} пролётов</small></div>
@@ -3377,7 +3435,7 @@ const fittingSection=c=>c.ft==="flight"||c.ft==="ladder"||c.ft==="deck"?(c.fd>0?
    </div>
    ${canEdit()?gridEditorHtml()+editorHtml()+viewDialogHtml():""}
   </div>`;
-  document.getElementById("schemeBack").onclick=()=>location.hash=`/objects/object/${oid}`;document.getElementById("schemeAiRecognition")?.addEventListener("click",e=>{e.preventDefault();location.hash=`/objects/object/${oid}/ai-recognition`});document.getElementById("schemeWorkSelect")?.addEventListener("change",e=>{frameMode=e.target.value==="__frame__";if(!frameMode)activeWorkId=e.target.value;activeScheme="all";selectedId="";syncNotice=null;elementSearch="";pickerScrollTop=0;hiddenGroups.clear();hiddenSections.clear();confFilter="all";statusFilter="all";levelMin="";levelMax="";refreshGridModel();draw()});document.getElementById("schemeTypeSelect")?.addEventListener("change",e=>{activeScheme=e.target.value;selectedId="";syncNotice=null;elementSearch="";pickerScrollTop=0;refreshGridModel();draw()});
+  document.getElementById("schemeBack").onclick=()=>{if(editStage&&stageOps(editStage.ops).length&&!confirm("Есть несохранённые правки режима редактирования. Уйти без сохранения?")){restoreKeyboardAfterConfirm();return}location.hash=`/objects/object/${oid}`};document.getElementById("schemeAiRecognition")?.addEventListener("click",e=>{e.preventDefault();location.hash=`/objects/object/${oid}/ai-recognition`});document.getElementById("schemeWorkSelect")?.addEventListener("change",e=>{frameMode=e.target.value==="__frame__";if(!frameMode)activeWorkId=e.target.value;activeScheme="all";selectedId="";syncNotice=null;elementSearch="";pickerScrollTop=0;hiddenGroups.clear();hiddenSections.clear();confFilter="all";statusFilter="all";levelMin="";levelMax="";refreshGridModel();draw()});document.getElementById("schemeTypeSelect")?.addEventListener("change",e=>{activeScheme=e.target.value;selectedId="";syncNotice=null;elementSearch="";pickerScrollTop=0;refreshGridModel();draw()});
   document.querySelector(".scheme-layers")?.addEventListener("toggle",e=>{layersPanelOpen=e.target.open});
   document.getElementById("schemeDetails")?.addEventListener("click",e=>{if(e.target.closest("[data-scheme-side]"))setSidePanel(!sidePanelOpen)});
   document.getElementById("schemeDataPanel")?.addEventListener("toggle",e=>{dataPanelOpen=e.target.open;try{localStorage.setItem("ir-scheme-data-open",dataPanelOpen?"1":"0")}catch(err){}});
@@ -3415,12 +3473,13 @@ const fittingSection=c=>c.ft==="flight"||c.ft==="ladder"||c.ft==="deck"?(c.fd>0?
   };
   document.getElementById("schemeToggleLabels")?.addEventListener("click",()=>{labelsVisible=!labelsVisible;updateAnnotations()});
   document.getElementById("schemeToggleDimensions")?.addEventListener("click",()=>{dimensionsVisible=!dimensionsVisible;updateAnnotations()});
-  document.getElementById("schemeClear")?.addEventListener("click",clearScheme);
-  document.getElementById("schemeRestore")?.addEventListener("click",restoreScheme);
-  document.getElementById("schemeTrash")?.addEventListener("click",openSchemeTrash);
-  document.getElementById("schemeClearMissing")?.addEventListener("click",clearMissing);
-  document.getElementById("schemeClearPrelim")?.addEventListener("click",clearPreliminary);
+  document.getElementById("schemeClear")?.addEventListener("click",()=>direct(clearScheme));
+  document.getElementById("schemeRestore")?.addEventListener("click",()=>direct(restoreScheme));
+  document.getElementById("schemeTrash")?.addEventListener("click",()=>direct(openSchemeTrash));
+  document.getElementById("schemeClearMissing")?.addEventListener("click",()=>direct(clearMissing));
+  document.getElementById("schemeClearPrelim")?.addEventListener("click",()=>direct(clearPreliminary));
   document.getElementById("schemeLock")?.addEventListener("click",toggleLock);
+  document.getElementById("schemeEditOn")?.addEventListener("click",editEnter);document.getElementById("schemeEditSave")?.addEventListener("click",()=>editLeave(true));document.getElementById("schemeEditCancel")?.addEventListener("click",()=>editLeave(false));paintEditState();
   document.getElementById("schemeOwnWindow")?.addEventListener("click",()=>{try{window.top.irTabWindow.open(location.hash.slice(1))}catch(e){}});
   renderScene();renderDetails();bindGridEditor();bindEditor();bindViewManager()
  }
