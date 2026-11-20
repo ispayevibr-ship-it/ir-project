@@ -15752,9 +15752,9 @@ function byCreation(list){if(!Array.isArray(list))return list;var key=function(c
   // 20.11.2026 «одна фасонка может быть поверх другой, поверх металл и сэндвича». The motion goes axis by axis, so a piece
   // stopped on a face slides on along it)
   var moveX=null;
-  function moveSlide(o,vec,id){var off=new T.Vector3();[new T.Vector3(vec.x,0,0),new T.Vector3(0,vec.y,0),new T.Vector3(0,0,vec.z)].forEach(function(c){if(c.lengthSq()<1e-12)return;off.add(moveStop(o,c,id,off))});return off}
-  function moveStop(o,vec,id,off){off=off||new T.Vector3();var len=vec.length();if(len<1e-6)return vec;var dir=vec.clone().divideScalar(len),X=moveX||(moveX=trimIndex()),b=new T.Box3().setFromObject(o).translate(off),sw=b.clone();sw.min.add(new T.Vector3(Math.min(0,vec.x),Math.min(0,vec.y),Math.min(0,vec.z)));sw.max.add(new T.Vector3(Math.max(0,vec.x),Math.max(0,vec.y),Math.max(0,vec.z)));sw.expandByScalar(.003);
-   var g=o.geometry,P=g.attributes.position,step=Math.max(1,Math.floor(P.count/120)),pts=[],v=new T.Vector3();o.updateMatrixWorld(true);for(var i=0;i<P.count;i+=step)pts.push(v.fromBufferAttribute(P,i).applyMatrix4(o.matrixWorld).clone().add(off));
+  function moveSlide(o,vec,id,list){var off=new T.Vector3();[new T.Vector3(vec.x,0,0),new T.Vector3(0,vec.y,0),new T.Vector3(0,0,vec.z)].forEach(function(c){if(c.lengthSq()<1e-12)return;off.add(moveStop(o,c,id,off,list))});return off}
+  function moveStop(o,vec,id,off,list){off=off||new T.Vector3();var len=vec.length();if(len<1e-6)return vec;var ms=(list&&list.length?list:[o]),dir=vec.clone().divideScalar(len),X=moveX||(moveX=trimIndex()),b=new T.Box3();ms.forEach(function(m){b.expandByObject(m)});b.translate(off);var sw=b.clone();sw.min.add(new T.Vector3(Math.min(0,vec.x),Math.min(0,vec.y),Math.min(0,vec.z)));sw.max.add(new T.Vector3(Math.max(0,vec.x),Math.max(0,vec.y),Math.max(0,vec.z)));sw.expandByScalar(.003);
+   var pts=[],v=new T.Vector3();ms.forEach(function(m){var P=m.geometry.attributes.position,step=Math.max(1,Math.floor(P.count/Math.max(40,Math.floor(400/ms.length))));m.updateMatrixWorld(true);for(var i=0;i<P.count;i+=step)pts.push(v.fromBufferAttribute(P,i).applyMatrix4(m.matrixWorld).clone().add(off))});
    var best=len,rc=new T.Raycaster(),hs=[];
    // (not through a trim, the steel or a panel)
    var own=dataById.get(String(id)),ownAll=Boolean(own);
@@ -15765,8 +15765,12 @@ X.all.forEach(function(f){var u=f.o.userData||{},c=dataById.get(f.id);if(f.o===o
     try{pts.forEach(function(p){rc.set(p.clone().addScaledVector(dir,-.0005),dir);rc.far=best+.002;hs.length=0;f.o.raycast(rc,hs);hs.forEach(function(h){var d=h.distance-.0005;
      // (a face the piece lies on, met head-on — it stops there: a piece in touch with a wall slid through it, the hit at 0
      // taken for the face it lies on; along the face it slides — the engineer 20.11.2026 «сквозь стену провалился фасонный»)
-     if(d<=.0004){if(h.face&&h.face.normal.clone().transformDirection(f.o.matrixWorld).dot(dir)<-.3)best=0;return}
-     if(d-.001<best)best=Math.max(0,d-.001)})})}finally{ml.forEach(function(m,i){if(m)m.side=sd[i]})}});
+     // (only a face met head-on stops it, at touch, 0 mm; a face along the motion — the roof slope, a wall the shelf lies
+     // on — it rides over: the engineer 20.11.2026 «почему не могу к стене поставить? фасонка … можно хоть как угодно
+     // поставить», an abutment trim held 20 mm from the wall by the sloped roof under its lower shelf)
+     var cn=h.face?h.face.normal.clone().transformDirection(f.o.matrixWorld).dot(dir):-1;if(cn>-.35)return;
+     if(d<=.0004){best=0;return}
+     if(d-.0002<best)best=Math.max(0,d-.0002)})})}finally{ml.forEach(function(m,i){if(m)m.side=sd[i]})}});
    return dir.multiplyScalar(best)}
   function moveGeo(m,vec){var g=m.geometry.clone(),ps=g.attributes.position,inv=new T.Matrix4().copy(m.matrixWorld).invert(),v=new T.Vector3();m.updateMatrixWorld(true);
    for(var i=0;i<ps.count;i++){v.fromBufferAttribute(ps,i).applyMatrix4(m.matrixWorld).add(vec).applyMatrix4(inv);ps.setXYZ(i,v.x,v.y,v.z)}ps.needsUpdate=true;g.computeBoundingBox();g.computeBoundingSphere();if(g.userData)delete g.userData.outline;m.geometry=g;m.updateMatrixWorld(true);m.userData.engineerFix=true;if(m.userData)delete m.userData.sphere}
@@ -15862,12 +15866,48 @@ X.all.forEach(function(f){var u=f.o.userData||{},c=dataById.get(f.id);if(f.o===o
    if(panelMode==="line"&&cutPts.length===1){screenRay(e);var h=hitMember();if(h&&String(h.id)===String(selected)){var m=fromWorld(h.point),a=cutPts[0].q;formPreview([{x:a[0],y:a[1],z:a[2]},{x:m.x,y:m.y,z:m.z}])}}return false}
   function panelUp(e){if(panelClick){panelClick=false;e.stopImmediatePropagation();return true}if(!rectDrag)return false;var d=rectDrag;rectDrag=null;controls.enabled=true;formPreview(null);renderer.domElement.title="";e.stopImmediatePropagation();if(!d.B||d.B.distanceTo(d.p0)<.02)return true;
    var b=fromWorld(d.B);panelSend({x:d.q[0],y:d.q[1],z:d.q[2],action:"rect",a:d.q,b:[Math.round(b.x),Math.round(b.y),Math.round(b.z)],n:mmDir(d.wn,d.p0),member_id:d.id});return true}
+  // ---- What is dragged, shown as in programs of modelling (the engineer, 20.11.2026 «эта линия абсолютно непонятно
+  // показывает»): the element itself with all its pieces, blue with a dark outline, red at a stop; a pale copy at the old
+  // place; a dashed guide only along the axis of the move, in the colour of that axis; a tag by the cursor with the mm.
+  var dragGhost=null,dragTag=null,ghostMat=new T.MeshBasicMaterial({color:0x2f7bf6,transparent:true,opacity:.6,depthWrite:false}),
+   ghostStopMat=new T.MeshBasicMaterial({color:0xe5484d,transparent:true,opacity:.6,depthWrite:false}),ghostEdge=new T.LineBasicMaterial({color:0x0b2a55}),
+   paleMat=new T.MeshBasicMaterial({color:0xffffff,transparent:true,opacity:.55,depthWrite:false,polygonOffset:true,polygonOffsetFactor:-2,polygonOffsetUnits:-2});
+  function dragMeshes(d){var l=d.whole||d.kind==="steel"?(meshesById.get(d.id)||[]):[d.o];
+   return l.filter(function(m){var u=m&&m.userData||{};return m&&m.isMesh&&!m.isInstancedMesh&&m.parent&&m.geometry&&!u.edges&&!u.seam&&!u.screw}).slice(0,400)}
+  function dragCopy(m,mat,ord,grp){m.updateMatrixWorld(true);var a=new T.Mesh(m.geometry,mat);a.matrixAutoUpdate=false;a.matrix.copy(m.matrixWorld);a.renderOrder=ord;grp.add(a);return a}
+  function ghostStart(d,pull){ghostEnd();var g={grp:new T.Group(),pale:new T.Group(),guide:null,ms:dragMeshes(d),pull:Boolean(pull)};
+   g.ms.forEach(function(m,i){dragCopy(m,paleMat,10,g.pale);if(pull)return;dragCopy(m,ghostMat,11,g.grp);
+    if(i<80){var e=new T.LineSegments(new T.EdgesGeometry(m.geometry,30),ghostEdge);e.matrixAutoUpdate=false;e.matrix.copy(m.matrixWorld);e.renderOrder=12;e.userData.own=1;g.grp.add(e)}});
+   helpers.add(g.pale);helpers.add(g.grp);g.grp.visible=false;dragGhost=g;
+   if(!dragTag){dragTag=document.createElement("div");dragTag.className="ir-three-drag-tag";dragTag.style.cssText="position:absolute;z-index:30;pointer-events:none;background:rgba(17,32,49,.9);color:#fff;font:600 12px/1.3 system-ui,sans-serif;padding:4px 8px;border-radius:5px;white-space:nowrap;box-shadow:0 2px 6px rgba(0,0,0,.25)";dragTag.setAttribute("aria-live","polite");root.appendChild(dragTag)}dragTag.hidden=true;invalidate()}
+  function ghostDrop(o){if(o.userData&&o.userData.own){if(o.geometry)o.geometry.dispose();if(o.material&&o.userData.ownMat)o.material.dispose()}}
+  function ghostEnd(){var g=dragGhost;if(g){[g.grp,g.pale].forEach(function(gr){helpers.remove(gr);gr.traverse(ghostDrop)});if(g.guide){helpers.remove(g.guide);ghostDrop(g.guide)}dragGhost=null}if(dragTag)dragTag.hidden=true;invalidate()}
+  var AXIS_COL={x:0xd94141,y:0x2f9e44,z:0x2563eb};
+  function ghostGuide(a,b,k){var g=dragGhost;if(!g)return;if(g.guide){helpers.remove(g.guide);ghostDrop(g.guide);g.guide=null}if(!a||!b||a.distanceTo(b)<1e-4)return;
+   var ln=new T.Line(new T.BufferGeometry().setFromPoints([a,b]),new T.LineDashedMaterial({color:AXIS_COL[k]||0x2563eb,dashSize:.12,gapSize:.08,depthTest:false}));ln.computeLineDistances();ln.renderOrder=13;ln.userData.own=1;ln.userData.ownMat=1;helpers.add(ln);g.guide=ln}
+  function ghostTag(e,text,stop){if(!dragTag)return;var r=root.getBoundingClientRect();dragTag.hidden=false;dragTag.textContent=text+(stop?" · упор":"");dragTag.classList.toggle("stop",Boolean(stop));dragTag.style.background=stop?"rgba(196,43,48,.92)":"rgba(17,32,49,.9)";
+   dragTag.style.left=Math.min(r.width-160,e.clientX-r.left+16)+"px";dragTag.style.top=Math.min(r.height-30,e.clientY-r.top+14)+"px"}
+  function moveWords(d){var w=[];if(d.z)w.push((d.z>0?"↑ ":"↓ ")+Math.abs(d.z)+" мм");if(d.x)w.push("вдоль цифровых осей "+(d.x>0?"+":"−")+Math.abs(d.x)+" мм");if(d.y)w.push("вдоль буквенных "+(d.y>0?"+":"−")+Math.abs(d.y)+" мм");return w.join(" · ")||"0 мм"}
+  function ghostMove(e,got,d,stop){var g=dragGhost;if(!g)return;g.grp.visible=true;g.grp.position.copy(got);g.grp.updateMatrixWorld(true);
+   g.grp.children.forEach(function(c){if(c.isMesh)c.material=stop?ghostStopMat:ghostMat});
+   var k=["x","y","z"].sort(function(a,b){return Math.abs(d[b])-Math.abs(d[a])})[0],c0=new T.Box3().setFromObject(g.pale).getCenter(new T.Vector3()),m0=fromWorld(c0),q={x:m0.x,y:m0.y,z:m0.z};q[k]+=d[k];
+   ghostGuide(c0,toWorld(q.x,q.y,q.z),k);ghostTag(e,moveWords(d),stop);invalidate()}
+  // (an end pulled: the pieces stretched to the new end, blue, the old ones pale; the tag — the new length)
+  function ghostPull(e,d,lo,hi,pieces){var g=dragGhost;if(!g)return;g.grp.visible=true;g.grp.children.slice().forEach(function(c){g.grp.remove(c);ghostDrop(c)});
+   var k=null;(pieces||[d.o]).forEach(function(m){m.updateMatrixWorld(true);var b=new T.Box3().setFromObject(m),sp=pieceSpan(m),pq=function(v){var q={x:d.pt.x,y:d.pt.y,z:d.pt.z};q[d.ax]=v;return toWorld(q.x,q.y,q.z)},
+     dv=(d.end==="lo"?lo-d.lo:hi-d.hi),A=pq(d.end==="lo"?sp.lo+dv:sp.lo),B=pq(d.end==="lo"?sp.hi:sp.hi+dv),dl=B.clone().sub(A);
+    k=Math.abs(dl.x)>=Math.abs(dl.y)&&Math.abs(dl.x)>=Math.abs(dl.z)?"x":Math.abs(dl.y)>=Math.abs(dl.z)?"y":"z";b.min[k]=Math.min(A[k],B[k]);b.max[k]=Math.max(A[k],B[k]);
+    var sz=b.getSize(new T.Vector3()),bx=new T.Mesh(new T.BoxGeometry(Math.max(sz.x,.002),Math.max(sz.y,.002),Math.max(sz.z,.002)),d.stop?ghostStopMat:ghostMat);bx.position.copy(b.getCenter(new T.Vector3()));bx.renderOrder=11;bx.userData.own=1;g.grp.add(bx);
+    var ed=new T.LineSegments(new T.EdgesGeometry(bx.geometry),ghostEdge);ed.position.copy(bx.position);ed.renderOrder=12;ed.userData.own=1;g.grp.add(ed)});
+   var pq0=function(v){var q={x:d.pt.x,y:d.pt.y,z:d.pt.z};q[d.ax]=v;return toWorld(q.x,q.y,q.z)};ghostGuide(pq0(d.end==="lo"?d.lo:d.hi),pq0(d.end==="lo"?lo:hi),{x:"x",y:"y",z:"z"}[d.ax]);
+   ghostTag(e,"длина "+Math.round(hi-lo).toLocaleString("ru-RU")+" мм",d.stop);invalidate()}
+  function pullPieces(d){var l=[d.o];if(!dragWhole)return l;var e0=d.end==="lo"?d.lo:d.hi;(meshesById.get(d.id)||[]).forEach(function(m){if(m===d.o||!m.isMesh||!m.parent||m.userData.edges)return;var sp=pieceSpan(m);if(sp.ax===d.ax&&Math.abs((d.end==="lo"?sp.lo:sp.hi)-e0)<=5)l.push(m)});return l}
   function dragDown(e){if(e.button!==0||placing||copySource)return;screenRay(e);var hit=hitMember();if(panelDown(e,hit))return;
    if(pairMode&&pairA&&hit&&hit.o&&hit.o!==pairA.o&&editKind(hit.o)==="trim"&&typeof P.onTrimFix==="function"){e.stopImmediatePropagation();e.preventDefault();panelClick=true;var q=fromWorld(hit.point),A=pairA,md=pairMode;pairMode="";pairA=null;renderer.domElement.title="";
     panelSend({x:Math.round(A.pt.x),y:Math.round(A.pt.y),z:Math.round(A.pt.z),action:md,b:[Math.round(q.x),Math.round(q.y),Math.round(q.z)],member_id:A.id,member2:String(hit.id)});return}
    var pe=pieceEnd(hit);if(!pe)return;
-   if(pe.move){moveX=null;drag=pe;drag.w0=moveAt(e,pe);drag.vec=new T.Vector3();drag.X=null;drag.stop="";e.stopImmediatePropagation();e.preventDefault();try{renderer.domElement.setPointerCapture(e.pointerId)}catch(x){}controls.enabled=false;return}
-   drag=pe;drag.v=pe.end==="lo"?pe.lo:pe.hi;drag.t0=dragAt(e);drag.X=null;drag.stop="";e.stopImmediatePropagation();e.preventDefault();try{renderer.domElement.setPointerCapture(e.pointerId)}catch(x){}controls.enabled=false}
+   if(pe.move){moveX=null;drag=pe;drag.w0=moveAt(e,pe);drag.vec=new T.Vector3();drag.X=null;drag.stop="";ghostStart(drag);e.stopImmediatePropagation();e.preventDefault();try{renderer.domElement.setPointerCapture(e.pointerId)}catch(x){}controls.enabled=false;return}
+   drag=pe;drag.v=pe.end==="lo"?pe.lo:pe.hi;drag.t0=dragAt(e);drag.X=null;drag.stop="";drag.pieces=pullPieces(drag);ghostStart(drag,true);e.stopImmediatePropagation();e.preventDefault();try{renderer.domElement.setPointerCapture(e.pointerId)}catch(x){}controls.enabled=false}
   // (a trim does not go through a trim, only up to it — the engineer, 20.11.2026 «одна фасонка сквозь другую не может
   // проходить, только упираться», rule trim-through-trim: the end pulled out stops 1 mm before the first other trim on its
   // way — rays from its end face along the piece, a skirt edge-on by overLeg)
@@ -15887,13 +15927,12 @@ X.all.forEach(function(f){var u=f.o.userData||{},c=dataById.get(f.id);if(f.o===o
     try{face.forEach(function(p){rc.set(p,dir);rc.far=len+.002;hs.length=0;f.o.raycast(rc,hs);hs.forEach(function(h){if(h.distance-.002<best){best=h.distance-.002;who=f}})})}finally{ml.forEach(function(m,i){if(m)m.side=sd[i]})}});
    if(d.ax==="z"&&sg>0){var ov=overLeg(b,A.y,B.y,X,function(f){return!isT(f)});if(ov-A.y<best){best=ov-A.y;who=who||{id:"?"}}}
    if(best<len){var nv=e0+sg*Math.max(0,best*1000-1);var c=who&&dataById.get(who.id);return{v:Math.round(nv),stop:c?String(c.mark||c.title||"фасонный элемент"):"фасонный элемент"}}return{v:v}}
-  function dragLine(){var d=drag,a=d.end==="lo"?d.v:d.lo,b=d.end==="lo"?d.hi:d.v,p=function(v){var q={x:d.pt.x,y:d.pt.y,z:d.pt.z};q[d.ax]=v;return q};formPreview([p(a),p(b)]);renderer.domElement.title="Длина куска "+Math.round(b-a)+" мм"+(d.stop?" · упёрлось в «"+d.stop+"», сквозь нельзя":"")}
+  function dragLine(e){var d=drag,a=d.end==="lo"?d.v:d.lo,b=d.end==="lo"?d.hi:d.v;if(dragGhost&&e)ghostPull(e,d,a,b,d.pieces)}
   function dragMove(e){if(panelMove(e))return;if(!drag)return;
    if(drag.move){var w=moveAt(e,drag);if(!w||!drag.w0||!isFinite(w.x+w.y+w.z+drag.w0.x+drag.w0.y+drag.w0.z))return;var dv=w.clone().sub(drag.w0),m0=fromWorld(drag.p0),m1=fromWorld(drag.p0.clone().add(dv));var dd={x:Math.round((m1.x-m0.x)/5)*5,y:Math.round((m1.y-m0.y)/5)*5,z:Math.round((m1.z-m0.z)/5)*5};
-    var want=toWorld(m0.x+dd.x,m0.y+dd.y,m0.z+dd.z).sub(toWorld(m0.x,m0.y,m0.z)),got=moveSlide(drag.o,want,drag.id);drag.stop=got.length()<want.length()-.0005?"фасонный элемент":"";var g1=fromWorld(drag.p0.clone().add(got));drag.d={x:Math.round(g1.x-m0.x),y:Math.round(g1.y-m0.y),z:Math.round(g1.z-m0.z)};
-    var bx=boxMM(drag.o),sh=function(q){return{x:q.x+drag.d.x,y:q.y+drag.d.y,z:q.z+drag.d.z}};formPreview([sh({x:bx.lo.x,y:bx.lo.y,z:bx.lo.z}),sh({x:bx.hi.x,y:bx.hi.y,z:bx.hi.z})]);
-    renderer.domElement.title="Сдвиг "+[["вдоль цифровых осей",drag.d.x],["вдоль буквенных",drag.d.y],["по высоте",drag.d.z]].filter(function(r){return r[1]}).map(function(r){return r[0]+" "+(r[1]>0?"+":"")+r[1]+" мм"}).join(", ")+(drag.stop?" · упёрлось, сквозь нельзя":"");e.stopImmediatePropagation();return}var v=dragAt(e);if(v===null)return;if(drag.t0===null){drag.t0=v;return}v=(drag.end==="lo"?drag.lo:drag.hi)+v-drag.t0;if(v===null)return;v=Math.round(v/10)*10;if(drag.end==="lo")v=Math.min(v,drag.hi-20);else v=Math.max(v,drag.lo+20);var st=dragStop(drag,v);drag.v=st.v;drag.stop=st.stop||"";dragLine();e.stopImmediatePropagation()}
-  function dragUp(e){if(panelUp(e))return;if(!drag)return;var d=drag;drag=null;controls.enabled=true;formPreview(null);renderer.domElement.title="";e.stopImmediatePropagation();
+    var want=toWorld(m0.x+dd.x,m0.y+dd.y,m0.z+dd.z).sub(toWorld(m0.x,m0.y,m0.z)),got=moveSlide(drag.o,want,drag.id,dragGhost&&dragGhost.ms);drag.stop=got.length()<want.length()-.0005?"фасонный элемент":"";var g1=fromWorld(drag.p0.clone().add(got));drag.d={x:Math.round(g1.x-m0.x),y:Math.round(g1.y-m0.y),z:Math.round(g1.z-m0.z)};
+    ghostMove(e,got,drag.d,drag.stop);e.stopImmediatePropagation();return}var v=dragAt(e);if(v===null)return;if(drag.t0===null){drag.t0=v;return}v=(drag.end==="lo"?drag.lo:drag.hi)+v-drag.t0;if(v===null)return;v=Math.round(v/10)*10;if(drag.end==="lo")v=Math.min(v,drag.hi-20);else v=Math.max(v,drag.lo+20);var st=dragStop(drag,v);drag.v=st.v;drag.stop=st.stop||"";dragLine(e);e.stopImmediatePropagation()}
+  function dragUp(e){if(panelUp(e))return;if(!drag)return;var d=drag;drag=null;controls.enabled=true;formPreview(null);ghostEnd();renderer.domElement.title="";e.stopImmediatePropagation();
    if(d.move){moveX=null;if(!d.d||Math.abs(d.d.x)+Math.abs(d.d.y)+Math.abs(d.d.z)<1)return;var c0=boxMM(d.o).c;panelSend({x:Math.round(c0.x),y:Math.round(c0.y),z:Math.round(c0.z),action:"move",dx:d.d.x,dy:d.d.y,dz:d.d.z,member_id:d.id,whole:d.whole?1:undefined,stop:d.stop||undefined});return}
    var lo=d.end==="lo"?d.v:d.lo,hi=d.end==="lo"?d.hi:d.v;if(Math.abs(d.v-(d.end==="lo"?d.lo:d.hi))<5)return;
    var fs=[{x:Math.round(d.pt.x),y:Math.round(d.pt.y),z:Math.round(d.pt.z),action:"ends",ax:d.ax,lo:Math.round(lo),hi:Math.round(hi),member_id:d.id,stop:d.stop||undefined}];
@@ -15901,7 +15940,7 @@ X.all.forEach(function(f){var u=f.o.userData||{},c=dataById.get(f.id);if(f.o===o
    if(dragWhole){var e0=d.end==="lo"?d.lo:d.hi,dv=d.v-e0;(meshesById.get(d.id)||[]).forEach(function(m){if(m===d.o||!m.isMesh||!m.parent||m.userData.edges)return;var sp=pieceSpan(m);if(sp.ax!==d.ax||Math.abs((d.end==="lo"?sp.lo:sp.hi)-e0)>5)return;
      m.updateMatrixWorld(true);var cq=fromWorld(new T.Box3().setFromObject(m).getCenter(new T.Vector3()));fs.push({x:Math.round(cq.x),y:Math.round(cq.y),z:Math.round(cq.z),action:"ends",ax:d.ax,lo:Math.round(d.end==="lo"?sp.lo+dv:sp.lo),hi:Math.round(d.end==="lo"?sp.hi:sp.hi+dv),member_id:d.id})})}
    fs.forEach(function(f){panelSend(f)})}
-  var dragWhole=false;function setDragWhole(v){dragWhole=Boolean(v);editStart("move");return dragWhole}
+  var dragWhole=true;function setDragWhole(v){dragWhole=Boolean(v);editStart("move");return dragWhole}
   renderer.domElement.addEventListener("pointerdown",dragDown,true);
   renderer.domElement.addEventListener("pointermove",dragMove,true);
   renderer.domElement.addEventListener("pointerup",dragUp,true);
