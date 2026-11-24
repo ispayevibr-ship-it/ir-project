@@ -13,7 +13,7 @@ window.irThreeSchemeView=(function irThreeModule(){
  // ускорить построение схемы?» — «да»). It is raised by scripts/scheme-model-digest.js, never by hand: the script builds
  // the checked schemes with this file and raises the number when what would be kept for any of them differs from the
  // record (knowledge/quality/model-digest.json); scripts/scheme-pack.js refuses a pack made without it.
- var MODEL_BUILD=99;
+ var MODEL_BUILD=102;
  var token=0,active=null,loadPromise=null,cameraMemory={};
  // Bundled with the app (works offline); the CDN is only a fallback for an incomplete hot update.
  var sources=[
@@ -6023,7 +6023,7 @@ function byCreation(list){if(!Array.isArray(list))return list;var key=function(c
    })
   }
   var funnelMat=null,insulMat=null,gutterOutlets=0;
-  var eaveJoinN=0,foamHoleN=0,wallCrossN=0,crossOnN=0,gapHoleN=0;var partTidyN=[0,0,0,0,0],topLineN=0;
+  var eaveJoinN=0,foamHoleN=0,wallCrossN=0,crossOnN=0,gapHoleN=0,gapDucts=new Set(),gapDuctNew=0;var partTidyN=[0,0,0,0,0],topLineN=0;
   var capNextN=0;
   function eaveGutters(){
    capNextN=0;gutterN=0;gutterUp=0;gutterThru=0;gutterMid=0;gutterWide=0;gutterCornerClip=0;capPostN=0;capUnderTrim=0;guttered.clear();var walls=[],capped=new Set(),runs=[],ends=gutterEnds=[];
@@ -6553,8 +6553,12 @@ function byCreation(list){if(!Array.isArray(list))return list;var key=function(c
      var d=p.c.clone().sub(q.c),pa=d.dot(q.a),pu=d.dot(q.up),pw=Math.abs(p.a.dot(q.a))>.5?p.w:p.h,ph=Math.abs(p.a.dot(q.a))>.5?p.h:p.w;
      if(pa-pw/2>q.a1+.06||pa+pw/2<q.a0-.06||pu-ph/2>q.u1+.06||pu+ph/2<q.u0-.06)return false;
      q.a0=Math.min(q.a0,pa-pw/2);q.a1=Math.max(q.a1,pa+pw/2);q.u0=Math.min(q.u0,pu-ph/2);q.u1=Math.max(q.u1,pu+ph/2);g=q;return true});
-    if(!g)groups.push({roof:p.roof,id:p.id,pt:p.pt,c:p.c.clone(),n:p.n.clone(),a:p.a.clone(),up:p.up.clone(),a0:-p.w/2,a1:p.w/2,u0:-p.h/2,u1:p.h/2})
+    if(!g)groups.push(g={roof:p.roof,id:p.id,pt:p.pt,c:p.c.clone(),n:p.n.clone(),a:p.a.clone(),up:p.up.clone(),a0:-p.w/2,a1:p.w/2,u0:-p.h/2,u1:p.h/2,parts:0,gaps:0});
+    g.parts++;if(p.gap)g.gaps++
    });
+   // (the count: an opening through a gap beside a hole — its edging round the whole of it, the hole and the gap one group;
+   // a gap alone or a group not edged — «обрамление не по периметру отверстия», the target 0)
+   var bare=0;root.setAttribute("data-duct-bare","0");
    if(!groups.length)return;
    var opens=[],bars=[];
    elems.forEach(function(c){
@@ -6562,12 +6566,17 @@ function byCreation(list){if(!Array.isArray(list))return list;var key=function(c
     else if(!c.ft&&(c.geometryType==="beam"||c.geometryType==="brace"||c.geometryType==="bent")){var r=memberPoints(c);bars.push([r[0],r[r.length-1]])}
    });
    if(!ductMat)ductMat=new T.MeshStandardMaterial({color:0xc4cacf,metalness:.55,roughness:.45});
-   groups.forEach(function(g){
-    var w=g.a1-g.a0,h=g.u1-g.u0;if(w<.08||h<.08||w>2.2||h>2.2)return;
+   var bareIds=[],near=function(g){return groups.some(function(o){if(o===g||o.gaps===o.parts||o.roof||Math.abs(o.n.dot(g.n))<.99||Math.abs(o.c.clone().sub(g.c).dot(g.n))>.3)return false;var d=o.c.clone().sub(g.c),pa=d.dot(g.a),pu=d.dot(g.up);return pa+o.a1>g.a0-.3&&pa+o.a0<g.a1+.3&&pu+o.u1>g.u0-.3&&pu+o.u0<g.u1+.3})};
+   // (a gap continuing a window, a door, a gate cut in the panel beside — not an opening ОВ: no edging; a gap beside a hole ОВ
+   // not merged with it, or the opening not edged for a member through it — bare)
+   groups.forEach(function(g){var r=g.gaps===g.parts?(near(g)?false:"none"):duct1(g);if(g.gaps&&r===false){root.setAttribute("data-duct-bare",String(++bare));bareIds.push(g.id+"/"+Math.round((g.a1-g.a0)*1000)+"x"+Math.round((g.u1-g.u0)*1000))}});root.setAttribute("data-duct-bare-ids",bareIds.join(" "));
+   function duct1(g){
+    // (larger than 2,2 m — a door or a gate cut, not an opening ОВ)
+    var w=g.a1-g.a0,h=g.u1-g.u0;if(w>2.2||h>2.2)return "big";if(w<.08||h<.08)return false;
     var c=g.c.clone().add(g.a.clone().multiplyScalar((g.a0+g.a1)/2)).add(g.up.clone().multiplyScalar((g.u0+g.u1)/2));
     // (a window, a door, a gate in it)
     if(opens.some(function(o){var ab=o.b.clone().sub(o.a);ab.y=0;var L=ab.length(),ap=c.clone().sub(o.a);ap.y=0;var t=L>1e-6?Math.max(0,Math.min(1,ap.dot(ab)/(L*L))):0;
-     var d=ap.sub(ab.multiplyScalar(t)).length();return d<.6&&c.y>Math.min(o.a.y,o.b.y)-.2&&c.y<Math.max(o.a.y,o.b.y)+o.h+.2}))return;
+     var d=ap.sub(ab.multiplyScalar(t)).length();return d<.6&&c.y>Math.min(o.a.y,o.b.y)-.2&&c.y<Math.max(o.a.y,o.b.y)+o.h+.2}))return "open";
     // (a member through it)
     if(bars.some(function(b){var A=b[0],B=b[1],da=A.clone().sub(c).dot(g.n),db=B.clone().sub(c).dot(g.n);if(da*db>0||Math.abs(da-db)<1e-6)return false;
      var P=A.clone().lerp(B,da/(da-db)).sub(c);return Math.abs(P.dot(g.a))<w/2+.05&&Math.abs(P.dot(g.up))<h/2+.05}))return;
@@ -6596,12 +6605,12 @@ function byCreation(list){if(!Array.isArray(list))return list;var key=function(c
      var dw=w-2*bw,dh=h-2*bw,dl=g.pt+.2;if(dw>.04&&dh>.04){var ds=new T.Shape([new T.Vector2(-dw/2,-dh/2),new T.Vector2(dw/2,-dh/2),new T.Vector2(dw/2,dh/2),new T.Vector2(-dw/2,dh/2)]);
       ds.holes.push(new T.Path([new T.Vector2(-dw/2+.0008,-dh/2+.0008),new T.Vector2(-dw/2+.0008,dh/2-.0008),new T.Vector2(dw/2-.0008,dh/2-.0008),new T.Vector2(dw/2-.0008,-dh/2+.0008)]));
       var dg=new T.ExtrudeGeometry(ds,{depth:dl,bevelEnabled:false,curveSegments:1});dg.translate(0,0,-dl/2);var dm=mk(dg,c.clone(),qf);dm.userData.ductBody=true}}
-    ductN++
-   })
+    ductN++;return true
+   }
   }
   function roofSeats(list){
    roofShift.clear();roofMoved.clear();
-   masonryN=0;masonryMat=null;masonryPart.clear();masonryCapN=0;ductPieces=[];
+   masonryN=0;masonryMat=null;masonryPart.clear();masonryCapN=0;ductPieces=[];gapDucts.clear();gapDuctNew=0;
    var tops=null,pur=new Set(),seated=[],loose=[];
    list.forEach(function(c){
     if(c.ft!=="panel"||!c.id||!c.lay||c.lay.panel!=="roof")return;
@@ -9465,12 +9474,14 @@ function byCreation(list){if(!Array.isArray(list))return list;var key=function(c
      // leg down not in that wall — ИР-71535 Пс-123 by row Б at О8, 51 mm)
      var sa=0,sb=L,z0=number(c.z0),z2=number(c.z2),ch=true;while(ch){ch=false;ups.forEach(function(q){if(q[0]<=sa+50&&q[1]>sa&&q[1]<L*.4){sa=q[1]+2;ch=true}if(q[1]>=sb-50&&q[0]<sb&&q[0]>L*.6){sb=q[0]-2;ch=true}})}
      if(sa>0||sb<L){o.x=ax+ux*sa;o.y=ay+uy*sa;o.x2=ax+ux*sb;o.y2=ay+uy*sb;o.z0=z0+(z2-z0)*sa/L;o.z2=z0+(z2-z0)*sb/L;if(number(c.z1)===z0)o.z1=o.z0;if(c.mx!==undefined){o.mx=o.x;o.my=o.y;o.mz=o.z0}}if(gb)["type_name","title","mark_name","type_key"].forEach(function(k){if(gb[k]!==undefined)o[k]=gb[k]});return o})})();
+   var partBs=[];partBs.push(function(){
    deckPairs.clear();deckRects=null;deckCols=null;bridgeList=null;bridgePlates=[];
    // (the porches moved with their walls before the steel's seats and nodes are found — porchWithWall; once more after)
    try{wallLines(elems);porchWithWall(elems)}catch(e){if(window.console)console.warn("porchWithWall",e&&e.stack||e)}
-   strutGus.length=0;ribGus.length=0;apexAt.clear();angleBacks(elems);standTrusses(elems);slopedBeams(elems);branchTurns(elems);seatOnTops(elems);hangTies(elems);standBraces(elems);beamEndNodes(elems);ribsUnderPlates(elems);ribStruts(elems);underChords(elems);hangChords(elems);purlinNodes(elems);seatLevels(elems);purlinTilts(elems);chordSeats(elems);restLifts(elems);hangLevels(elems);ridgeMiters(elems);guardLines(elems);roofSeats(elems);guardFeet(elems);postFeet(elems);weldedTops();girtPlumbEnds(elems);stubTops(elems);guardRails(elems);wallLines(elems);porchWithWall(elems);try{root.setAttribute("data-plan-in-wall",String(planInWallN))}catch(e){}gateNiches(elems);wallCuts(elems);deckCuts(elems);panelCorners(elems);wallUnderRoof(elems);try{root.setAttribute("data-roof-edge-cut",String(roofEdgeCutN))}catch(e){}shoulderN=0;shoulderTrim=0;shoulderCuts(elems);overhangCuts(elems);trimCorners(elems);bracePlanes(elems);roofCones(elems);ladderStringers(elems);stairStringers(elems);landingChannels(elems);toeBoards(elems);flightPosts(elems);guardBraces(elems);wallRings(elems);guardJoints(elems);
+   strutGus.length=0;ribGus.length=0;apexAt.clear();angleBacks(elems);standTrusses(elems);slopedBeams(elems);branchTurns(elems);seatOnTops(elems);hangTies(elems);standBraces(elems);beamEndNodes(elems);ribsUnderPlates(elems);ribStruts(elems);underChords(elems);});partBs.push(function(){hangChords(elems);purlinNodes(elems);seatLevels(elems);purlinTilts(elems);chordSeats(elems);restLifts(elems);hangLevels(elems);ridgeMiters(elems);guardLines(elems);roofSeats(elems);guardFeet(elems);postFeet(elems);weldedTops();});partBs.push(function(){girtPlumbEnds(elems);stubTops(elems);guardRails(elems);wallLines(elems);porchWithWall(elems);try{root.setAttribute("data-plan-in-wall",String(planInWallN))}catch(e){}gateNiches(elems);wallCuts(elems);deckCuts(elems);panelCorners(elems);});partBs.push(function(){wallUnderRoof(elems);try{root.setAttribute("data-roof-edge-cut",String(roofEdgeCutN))}catch(e){}shoulderN=0;shoulderTrim=0;shoulderCuts(elems);overhangCuts(elems);});partBs.push(function(){trimCorners(elems);bracePlanes(elems);roofCones(elems);ladderStringers(elems);stairStringers(elems);landingChannels(elems);toeBoards(elems);flightPosts(elems);guardBraces(elems);wallRings(elems);guardJoints(elems);
    // (the posts with no conditional plate of their own before the members: a column on a member stands on its plate)
-   platelessPosts();
+   });partBs.push(function(){platelessPosts();
+   });var partB=function(){partBs.forEach(function(f){f()})};var partC=function(){
    var host=jointHosts(elems);mcHost=host;findCrossings(elems,host);
    // (trusses and two-branch columns first: the members coming to them stop at their chords and branches)
    // (then the level struts: the braces at a column in the plane of a strut's gusset share it — levelStrut, strutGus)
@@ -9741,16 +9752,25 @@ function byCreation(list){if(!Array.isArray(list))return list;var key=function(c
    },function(){
     elems.forEach(function(c){if(c.geometryType!=="column"||!dataById.has(String(c.id)))return;if(capOf(c))capParts(c);if(c.base&&c.base.step)stepParts(c);if(standOn.has(String(c.id)))standParts(c)});
     elems.forEach(function(c){if(c.geometryType==="column"&&dataById.has(String(c.id))&&footPlateSize(c.base)&&!postInWall.has(String(c.id)))footPlate(c)});
-   },function(){girderBrackets(host);sideBeamBrackets(host);try{root.setAttribute("data-girt-heads",String(headN))}catch(e){};postConsoles();chordFootPlates();webPlates(host);cleatRibsDraw(host);girderStiffeners(host);stringerNotches();deckRecut();try{root.setAttribute("data-deck-touch",String(deckTouch))}catch(e){};latticeBars.forEach(latticeBarPart);if(latticeBars.length)elems=elems.concat(latticeBars);elems.forEach(function(c){if(stopOf(c))stopParts(c)})}];
+   },function(more){
+    // (by steps of their own — the step stood 3 s: the window of the scheme frozen; the same order — the model the same)
+    var fs=[function(m){girderBrackets(host,m)},function(){sideBeamBrackets(host);try{root.setAttribute("data-girt-heads",String(headN))}catch(e){};postConsoles();chordFootPlates()},function(){webPlates(host)},function(){cleatRibsDraw(host);girderStiffeners(host)},function(){stringerNotches();deckRecut();try{root.setAttribute("data-deck-touch",String(deckTouch))}catch(e){};latticeBars.forEach(latticeBarPart);if(latticeBars.length)elems=elems.concat(latticeBars);elems.forEach(function(c){if(stopOf(c))stopParts(c)})}];
+    if(more)fs.forEach(function(f){more.push({w:0,text:"Кронштейны и фасонки у стенок",run:f})});else fs.forEach(function(f){f()})}];
    memberBuilder=buildOne;
    if(!queue){memberOrder.forEach(buildOne);seatHost=host;seats.forEach(seatOne);afterSteps.forEach(function(f){f()});return}
    // (by steps: the members a fiftieth at a time, the seats of the beams a tenth, then the rest — BUILD_W, the share of each)
-   var stepsOf=function(list,n,w,text,run){var size=Math.max(1,Math.ceil(list.length/n)),k=Math.ceil(list.length/size)||1;
-    for(var i=0;i<k;i++)(function(a,b){queue.push({w:w/k,text:typeof text==="function"?text(b):text,run:function(){list.slice(a,b).forEach(run)}})})(i*size,Math.min(list.length,(i+1)*size))};
+   // (by ~60 ms, not by a fixed count: the first fiftieth — the trusses — stood 0,8 s; the same order — the model the same)
+   var stepsOf=function(list,n,w,text,run){var i=0,wi=list.length?w/list.length:0,tx=function(b){return typeof text==="function"?text(b):text};
+    var mk=function(){var it={w:list.length?0:w,text:tx(Math.min(list.length,i+1)),run:function(m){var t=performance.now(),a=i;while(i<list.length){run(list[i++]);if(performance.now()-t>60)break}it.w=(i-a)*wi;if(i<list.length)m.push(mk())}};return it};
+    queue.push(mk())};
    stepsOf(memberOrder,50,BUILD_W.members,function(b){return"Элементы: "+b+" из "+memberOrder.length},buildOne);
    queue.push({w:0,text:"Опирания балок",run:function(){seatHost=host}});
    stepsOf(seats,10,BUILD_W.seats,"Опирания балок",seatOne);
    afterSteps.forEach(function(f,i){queue.push({w:BUILD_W.after/afterSteps.length,text:["Пакеты швеллеров и пластины","Базы и оголовки колонн","Кронштейны и фасонки у стенок"][i],run:f})})
+   };
+   // (the preparing by three steps of its own: the one step stood 2,2 s — the window frozen; the same order of the same work)
+   if(queue){var T0="Примыкания и узлы элементов";partBs.forEach(function(f){queue.push({w:0,text:T0,run:f})});queue.push({w:0,text:T0,run:function(m2){queue=m2;partC()}});return}
+   partB();partC()
   }
   // The gussets of braces at a column from the open side of its I (trimSegment; КМ1 л.19, узлы 21, 22: the gusset t16
   // welded to the web between the flanges, out past their edges to the brace; ribs t8 at its top and bottom from the web
@@ -9907,7 +9927,7 @@ function byCreation(list){if(!Array.isArray(list))return list;var key=function(c
    });
    try{root.setAttribute("data-side-beam",String(made8))}catch(e){}
   }
-  function girderBrackets(host){
+  function girderBrackets(host,more){
    headN=0;
    // (the columns once, not all the elements for each end of each girder: a large scheme went through them a hundred
    // thousand times)
@@ -9916,8 +9936,10 @@ function byCreation(list){if(!Array.isArray(list))return list;var key=function(c
    // above the column's top — the top girder Ро □180×5 of the end wall О10 of the annex О8–О10 at +13,590, КМ2 л.14, over
    // К2 (top +13,177) at the ends of Б1 I60Ш1: no bracket, the girders in the air with their angles — hard rule
    // «metal-not-in-air»; the bracket from the face of the beam's end. headOver: [top of the beam, its end point])
+   // (the I-beams able to lie on a column's top found once, not for each column — 1,3 s on ИР-71535)
+   var hoBeams=[];elems.forEach(function(b){if(b.geometryType!=="beam"&&b.geometryType!=="brace"||b.ft||b.truss||!b.id||!dataById.has(String(b.id)))return;var bs=sectionOf(b.profile_name||b.profileName,b.profile_standard);if(!bs||bs.shape!=="ibeam"||!(bs.h>=150))return;hoBeams.push([b,bs])});
    var headOver=new Map();gcols.forEach(function(k){var ct=number(topOf(k)),C=toWorld(k.x,k.y,ct),ks=planHalf(k),r=Math.max(ks.x,ks.z)+.03,best=null;/* (its end over the column's section, not beside it) */
-    elems.forEach(function(b){if(b.geometryType!=="beam"&&b.geometryType!=="brace"||b.ft||b.truss||!b.id||!dataById.has(String(b.id)))return;var bs=sectionOf(b.profile_name||b.profileName,b.profile_standard);if(!bs||bs.shape!=="ibeam"||!(bs.h>=150))return;
+    hoBeams.forEach(function(hb){var b=hb[0],bs=hb[1];
      [[b.x,b.y,b.z0,b.x2,b.y2],[b.x2,b.y2,b.z2,b.x,b.y]].forEach(function(q){var zb=number(q[2]);if(Math.abs(zb-ct)>400)return;var P=toWorld(q[0],q[1],zb),O=toWorld(q[3],q[4],zb);if(Math.hypot(P.x-C.x,P.z-C.z)>r)return;
       var u=P.clone().sub(O);u.y=0;var Lb=u.length();if(Lb<.5)return;u.divideScalar(Lb);var tip=P.clone();if(!best||ct+bs.h>best.top)best={top:ct+bs.h,tip:tip,u:u}/* (on the column's top, as deep as the beam) */})});
     if(best)headOver.set(k,best)});
@@ -9929,7 +9951,7 @@ function byCreation(list){if(!Array.isArray(list))return list;var key=function(c
      var a0=ox*dx+oy*dy,a1=ex*dx+ey*dy;if(Math.max(a0,a1)<sA-50||Math.min(a0,a1)>sA+50)return;var zb=number(o.z0);if(zb>=z-gh*1000-1||zb<z-gh*1000-150)return;if(r===null||zb<r)r=zb});
     return r===null?null:r/1000};
    var colTop=function(k){var h=headOver.get(k);return h?Math.max(number(topOf(k)),h.top):number(topOf(k))};
-   elems.forEach(function(g){
+   var gbEach=function(g){
     var gid=String(g.id||"");
     if(g.geometryType!=="beam"||!gid||g.ft||g.truss||!dataById.has(gid)||role(g)!=="fahwerk"&&!(g.joint&&g.joint.bracket)||Math.abs(number(g.z2)-number(g.z0))>30)return;
     var z=number(g.z0),a=toWorld(g.x,g.y,z),b=toWorld(g.x2,g.y2,z),au=b.clone().sub(a),L=au.length();if(L<.5)return;au.divideScalar(L);
@@ -10050,7 +10072,7 @@ function byCreation(list){if(!Array.isArray(list))return list;var key=function(c
        cm.quaternion.setFromRotationMatrix(new T.Matrix4().makeBasis(sdE,up,sdE.clone().cross(up)));cm.position.copy(cP);keepPart(partTag(cm,"торцевая заглушка"),gid)}
       else keepPart(partTag(plateBox(g,cP,E[1],up,sdE,cap,2*gh,2*gw),"торцевая заглушка"),gid)}
     })
-   })
+   };chunked(elems,gbEach,function(){},"Кронштейны и фасонки у стенок",more)
   }
   // A wall girder of a channel laid flat, its flanges down (гн.[160×80×5, КМ3 л.29 узлы 3, 4, разрез 5-5, ОС1, ОС2), at a
   // column beside it: on an angle — its upright leg on the column (on the web between the flanges when the column's open
@@ -14466,7 +14488,7 @@ function byCreation(list){if(!Array.isArray(list))return list;var key=function(c
    if(cutsDue){cutsDue=false;
     if(queue){try{panelSteelCuts(queue)}catch(e){if(window.console)console.warn("panelSteelCuts",e&&e.stack||e)}
      // (the model as the cut and the fixes left it — kept for the next opening, mcCapture two)
-     if(mc2Due){var due=mc2Due;mc2Due=null;queue.push({w:0,text:"Сохранение модели",run:function(){var why=mcWhy;mcWhy="";var x=mcCapture(due.list,due.before,true);if(x)mcSnap=x;root.setAttribute("data-model-two",x?"kept":mcWhy||"-");mcWhy=why}})}
+     if(mc2Due){var due=mc2Due;mc2Due=null;queue.push({w:0,text:"Сохранение модели",run:function(){var why=mcWhy;mcWhy="";var x=mcCapture(due.list,due.before,true);if(typeof window.__irModelDigest2==="function"){try{window.__irModelDigest2(x,mcWhy)}catch(e){}}if(due.digest)x=x?{}:null;else if(x)mcSnap=x;root.setAttribute("data-model-two",x?"kept":mcWhy||"-");mcWhy=why}})}
      queue.push({w:0,text:"Цвета и сборка модели",run:function(more){materialsAfter(more)}});return}
     try{panelSteelCuts()}catch(e){if(window.console)console.warn("panelSteelCuts",e&&e.stack||e)}}
    materialsAfter(queue)
@@ -14751,8 +14773,9 @@ function byCreation(list){if(!Array.isArray(list))return list;var key=function(c
    };
    if(!queue){groups.forEach(batchCell);lodAt=null;invalidate();return}
    // (by steps: the cells a tenth at a time — BUILD_W.materials, the share of the colours and the merging)
-   var all=Array.from(groups),size=Math.max(1,Math.ceil(all.length/10)),n=Math.ceil(all.length/size);
-   for(var i=0;i<n;i++)(function(a){queue.push({w:BUILD_W.materials*.85/n,text:"Цвета и сборка модели",run:function(){all.slice(a,a+size).forEach(function(e){batchCell(e[1],e[0])})}})})(i*size);
+   // (by ~60 ms, not by tenths: a tenth stood 1,1 s; the same order — the picture the same)
+   var all=Array.from(groups),ci=0,wc=all.length?BUILD_W.materials*.85/all.length:0,cmk=function(){var it={w:all.length?0:BUILD_W.materials*.85,text:"Цвета и сборка модели",run:function(m){var t=performance.now(),a=ci;while(ci<all.length){var e=all[ci++];batchCell(e[1],e[0]);if(performance.now()-t>60)break}it.w=(ci-a)*wc;if(ci<all.length)m.push(cmk())}};return it};
+   queue.push(cmk());
    queue.push({w:0,text:"Цвета и сборка модели",run:function(){lodAt=null;invalidate()}})
   }
   // Which of the two pictures of a cell is drawn: by the distance from the camera to the cell's members. The bolt sets
@@ -15143,7 +15166,7 @@ function byCreation(list){if(!Array.isArray(list))return list;var key=function(c
    // (…but the whole run of the piece clicked — all the shelves of its profile over that length: the eave поз. 33 by 010 lit
    // its leaf only, the lip and the soffit stayed blue — the engineer, 24.11.2026 «почему состоит из двух разных элементов?»)
    var onlySet=only?new Set(runOf(only)):null;
-   var key=selected+"|"+hover+"|"+litPart+"|"+(only?only.uuid+only.geometry.uuid:"");if(lit===key)return;lit=key;
+   var key=selected+"|"+hover+"|"+litPart+"|"+(only?only.uuid+only.geometry.uuid:"")+"|"+Array.from(multi).join(",");if(lit===key)return;lit=key;
    overlay.children.slice().forEach(function(o){overlay.remove(o)});
    var parts=selected?partsOf(selected):null;
    // (the building beside under the cursor: see-through, not orange — buildingSeeThrough)
@@ -15167,6 +15190,9 @@ function byCreation(list){if(!Array.isArray(list))return list;var key=function(c
      var o=new T.Mesh(mine?outerFaces(m,pl.pieces.filter(function(x){return x!==m}),pl):m.geometry,mat);o.matrixAutoUpdate=false;o.matrix.copy(m.matrixWorld);overlay.add(o);
      if(!m.userData.hole){var gh=new T.Mesh(mine?planeGhost(m,pl):arPiece(m)?ghostFaces(m.geometry):m.geometry,i?hoverGhost:selectedGhost);gh.matrixAutoUpdate=false;gh.matrix.copy(m.matrixWorld);gh.renderOrder=20;overlay.add(gh)}})
    });
+   // (the others chosen with Ctrl / Shift — lit as the selected one)
+   multi.forEach(function(id){if(id===String(selected))return;(meshesById.get(id)||[]).forEach(function(m){var u=m.userData||{};if(!m.parent||!m.isMesh||u.weld||u.edges||u.gutter||u.drain)return;
+    var o=new T.Mesh(m.geometry,selectedMat);o.matrixAutoUpdate=false;o.matrix.copy(m.matrixWorld);overlay.add(o);var gh=new T.Mesh(arPiece(m)?ghostFaces(m.geometry):m.geometry,selectedGhost);gh.matrixAutoUpdate=false;gh.matrix.copy(m.matrixWorld);gh.renderOrder=20;overlay.add(gh)})});
    clearCallouts();if(parts)putCallouts(selected,parts);
    if(typeof document!=="undefined")document.querySelectorAll("[data-ec-pos]").forEach(function(r){r.classList.toggle("on",litPart!==null&&r.getAttribute("data-ec-pos")===litPart)});
    invalidate()
@@ -15706,7 +15732,9 @@ function byCreation(list){if(!Array.isArray(list))return list;var key=function(c
    if(cr&&(!hit||cr.d<hit.d)){showCrane(cr);return}
    // (the piece clicked — for the card: a trim built by the 3D can be taken away there, trimFixes)
    lastPick=hit&&hit.o?{id:String(hit.id),o:hit.o,point:hit.point.clone()}:null;
-   if(!selectedNode&&nodePanel)nodePanel.hidden=true;choose(hit?hit.id:"")
+   if(!selectedNode&&nodePanel)nodePanel.hidden=true;
+   if(editSess&&hit&&(e.ctrlKey||e.shiftKey||e.metaKey)){multiToggle(hit.id);return}
+   multi.clear();choose(hit?hit.id:"")
   }
   // The member under the cursor is looked for once a frame, not on every move of the mouse.
   var pendingHover=null;
@@ -15898,16 +15926,31 @@ X.all.forEach(function(f){var u=f.o.userData||{},c=dataById.get(f.id);if(f.o===o
   function stepIn(f){if(!editSess)return;var sn=new Map();fixIds(f).forEach(function(id){sn.set(id,snapOf(id))});editSess.steps.push({f:f,sn:sn,at:Date.now()})}
   function fixesOut(f){var k=fixKeyOf(f);unsavedFixes=unsavedFixes.filter(function(q){return q!==f&&fixKeyOf(q)!==k});P.trimFixes=(P.trimFixes||[]).filter(function(q){return q!==f&&fixKeyOf(q)!==k});
    appliedFixes=P.trimFixes.slice();builtFixKey=fixesSig(P.trimFixes);built=signature(P.elements)}
+  // (several members moved by one command — one step: ↶ takes them all back — stepGroup)
+  function stepGroup(n0){if(!editSess||editSess.steps.length-n0<2)return;var l=editSess.steps.splice(n0),sn=new Map();l.forEach(function(st){st.sn.forEach(function(v,k){if(!sn.has(k))sn.set(k,v)})});
+   editSess.steps.push({f:l[0].f,fs:l.map(function(st){return st.f}),sn:sn,at:l[l.length-1].at})}
   function editUndo(){if(!editSess||!editSess.steps.length)return 0;var st=editSess.steps.pop();st.sn.forEach(snapBack);
-   var i=editSess.pending.lastIndexOf(st.f);if(i>=0)editSess.pending.splice(i,1);fixesOut(st.f);editSess.redo.push(st.f);
+   (st.fs||[st.f]).forEach(function(f){var i=editSess.pending.lastIndexOf(f);if(i>=0)editSess.pending.splice(i,1);fixesOut(f)});editSess.redo.push(st.fs||st.f);
    try{rebatch()}catch(e){}pickOf=null;lit=null;try{paintHighlight()}catch(e){}invalidate();paintEditBar();return 1}
-  function editRedo(){if(!editSess||!editSess.redo.length)return 0;var f=editSess.redo.pop(),keep=editSess.redo;stepIn(f);trimFix(f,(P.trimFixes||[]).concat([f]));editSess.pending.push(f);editSess.redo=keep;paintEditBar();return 1}
+  function editRedo(){if(!editSess||!editSess.redo.length)return 0;var g=editSess.redo.pop(),keep=editSess.redo,n0=editSess.steps.length;(Array.isArray(g)?g:[g]).forEach(function(f){stepIn(f);trimFix(f,(P.trimFixes||[]).concat([f]));editSess.pending.push(f)});stepGroup(n0);editSess.redo=keep;paintEditBar();return 1}
+  // ---- Several members chosen at once (the engineer's editor, 24.11.2026: «выделение нескольких», «сдвиг на мм»): Ctrl or
+  // Shift with a click in the mode of editing adds a member to the choice or takes it out; a click alone — that one only.
+  // All of them lit; «Сдвинуть на…» moves each whole by the mm given along X (axes of figures), Y (axes of letters), Z (up)
+  var multi=new Set();
+  function multiIds(){var l=Array.from(multi).filter(function(id){return dataById.has(id)});if(selected&&l.indexOf(String(selected))<0&&dataById.has(String(selected)))l.unshift(String(selected));return l}
+  function multiToggle(id){id=String(id||"");if(!id)return;if(!multi.size&&selected&&String(selected)!==id)multi.add(String(selected));if(multi.has(id)){multi.delete(id);if(String(selected)===id){var r=Array.from(multi);selected=r.length?r[r.length-1]:""}}else{multi.add(id);selected=id}lit=null;paintHighlight();try{P.onSelect&&P.onSelect(selected)}catch(x){}}
+  function multiClear(){if(!multi.size)return;multi.clear();lit=null;paintHighlight()}
+  function moveBy(dx,dy,dz){dx=Math.round(number(dx));dy=Math.round(number(dy));dz=Math.round(number(dz));if(!dx&&!dy&&!dz)return 0;var ids=multiIds();if(!ids.length)return 0;
+   if(!editSess&&P.editGlobal)editStart("select");var n0=editSess?editSess.steps.length:0,n=0;
+   ids.forEach(function(id){var m=(meshesById.get(id)||[]).filter(function(q){return q&&q.isMesh&&q.parent&&editKind(q)})[0];if(!m)return;var c0=boxMM(m).c;
+    panelSend({x:Math.round(c0.x),y:Math.round(c0.y),z:Math.round(c0.z),action:"move",dx:dx,dy:dy,dz:dz,member_id:id,whole:1});n++});
+   stepGroup(n0);if(editSess)paintEditBar();lit=null;paintHighlight();return n}
   function editStart(kind){if(P.report||typeof P.onTrimFix!=="function"||!EDIT_WORD[kind])return"";
    if(!editSess)editSess={kind:kind,snaps:new Map(),pending:[],steps:[],redo:[],u0:unsavedFixes.slice(),t0:(P.trimFixes||[]).slice(),sig0:modelSig()};else editSess.kind=kind;
    panelMode=kind==="line"||kind==="rect"?kind:"pull";cutPts=[];rectDrag=null;formPreview(null);
    if(kind!=="mitre"&&kind!=="over"){pairMode="";pairA=null}
    renderer.domElement.title="";paintEditBar();return kind}
-  function editEnd(){editSess=null;panelMode="pull";cutPts=[];rectDrag=null;pairMode="";pairA=null;drag=null;controls.enabled=true;formPreview(null);renderer.domElement.title="";paintEditBar();try{if(typeof P.onEditMode==="function")P.onEditMode("")}catch(x){}}
+  function editEnd(){editSess=null;multi.clear();panelMode="pull";cutPts=[];rectDrag=null;pairMode="";pairA=null;drag=null;controls.enabled=true;formPreview(null);renderer.domElement.title="";paintEditBar();try{if(typeof P.onEditMode==="function")P.onEditMode("")}catch(x){}}
   function editSave(){if(!editSess)return Promise.resolve(0);var list=editSess.pending.slice();editEnd();
    // (one after the other — the page adds each to its list after it is written)
    return list.reduce(function(pr,f){return pr.then(function(){try{return Promise.resolve(P.onTrimFix(f)).catch(function(){})}catch(x){}})},Promise.resolve()).then(function(){return list.length})}
@@ -16717,6 +16760,9 @@ X.all.forEach(function(f){var u=f.o.userData||{},c=dataById.get(f.id);if(f.o===o
      return}
     mcFrom="built";var digest=typeof window.__irModelDigest==="function",before=digest||cached!==undefined&&mcEnabled()?mcMemberText(list):null,sub=[];buildMembers(list,sub);
     if(before&&cached!==undefined&&mcEnabled()){mc2Due={list:list,before:before};mcBase={list:list,before:before}}
+    // (the stand: the model after the cut and the fixes too — what is kept as the second model on the disk; its sum with the
+    // first, so a change after the cut — the edging of an opening ОВ — raises MODEL_BUILD: scripts/scheme-model-digest.js)
+    else if(before&&digest)mc2Due={list:list,before:before,digest:true};
     if(before)sub.push({w:0,text:"Сохранение модели",run:function(){mcSnap=mcCapture(list,before);
      // (the stand: what would be kept, for its sum — scripts/scheme-model-digest.js)
      if(digest){try{window.__irModelDigest(mcSnap,mcWhy)}catch(e){}if(!(cached!==undefined&&mcEnabled()))mcSnap=null}}});
@@ -17103,7 +17149,12 @@ X.all.forEach(function(f){var u=f.o.userData||{},c=dataById.get(f.id);if(f.o===o
      if(qb.min.y>ym-.02||qb.max.y<ym+.02)return false;
      return !(meshesById.get(q.id)||[]).some(function(m){if(!m.isMesh||!m.parent||m.userData.seam||m.userData.masonry)return false;var mb=new T.Box3().setFromObject(m);
       return mb.min[ax]<=at&&mb.max[ax]>=at&&mb.min.y<=ym&&mb.max.y>=ym})});
-    if(holeBeside){root.setAttribute("data-gap-hole",String(++gapHoleN));return}
+    // (and it is that opening: one edging and one duct round the whole of it — ИР-71535 row А at 09, ОВ 1250×650 at +2,260
+    // АР ч.2 л.6 over Пс-101 and in Пс-98: the edging and the duct were of the 250 mm in Пс-98 alone, the 1000 over Пс-101
+    // bare — the engineer, 24.11.2026: «что с этим вырезом?»)
+    if(holeBeside){root.setAttribute("data-gap-hole",String(++gapHoleN));var hk=P.id+":"+Math.round(top*1000);
+     if(!gapDucts.has(hk)){gapDucts.add(hk);var av=ax==="x"?new T.Vector3(1,0,0):new T.Vector3(0,0,1),nv=ax==="x"?new T.Vector3(0,0,1):new T.Vector3(1,0,0),cv=new T.Vector3();cv[ax]=(a0+a1)/2;cv[tx]=mid;cv.y=ym;
+      ductPieces.push({id:P.id,roof:false,pt:t,w:a1-a0,h:hi-top,c:cv,n:nv,a:av,up:new T.Vector3(0,1,0),gap:true});gapDuctNew++}return}
     var left=[[a0,a1,top,hi]];
     line.forEach(function(q){var qb=q.b,q0=qb.min[ax],q1=qb.max[ax],y0=qb.min.y,y1=qb.max.y,next=[];
      left.forEach(function(r){if(q1<=r[0]+.01||q0>=r[1]-.01||y1<=r[2]+.01||y0>=r[3]-.01){next.push(r);return}
@@ -17133,7 +17184,10 @@ X.all.forEach(function(f){var u=f.o.userData||{},c=dataById.get(f.id);if(f.o===o
     runs.forEach(function(r){if(r[1]-r[0]<.1)return;var w=r[1]-r[0],h=r[2]-top;var m=new T.Mesh(new T.BoxGeometry(ax==="x"?w:t,h,ax==="x"?t:w),sk.material);m.position.set(ax==="x"?(r[0]+r[1])/2:mid,top+h/2,ax==="x"?mid:(r[0]+r[1])/2);
      m.userData.memberId=ref.id;m.userData.fixed=true;m.userData.footing=true;m.userData.masonry=true;m.userData.clad=true;m.userData.overGate=true;steel.add(m);allMeshes.push(m);over++})});
    root.setAttribute("data-over-gate",String(over));
-   root.setAttribute("data-wall-fills",String(made))
+   root.setAttribute("data-wall-fills",String(made));
+   // (the openings through a gap beside a hole: their edgings and ducts made again with the gap — buildDucts merges them)
+   if(gapDuctNew){gapDuctNew=0;allMeshes.filter(function(m){return m.userData&&m.userData.duct}).forEach(function(m){if(m.parent)m.parent.remove(m);var i=allMeshes.indexOf(m);if(i>=0)allMeshes.splice(i,1);var l=meshesById.get(String(m.userData.memberId)),li=l?l.indexOf(m):-1;if(li>=0)l.splice(li,1);if(m.geometry)m.geometry.dispose()});try{buildDucts()}catch(e){if(window.console)console.warn("buildDucts",e&&e.stack||e)}}
+   root.setAttribute("data-gap-ducts",String(ductPieces.filter(function(p){return p.gap}).length))
   }
   // 1a. The outer corner of two walls of panels left open or bare (the engineer, 14.11.2026, ИР-71535 О10/Ж — the wall of
   //    the step of row Ж against the end of the wall of О10: «этот угол весь кривой, закрой нормально угловым нащельником,
@@ -20009,7 +20063,9 @@ X.all.forEach(function(f){var u=f.o.userData||{},c=dataById.get(f.id);if(f.o===o
    root.setAttribute("data-panel-cuts",panelCutsN+"/"+Math.round(performance.now()-t0)+"ms");root.setAttribute("data-cut-outline",cutRectN+"/"+cutFillN+"/"+cutBackN);root.setAttribute("data-cut-through",String(cutThroughN));root.setAttribute("data-cut-recentred",String(recentred));root.setAttribute("data-plate-down",String(plateDownN))
     }];
    if(queue){var safe=function(f){return function(m){try{f(m)}catch(e){if(window.console)console.warn("panelSteelCuts",e&&e.stack||e)}}},push=function(f){queue.push({w:0,text:"Обрезка сэндвича",run:safe(f)})};
-    for(var pi=0;pi<panels.length;pi+=5)(function(a){push(function(){panels.slice(a,a+5).forEach(cutOne)})})(pi);rest.forEach(push);return}
+    // (by ~60 ms, not by five panels: a step of five stood 0,5 s; each panel on its own, as before by five)
+    var pi=0,pstep=function(m){var t=performance.now();while(pi<panels.length){safe(cutOne)(panels[pi++]);if(performance.now()-t>60)break}if(pi<panels.length)m.push({w:0,text:"Обрезка сэндвича",run:pstep})};
+    if(panels.length)push(pstep);rest.forEach(push);return}
    panels.forEach(cutOne);rest.forEach(function(f){f()})
   }
   // The lines of a panel cut round the steel: only its real edges — not where one piece of it lies against another piece
@@ -20892,7 +20948,7 @@ X.all.forEach(function(f){var u=f.o.userData||{},c=dataById.get(f.id);if(f.o===o
    try{out.parts=e.enc(derivedParts)}catch(x){out.parts="!"}
    return JSON.stringify(out).replace(/,"id":\d+/g,"").replace(/\{"R":\d+\}/g,'"R"').replace(/\{"MT":\d+\}/g,'"MT"').replace(/\{"G":\d+\}/g,'"G"').replace(/\{"T":"[A-Za-z0-9]+","b":\d+\}/g,'"B"')
   }
-  return{host:host,key:key,root:root,bolts:boltsForCheck,update:update,metalDetail:function(){var d=[];metalOf(d);return d},setSpecs:function(r){specList=Array.isArray(r)?r:[];specAsked=true;metalRows=null;if(metalEl&&!metalEl.hidden)metalPaint()},modelText:modelText,camAt:function(){return camera.position.toArray().concat(controls.target.toArray())},formPreview:formPreview,pickInfo:pickInfo,trimFix:trimFix,setDragWhole:setDragWhole,dragWhole:function(){return dragWhole},setPanelMode:setPanelMode,panelMode:function(){return panelMode},setPairMode:setPairMode,editStart:editStart,editSave:editSave,editCancel:editCancel,editUndo:editUndo,editRedo:editRedo,editInfo:function(){return editSess?{n:editSess.pending.length,undo:editSess.steps.length,redo:editSess.redo.length,at:editSess.steps.length?editSess.steps[editSess.steps.length-1].at:0}:{n:0,undo:0,redo:0,at:0}},editMode:function(){return editSess?editSess.kind:""},liftOver:liftOver,trimChecks:function(l){return trimChecks(l)},trimJoins:function(){trimJoins();return trimJoinN},trimLayers:function(){return trimLayers()},rebuild:function(){built="";update(P)},focus:focus,look:look,startCopy:startCopy,startPlacement:startPlacement,nodes:nodeList,openNode:openNode,snapshots:snapshots,card:card,lightPart:lightPart,
+  return{host:host,key:key,root:root,bolts:boltsForCheck,update:update,metalDetail:function(){var d=[];metalOf(d);return d},setSpecs:function(r){specList=Array.isArray(r)?r:[];specAsked=true;metalRows=null;if(metalEl&&!metalEl.hidden)metalPaint()},modelText:modelText,camAt:function(){return camera.position.toArray().concat(controls.target.toArray())},formPreview:formPreview,pickInfo:pickInfo,trimFix:trimFix,setDragWhole:setDragWhole,dragWhole:function(){return dragWhole},setPanelMode:setPanelMode,panelMode:function(){return panelMode},setPairMode:setPairMode,editStart:editStart,editSave:editSave,editCancel:editCancel,editUndo:editUndo,editRedo:editRedo,moveBy:moveBy,selection:function(){return multiIds()},selectionAdd:function(id){multiToggle(id);return multiIds()},selectionClear:function(){multiClear();return 0},editInfo:function(){return editSess?{n:editSess.pending.length,undo:editSess.steps.length,redo:editSess.redo.length,at:editSess.steps.length?editSess.steps[editSess.steps.length-1].at:0}:{n:0,undo:0,redo:0,at:0}},editMode:function(){return editSess?editSess.kind:""},liftOver:liftOver,trimChecks:function(l){return trimChecks(l)},trimJoins:function(){trimJoins();return trimJoinN},trimLayers:function(){return trimLayers()},rebuild:function(){built="";update(P)},focus:focus,look:look,startCopy:startCopy,startPlacement:startPlacement,nodes:nodeList,openNode:openNode,snapshots:snapshots,card:card,lightPart:lightPart,
    dispose:function(){
     cameraMemory[memoryKey]={position:camera.position.clone(),target:controls.target.clone(),up:camera.up.clone()};
     alive=false;clearExplode();cancelCopy();cancelPlacement();if(raf)cancelAnimationFrame(raf);if(awayTimer)clearTimeout(awayTimer);
@@ -20936,5 +20992,5 @@ X.all.forEach(function(f){var u=f.o.userData||{},c=dataById.get(f.id);if(f.o===o
   formPreview:function(p){return call("formPreview",p)},
   pickInfo:function(){return call("pickInfo")||null},
   trimFix:function(f,l){return call("trimFix",f,l)},
-  setDragWhole:function(v){return call("setDragWhole",v)},dragWhole:function(){return Boolean(call("dragWhole"))},setPanelMode:function(v){return call("setPanelMode",v)},panelMode:function(){return call("panelMode")||"pull"},setPairMode:function(v){return call("setPairMode",v)},editStart:function(v){return call("editStart",v)},editSave:function(){return call("editSave")},editCancel:function(o){return call("editCancel",o)},editUndo:function(){return call("editUndo")||0},editRedo:function(){return call("editRedo")||0},editInfo:function(){return call("editInfo")||{n:0,undo:0,redo:0,at:0}},rebuild:function(){return call("rebuild")},editMode:function(){return call("editMode")||""},liftOver:function(id,dry){return call("liftOver",id,dry)||null},trimChecks:function(l){return call("trimChecks",l)||null},trimJoins:function(){return call("trimJoins")},trimLayers:function(){return call("trimLayers")}}
+  setDragWhole:function(v){return call("setDragWhole",v)},dragWhole:function(){return Boolean(call("dragWhole"))},setPanelMode:function(v){return call("setPanelMode",v)},panelMode:function(){return call("panelMode")||"pull"},setPairMode:function(v){return call("setPairMode",v)},editStart:function(v){return call("editStart",v)},editSave:function(){return call("editSave")},editCancel:function(o){return call("editCancel",o)},editUndo:function(){return call("editUndo")||0},editRedo:function(){return call("editRedo")||0},moveBy:function(x,y,z){return call("moveBy",x,y,z)||0},selectionAdd:function(id){return call("selectionAdd",id)||[]},selection:function(){return call("selection")||[]},selectionClear:function(){return call("selectionClear")||0},editInfo:function(){return call("editInfo")||{n:0,undo:0,redo:0,at:0}},rebuild:function(){return call("rebuild")},editMode:function(){return call("editMode")||""},liftOver:function(id,dry){return call("liftOver",id,dry)||null},trimChecks:function(l){return call("trimChecks",l)||null},trimJoins:function(){return call("trimJoins")},trimLayers:function(){return call("trimLayers")}}
 })();

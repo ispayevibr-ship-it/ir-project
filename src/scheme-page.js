@@ -155,7 +155,7 @@ window.irSchemePage=async function(objectId,opts){
  // «Выбрать»), справа карточка выбранного, внизу виды и разделы КМ/АР — панель 3D. Инструмент нажимает кнопку режима
  // в карточке выбранного (как меню правой кнопки), без выбранного — недоступен.
  const editInfo3d=()=>{try{return window.irThreeSchemeView?.editInfo?.()||{n:0,undo:0,redo:0,at:0}}catch(e){return{n:0,undo:0,redo:0,at:0}}};
- const EDIT_TOOLS=[["select","Выбрать (Esc)","↖"],["add","Добавить элемент","＋"],["-"],["move","Двигать","✥",["[data-edit-move]","[data-trim-mode='whole']"]],["pull","Тянуть край","⇥",["[data-edit-pull]"]],["line","Срезать по линии","✂",["[data-trim-line]","[data-panel-mode='line']"]],["rect","Вырез прямоугольником","▭",["[data-panel-mode='rect']"]],["mitre","Сделать угол","◿",["[data-trim-corner]"]],["over","Этот поверх","⧉",["[data-trim-over]"]],["-"],["back","Показать позади","⤓",["[data-order-step='-1']"]],["front","Показать поверх","⤒",["[data-order-step='1']"]],["-"],["hide","Убрать кусок","⌫",["[data-trim-hide]"]],["delete","Удалить элемент","🗑",["[data-scheme-delete]"]]];
+ const EDIT_TOOLS=[["select","Выбрать (Esc)","↖"],["add","Добавить элемент","＋"],["-"],["move","Двигать","✥",["[data-edit-move]","[data-trim-mode='whole']"]],["shift","Сдвинуть на мм (Ctrl+щелчок — добавить элемент к выбору)","⇲"],["pull","Тянуть край","⇥",["[data-edit-pull]"]],["line","Срезать по линии","✂",["[data-trim-line]","[data-panel-mode='line']"]],["rect","Вырез прямоугольником","▭",["[data-panel-mode='rect']"]],["mitre","Сделать угол","◿",["[data-trim-corner]"]],["over","Этот поверх","⧉",["[data-trim-over]"]],["-"],["back","Показать позади","⤓",["[data-order-step='-1']"]],["front","Показать поверх","⤒",["[data-order-step='1']"]],["-"],["hide","Убрать кусок","⌫",["[data-trim-hide]"]],["delete","Удалить элемент","🗑",["[data-scheme-delete]"]]];
  // Журнал правок схемы (инженер 20.11.2026 «сделай журнал и возможность возврата»): каждая правка мышью или в карточке —
  // когда, кто, что; «Вернуть» — эта правка, «Вернуть к этому» — все правки после неё. Возврат тоже идёт через режим
  // редактирования: пишется по «Сохранить», модель не перестраивается целиком
@@ -170,6 +170,14 @@ window.irSchemePage=async function(objectId,opts){
    dlg.querySelectorAll("[data-one]").forEach(b=>b.onclick=async()=>{b.disabled=true;await fixLogUndo(l.filter(r=>String(r.id)===b.dataset.one));paint()});
    dlg.querySelectorAll("[data-upto]").forEach(b=>b.onclick=async()=>{b.disabled=true;const i=l.findIndex(r=>String(r.id)===b.dataset.upto);await fixLogUndo(l.slice(0,i+1));paint()})};
   paint();document.body.appendChild(dlg);dlg.addEventListener("close",()=>{dlg.remove();restoreKeyboardAfterConfirm()});dlg.showModal()}
+ // Сдвиг на мм (инженер 24.11.2026, инструменты редактора: «выделение нескольких», «сдвиг на мм»): выбранные элементы —
+ // щелчком, ещё — Ctrl+щелчок — переносятся целиком на ΔX (вдоль цифровых осей), ΔY (вдоль буквенных), ΔZ (вверх) одной
+ // правкой: ↶ возвращает все сразу
+ function openShift(){const V=window.irThreeSchemeView;document.getElementById("schemeShift")?.remove();const ids=V?.selection?.()||[];
+  const dlg=document.createElement("dialog");dlg.id="schemeShift";dlg.className="scheme-shift";
+  dlg.innerHTML=`<form method="dialog"><header><b>Сдвинуть на мм</b><button value="close" aria-label="Закрыть">✕</button></header>${ids.length?`<p>Выбрано элементов: ${ids.length}. Ещё — Ctrl+щелчок по элементу.</p><div class="scheme-shift-row"><label>ΔX <input type="number" step="1" name="dx" value="0"></label><label>ΔY <input type="number" step="1" name="dy" value="0"></label><label>ΔZ <input type="number" step="1" name="dz" value="0"></label></div><footer><button type="submit" value="go" class="ok">Сдвинуть</button></footer>`:`<p>Сначала выберите элемент щелчком, ещё — Ctrl+щелчок.</p>`}</form>`;
+  document.body.appendChild(dlg);dlg.addEventListener("close",()=>{const f=dlg.querySelector("form");if(dlg.returnValue==="go"&&f){const n=V?.moveBy?.(f.dx.value,f.dy.value,f.dz.value)||0;if(n){paintEditState();if(selectedId)renderDetails()}}dlg.remove();restoreKeyboardAfterConfirm()});
+  dlg.showModal();dlg.querySelector("input")?.select()}
  function editTopHtml(){return`<div class="scheme-edit-top" role="toolbar" aria-label="Режим редактирования"><b>✎ Редактирование</b><small id="schemeEditWord">Правок нет</small><button type="button" id="schemeEditUndo" title="Отменить последнюю правку (Ctrl+Z)" disabled>↶ Отменить</button><button type="button" id="schemeEditRedo" title="Повторить (Ctrl+Y)" disabled>↷ Повторить</button><button type="button" id="schemeEditLog" title="Все правки схемы: когда, кто, что — и возврат">🕘 Журнал правок</button><span class="scheme-edit-gap"></span><button type="button" class="ok" id="schemeEditSave" disabled>Сохранить</button><button type="button" id="schemeEditCancel">Выйти без сохранения</button></div>`}
  function editToolsHtml(){return`<nav class="scheme-edit-tools" aria-label="Инструменты">${EDIT_TOOLS.map(t=>t[0]==="-"?"<hr>":`<button type="button" data-edit-tool="${t[0]}" title="${esc(t[1])}" aria-label="${esc(t[1])}">${t[2]}</button>`).join("")}</nav>`}
  const toolBtn=t=>{const box=document.getElementById("schemeDetails");if(!box||!t[3])return null;for(const q of t[3]){const b=box.querySelector(q);if(b&&!b.disabled)return b}return null};
@@ -179,6 +187,7 @@ window.irSchemePage=async function(objectId,opts){
  function editTool(id){const V=window.irThreeSchemeView,t=EDIT_TOOLS.find(x=>x[0]===id);if(!t)return;
   if(id==="select"){try{V?.editStart?.("select")}catch(e){}paintTools();return}
   if(id==="add"){if(V?.startPlacement)V.startPlacement();else openEditor();return}
+  if(id==="shift"){openShift();return}
   toolBtn(t)?.click();setTimeout(paintTools,60)}
  // (↶ — последняя правка: мышью в 3D — шагом 3D, на месте; добавление, удаление, правка в окне — список схемы назад)
  const applyOp=(rs,o)=>o.op==="create"?[{...clone(o.p),id:o.id},...rs]:o.op==="update"?rs.map(r=>sameId(r.id,o.id)?{...r,...clone(o.p),id:r.id}:r):rs.filter(r=>!sameId(r.id,o.id));
