@@ -163,6 +163,7 @@
 .ir-bk-spv{position:relative;width:min(100%,760px);aspect-ratio:297/210;border-radius:8px;background:#3a4047 center/cover no-repeat;cursor:crosshair;margin-bottom:8px;box-shadow:0 0 0 1px #d9e4ee;overflow:hidden}
 .ir-bk-spv .d{position:absolute;width:12px;height:12px;margin:-6px 0 0 -6px;border-radius:50%;background:#fff;border:3px solid #f5a700;box-shadow:0 1px 4px rgba(0,0,0,.5);pointer-events:none}.ir-bk-spv .d b{position:absolute;left:14px;top:-6px;white-space:nowrap;font-size:11px;font-weight:800;color:#fff;text-shadow:0 1px 3px #000}
 .ir-bk-spv .f{position:absolute;top:0;bottom:0;border-left:1px dashed rgba(255,255,255,.55);pointer-events:none}.ir-bk-spv .e{position:absolute;inset:0;display:grid;place-items:center;color:#c9d3dc;font-size:13px;pointer-events:none}
+.ir-bk-spe{display:flex;gap:8px;align-items:flex-end;margin:0 0 8px}.ir-bk-spe label{flex:1;display:grid;gap:4px;font-size:12px;color:#5b6b7a}.ir-bk-spe textarea{font:inherit;font-size:13px;padding:6px 8px;border:1.5px solid #d9e4ee;border-radius:8px;resize:vertical;min-height:60px}
 .ir-bk-spp{grid-template-columns:repeat(auto-fill,minmax(96px,1fr))}
 .ir-bk-opt{display:flex;align-items:center;gap:6px;font-size:12.5px;font-weight:600;color:#33485a;margin:0;white-space:nowrap}
 .ir-acc.ir-bk-pvd{width:min(1280px,96vw);max-width:96vw;height:92vh;max-height:92vh;display:flex;flex-direction:column;overflow:hidden}.ir-bk-pvb{flex:1;min-height:0;padding:0 12px}.ir-bk-pvb iframe{width:100%;height:100%;border:0;border-radius:10px;background:#5d646c}
@@ -297,7 +298,7 @@
   if(!st0?.signedIn){if(await login(doc))return panel(doc);return}
   if(st0.user.role!=="admin"){alert("Панель администратора — только для администратора.");return}
   const d=dialog(doc,"wide",head("Панель администратора","Кто входит в программу и что видит. Сервер проверяет права сам: человек получает только свои объекты и разделы.")+
-   `<div class="ir-acc-body"><div data-mail></div><div class="ir-acc-tools"><button type="button" class="ir-acc-btn main" data-add><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg><span>Дать доступ</span></button><button type="button" class="ir-acc-btn" data-roles title="Названия ролей и что каждая может: разделы, новые объекты, удаление, выгрузка"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3 4 6v6c0 4.5 3.4 8.3 8 9 4.6-.7 8-4.5 8-9V6l-8-3Z"/><path d="m9 12 2 2 4-4"/></svg><span>Роли и права</span></button><button type="button" class="ir-acc-btn" data-site title="Какие объекты показывает сайт компании"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a14 14 0 0 1 0 18M12 3a14 14 0 0 0 0 18"/></svg><span>Сайт</span></button><button type="button" class="ir-acc-btn" data-booklet title="PDF-буклет фирмы: объекты, фото, макет"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 5.5C5.5 4 8.5 4 12 6c3.5-2 6.5-2 9-.5V19c-2.5-1.5-5.5-1.5-9 .5-3.5-2-6.5-2-9-.5Z"/><path d="M12 6v13.5"/></svg><span>Буклет</span></button><span class="grow"></span><span class="ir-acc-count" data-count></span><button type="button" class="ir-acc-btn" data-reload><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 11a8 8 0 0 0-14.8-4"/><path d="M4 4v5h5"/><path d="M4 13a8 8 0 0 0 14.8 4"/><path d="M20 20v-5h-5"/></svg><span>Обновить</span></button></div>
+   `<div class="ir-acc-body"><div data-mail></div><div class="ir-acc-tools"><button type="button" class="ir-acc-btn main" data-add><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg><span>Дать доступ</span></button><button type="button" class="ir-acc-btn" data-roles title="Названия ролей и что каждая может: разделы, новые объекты, удаление, выгрузка"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3 4 6v6c0 4.5 3.4 8.3 8 9 4.6-.7 8-4.5 8-9V6l-8-3Z"/><path d="m9 12 2 2 4-4"/></svg><span>Роли и права</span></button><button type="button" class="ir-acc-btn" data-site title="Какие объекты показывает сайт компании"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a14 14 0 0 1 0 18M12 3a14 14 0 0 0 0 18"/></svg><span>Сайт</span></button><button type="button" class="ir-acc-btn" data-booklet title="Журнал фирмы PDF: лист «О компании» и по листу на объект — фото, макет"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 5.5C5.5 4 8.5 4 12 6c3.5-2 6.5-2 9-.5V19c-2.5-1.5-5.5-1.5-9 .5-3.5-2-6.5-2-9-.5Z"/><path d="M12 6v13.5"/></svg><span>Журнал</span></button><button type="button" class="ir-acc-btn" data-fold-btn title="Буклет в 3 сложения: один лист А4 с двух сторон"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 5l6-2 6 2 6-2v16l-6 2-6-2-6 2Z"/><path d="M9 3v16M15 5v16"/></svg><span>Буклет</span></button><span class="grow"></span><span class="ir-acc-count" data-count></span><button type="button" class="ir-acc-btn" data-reload><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 11a8 8 0 0 0-14.8-4"/><path d="M4 4v5h5"/><path d="M4 13a8 8 0 0 0 14.8 4"/><path d="M20 20v-5h-5"/></svg><span>Обновить</span></button></div>
    <div class="ir-acc-st" data-st>Загружаем…</div><div class="ir-acc-people" data-list></div></div>
    <div class="ir-acc-foot"><span class="grow"></span><button type="button" class="ir-acc-btn" data-close>Закрыть</button></div>`);
   const st=d.querySelector("[data-st]"),list=d.querySelector("[data-list]");
@@ -329,6 +330,7 @@
   d.querySelector("[data-roles]").onclick=()=>rolesEditor(d).then(r=>{if(!r)return;info().then(()=>load()).then(()=>{st.className="ir-acc-st ok";st.textContent=r.note})});
   d.querySelector("[data-site]").onclick=()=>siteObjects(d);
   d.querySelector("[data-booklet]").onclick=()=>bookletWindow(d);
+  d.querySelector("[data-fold-btn]").onclick=()=>bookletWindow(d,{fold:true});
   // after the letter — back in the panel, the result above the list
   d.querySelector("[data-add]").onclick=()=>editor(d,{objects}).then(r=>{if(!r)return;load().then(()=>{if(r.note){st.className="ir-acc-st ok";st.textContent=r.note}})});
   // who is in the program — renewed every minute while the panel is open
@@ -518,12 +520,15 @@
   const body={record_type:BOOKLET,title:"Фото для буклета",data:{entity_type:BOOKLET,files:lk?lk.files:files,layout:lk?lk.layout:layout,gallery:Number(lk?lk.gallery:gallery)||0,...(lk?{locked:lk}:{})}};
   if(!r)await api.create(body);else await api.update(r.id,body)
  }
- async function bookletWindow(parent){
+ // инженер 24.11.2026 «переименуй Буклет в Журнал, а для ЕвроБуклета сделай отдельную (как сейчас Буклет) и переименуй в
+ // Буклет»: одно окно, два вида — «Журнал» (многостраничный PDF) и «Буклет» ({fold:true}, в 3 сложения)
+ async function bookletWindow(parent,{fold:FOLD=false}={}){
   const doc=parent?.ownerDocument||document;
-  const d=dialog(doc,"wide ir-acc-so ir-acc-bk",head("Буклет","Отметьте объекты, у каждого выберите фото и макет листа — получится PDF-буклет фирмы. «Предпросмотр» покажет все листы до печати.")+
+  const KIND=FOLD?"Буклет":"Журнал";
+  const d=dialog(doc,"wide ir-acc-so ir-acc-bk",head(KIND,FOLD?"Один лист А4 с двух сторон, складывается в три: обложка, о компании, карта и контакты снаружи, внутри — фото на весь разворот с подписями. Отметьте объекты: первые "+(window.irBooklet?.FOLD_OBJ||3)+" дают фото и места, у каждого можно выбрать фото.":"Отметьте объекты, у каждого выберите фото и макет листа — получится PDF-журнал фирмы. «Предпросмотр» покажет все листы до печати.")+
    `<div class="ir-acc-body">
     <div class="ir-so-bar"><input type="search" data-q placeholder="Поиск по названию, заказчику, адресу"><div class="ir-so-tabs" data-tabs></div></div>
-    <div class="ir-so-sum"><button type="button" class="ir-acc-btn small" data-all>Выбрать все объекты</button><button type="button" class="ir-acc-btn small" data-none>Снять все</button><span class="grow"></span><label class="ir-bk-opt" title="Один лист А4 с двух сторон, складывается в три: обложка, о компании, цифры, услуги, 3 объекта, карта и контакты"><input type="checkbox" data-fold> Евробуклет (в 3 сложения)</label><label class="ir-bk-opt"><input type="checkbox" data-svc checked> Лист «Что мы делаем»</label><label class="ir-bk-opt"><input type="checkbox" data-map checked> Лист «География работ»</label></div>
+    <div class="ir-so-sum"><button type="button" class="ir-acc-btn small" data-all>Выбрать все объекты</button><button type="button" class="ir-acc-btn small" data-none>Снять все</button><span class="grow"></span><label class="ir-bk-opt"${FOLD?" hidden":""}><input type="checkbox" data-svc checked> Лист «Что мы делаем»</label><label class="ir-bk-opt"${FOLD?" hidden":""}><input type="checkbox" data-map checked> Лист «География работ»</label></div>
     <div class="ir-bk-sp" data-sp hidden></div>
     <div class="ir-so-prog" data-prog hidden><div class="row"><b data-pt></b><span data-pp>0%</span></div><div class="track"><i data-pb></i></div><div class="row"><span data-ps></span></div></div>
     <div class="ir-acc-st" data-st></div>
@@ -546,6 +551,10 @@
   const layTiles=x=>`<div class="ir-bk-lh">Макет листа объекта</div><div class="ir-bk-lts">${["Авто",...irBooklet.LAYOUTS].map((t,i)=>tile(`data-lay="${i}"`,x.layout===i,i?irBooklet.layoutSketch(i):"",t,i?"до "+irBooklet.LAYOUT_MAX[i]+" фото":"подберёт сам")).join("")}</div>
    <div class="ir-bk-lh">Макет листа «Фото с объекта» <small>— лист с фото сверх основного листа и с характеристикой, если она не вместилась</small></div><div class="ir-bk-lts g">${["Авто",...irBooklet.GALLERIES].map((t,i)=>tile(`data-gal="${i}"`,(x.gallery||0)===i,irBooklet.gallerySketch(i),t,"")).join("")}</div>`;
   const photosHtml=id=>{const x=info.get(id);if(!x)return`<div class="ir-so-empty">Загружаем фото…</div>`;
+   if(FOLD){const f0=foldPic(x),k=chosen.indexOf(id);
+    if(!x.all.length)return`<div class="ir-so-empty">У объекта нет фото</div>`;
+    return`<div class="ir-bk-tools"><span>${k<irBooklet.FOLD_OBJ?`Фото объекта в буклете — щёлкните одно`:`В буклет идут первые ${irBooklet.FOLD_OBJ} отмеченных объекта — этот даёт только место на карте`}</span></div>
+    ${k<irBooklet.FOLD_OBJ?`<div class="ir-bk-ph">${x.all.slice(0,SHOW).map((f,i)=>{const t=thumbs.get(f);return`<button type="button" class="ir-bk-t${f===f0?" on":""}" data-k="${i}">${t?`<img src="${esc(t)}" alt="">`:'<span class="ir-hero-no">…</span>'}${f===f0?"<b>✓</b>":""}</button>`}).join("")}</div>`:""}`}
    if(x.locked){const L=x.locked,lay=["Авто",...irBooklet.LAYOUTS][Number(L.layout)||0]||"Авто";
     return`<div class="ir-bk-tools ir-bk-lk"><span>🔒 <b>Лист сохранён ${esc(L.date||"")}</b> — объёмы, текст, фото (${(L.files||[]).length}) и макет «${esc(lay)}» больше не меняются</span><span class="grow"></span><button type="button" class="ir-acc-btn small" data-edit>Редактировать</button></div>
     <div class="ir-bk-ph ir-bk-closed">${(L.files||[]).map((f,k)=>{const t=thumbs.get(f);return`<span class="ir-bk-t on">${t?`<img src="${esc(t)}" alt="">`:'<span class="ir-hero-no">…</span>'}<b>${k+1}</b></span>`}).join("")}</div>`}
@@ -564,6 +573,7 @@
     try{await saveBooklet(id,L.files,L.layout,L);x.locked=L}catch(err){bad(err)}drawObj(id)});
    box.querySelector("[data-edit]")?.addEventListener("click",async e=>{busy(e.target);
     try{await saveBooklet(id,x.locked.files,x.locked.layout,null,x.locked.gallery);x.files=[...x.locked.files];x.layout=Number(x.locked.layout)||0;x.gallery=Number(x.locked.gallery)||0;x.locked=null}catch(err){bad(err)}drawObj(id)});
+   if(FOLD){box.querySelectorAll("[data-k]").forEach(b=>b.onclick=()=>{x.fpick=x.all[Number(b.dataset.k)];drawObj(id)});return}
    box.querySelectorAll("[data-k]").forEach(b=>b.onclick=()=>{const f=x.all[Number(b.dataset.k)],i=x.files.indexOf(f);
     if(i>=0)x.files.splice(i,1);else if(x.files.length<irBooklet.capOf(x))x.files.push(f);else return;drawObj(id)})};
   async function load(id){if(info.has(id))return drawObj(id);
@@ -586,33 +596,44 @@
   $("[data-all]").onclick=()=>{objects.filter(match).forEach(o=>{const id=Number(o.id);if(!chosen.includes(id))chosen.push(id)});draw()};
   $("[data-none]").onclick=()=>{chosen=[];draw()};
   try{objects=sarr(await irProject.data.objects.list());if(!objects.some(o=>STATUS_TAG(o.status||"")==="done"))tab="all";draw()}catch(e){bad(e)}
-  const services=()=>$("[data-svc]").checked,withMap=()=>$("[data-map]").checked,fold=()=>$("[data-fold]").checked;
+  const services=()=>$("[data-svc]").checked,withMap=()=>$("[data-map]").checked,fold=()=>FOLD;
+  const foldPic=x=>x.fpick||(x.locked?.files||x.files)[0]||x.all[0]||"";
   // евробуклет (инженер 24.11.2026 «чтобы в 3 раза сложить можно было»): листы «Что мы делаем» и «География» в нём всегда
   // разворот евробуклета — одно фото на весь разворот с подписями направлений работ (инженер 24.11.2026 прислал образец):
   // фото — из фото отмеченных объектов, точку каждой подписи ставит щелчок по фото. Помнится на этом компьютере.
   const SPK="ir-booklet-spread";let sp={};try{sp=JSON.parse(localStorage.getItem(SPK)||"{}")||{}}catch(_){sp={}}if(!sp.pts)sp.pts={};
   const spSave=()=>{try{localStorage.setItem(SPK,JSON.stringify(sp))}catch(_){}};
-  const LBL=window.irBooklet?irBooklet.SPREAD_LABELS():[];
+  const DEF=window.irBooklet?irBooklet.SPREAD_LABELS():[];
+  // подписи вписывает инженер (24.11.2026 «Тэги дай вводить в ручную»): по одной в строке, по умолчанию — направления работ
+  if(!Array.isArray(sp.labels))sp.labels=DEF.slice();let LBL=sp.labels;
+  const setLabels=txt=>{const old=LBL,nw=[...new Set(String(txt).split(/\n/).map(t=>t.replace(/\s+/g," ").trim()).filter(Boolean))].slice(0,16),pts={};
+   nw.forEach((t,i)=>{if(sp.pts[t])pts[t]=sp.pts[t];else if(old[i]&&!nw.includes(old[i])&&sp.pts[old[i]])pts[t]=sp.pts[old[i]]});
+   if(sp.cur&&!nw.includes(sp.cur)){const i=old.indexOf(sp.cur);sp.cur=nw[i]||""}
+   sp.labels=LBL=nw;sp.pts=pts;spSave();drawSp()};
   const spPhotos=()=>{const out=[];for(const id of chosen){const x=info.get(id);if(x)for(const f of x.all.slice(0,30))out.push([id,f])}return out};
   const drawSp=()=>{const box=$("[data-sp]");box.hidden=!fold();if(box.hidden)return;
-   const cur=sp.cur&&LBL.includes(sp.cur)?sp.cur:LBL.find(t=>!sp.pts[t])||LBL[0];sp.cur=cur;const t=sp.file&&thumbs.get(sp.file),ph=spPhotos();
+   const cur=sp.cur&&LBL.includes(sp.cur)?sp.cur:LBL.find(t=>!sp.pts[t])||LBL[0]||"";sp.cur=cur;const t=sp.file&&thumbs.get(sp.file),ph=spPhotos();
    box.innerHTML=`<div class="ir-bk-lh">Внутри — одно фото на весь разворот с подписями <small>— выберите фото, затем подпись и щёлкните на фото, куда она показывает</small></div>
     <div class="ir-bk-tools"><label><input type="checkbox" data-spoff ${sp.off?"checked":""}> Без фото: внутри цифры, услуги и объекты</label><span class="grow"></span><button type="button" class="ir-acc-btn small" data-spclr>Убрать все точки</button></div>
-    ${sp.off?"":`<div class="ir-bk-spl">${LBL.map(l=>`<button type="button" class="${l===cur?"on":""}${sp.pts[l]?" set":""}" data-spl="${esc(l)}">${esc(l)}${sp.pts[l]?`<i data-spx="${esc(l)}" title="Убрать точку">✕</i>`:""}</button>`).join("")}</div>
+    ${sp.off?"":`<div class="ir-bk-spe"><label><span>Подписи на фото — по одной в строке, пишите свои</span><textarea data-spt rows="${Math.min(9,Math.max(3,LBL.length+1))}" placeholder="Например: Монтаж металлоконструкций">${esc(LBL.join("\n"))}</textarea></label><button type="button" class="ir-acc-btn small" data-spdef title="Вернуть подписи по направлениям работ">Как на сайте</button></div>
+    <div class="ir-bk-spl">${LBL.map(l=>`<button type="button" class="${l===cur?"on":""}${sp.pts[l]?" set":""}" data-spl="${esc(l)}">${esc(l)}${sp.pts[l]?`<i data-spx="${esc(l)}" title="Убрать точку">✕</i>`:""}</button>`).join("")}</div>
     <div class="ir-bk-spv" data-spv${t?` style="background-image:url('${String(t).replace(/'/g,"%27")}')"`:""}><i class="f" style="left:${(97/297*100).toFixed(2)}%"></i><i class="f" style="left:${(197/297*100).toFixed(2)}%"></i>${t?"":`<div class="e">Выберите фото ниже</div>`}
      ${Object.entries(sp.pts).filter(([l])=>LBL.includes(l)).map(([l,[x,y]])=>`<span class="d" style="left:${(x*100).toFixed(2)}%;top:${(y*100).toFixed(2)}%"><b>${esc(l)}</b></span>`).join("")}</div>
     <div class="ir-bk-ph ir-bk-spp">${ph.length?ph.map(([id,f],k)=>{const th=thumbs.get(f);return`<button type="button" class="ir-bk-t${f===sp.file?" on":""}" data-spf="${k}">${th?`<img src="${esc(th)}" alt="">`:'<span class="ir-hero-no">…</span>'}</button>`}).join(""):`<div class="ir-so-empty">Отметьте объекты — здесь появятся их фото</div>`}</div>`}`;
    box.querySelector("[data-spoff]").onchange=e=>{sp.off=e.target.checked;spSave();drawSp()};
    box.querySelector("[data-spclr]").onclick=()=>{sp.pts={};spSave();drawSp()};
+   const ta=box.querySelector("[data-spt]");if(ta)ta.onchange=()=>setLabels(ta.value);
+   box.querySelector("[data-spdef]")?.addEventListener("click",()=>setLabels(DEF.join("\n")));
    box.querySelectorAll("[data-spl]").forEach(b=>b.onclick=e=>{const x=e.target.closest("[data-spx]");if(x){delete sp.pts[x.dataset.spx]}else sp.cur=b.dataset.spl;spSave();drawSp()});
    box.querySelectorAll("[data-spf]").forEach(b=>b.onclick=()=>{const [id,f]=ph[Number(b.dataset.spf)];if(sp.file!==f)sp.pts={};sp.file=f;sp.obj=id;spSave();drawSp()});
-   const v=box.querySelector("[data-spv]");if(v)v.onclick=e=>{if(!sp.file)return;const r=v.getBoundingClientRect();sp.pts[sp.cur]=[+((e.clientX-r.left)/r.width).toFixed(4),+((e.clientY-r.top)/r.height).toFixed(4)];sp.cur=LBL.find(t=>!sp.pts[t])||sp.cur;spSave();drawSp()}};
+   const v=box.querySelector("[data-spv]");if(v)v.onclick=e=>{if(!sp.file||!sp.cur)return;const r=v.getBoundingClientRect();sp.pts[sp.cur]=[+((e.clientX-r.left)/r.width).toFixed(4),+((e.clientY-r.top)/r.height).toFixed(4)];sp.cur=LBL.find(t=>!sp.pts[t])||sp.cur;spSave();drawSp()}};
   const spreadOpt=()=>{if(!fold()||sp.off||!sp.file)return null;const o=info.get(sp.obj)?.data||{};
-   return{file:sp.file,pts:LBL.filter(l=>sp.pts[l]).map(l=>[l,...sp.pts[l]]),cap:{name:o.name||"",place:String(o.address||"").trim()}}};
+   return{file:sp.file,labels:LBL.slice(),pts:LBL.filter(l=>sp.pts[l]).map(l=>[l,...sp.pts[l]]),cap:{name:o.name||"",place:String(o.address||"").trim()}}};
   d._sp=drawSp;
-  $("[data-fold]").onchange=()=>{const f=fold();$("[data-svc]").disabled=$("[data-map]").disabled=f;drawSp()};
+
   async function collect(save){const data=[];for(const [i,id] of chosen.entries()){const o=objects.find(x=>Number(x.id)===id);setProg(i/chosen.length*20,"Собираем объекты…",(i+1)+" из "+chosen.length+" — "+(o?.name||""));
     if(!info.has(id))await load(id);const x=info.get(id);if(!x)continue;
+    if(FOLD){const f=foldPic(x);data.push({...x.data,...(x.locked?.data||{}),files:f?[f]:[],layout:0,gallery:0});continue}
     if(x.locked){const L=x.locked;data.push({...x.data,...L.data,asOf:L.date,files:L.files||[],layout:Number(L.layout)||0,gallery:Number(L.gallery)||0});continue}
     if(save)await saveBooklet(id,x.files,x.layout,undefined,x.gallery).catch(()=>{});data.push({...x.data,files:x.files,layout:x.layout,gallery:x.gallery||0})}return data}
   // предпросмотр — те же листы, что уйдут в PDF, уменьшенными, с малыми фото (инженер 20.11.2026 «сделать
@@ -621,7 +642,7 @@
    try{const data=await collect(false);setProg(60,"Собираем листы…","");
     const pic=async f=>thumbs.get(f)||"";
     const html=await irBooklet.preview(data,{pic,services:services(),map:withMap(),fold:fold(),spread:spreadOpt()});prog.hidden=true;
-    const w=dialog(doc,"wide ir-bk-pvd",head("Предпросмотр буклета","Так будут выглядеть листы PDF. Фото здесь уменьшены — в PDF они в полном качестве.")+
+    const w=dialog(doc,"wide ir-bk-pvd",head("Предпросмотр — "+KIND.toLowerCase(),"Так будут выглядеть листы PDF. Фото здесь уменьшены — в PDF они в полном качестве.")+
      `<div class="ir-bk-pvb"><iframe data-fr title="Предпросмотр"></iframe></div><div class="ir-acc-foot"><span class="grow"></span><button type="button" class="ir-acc-btn" data-close>Закрыть</button><button type="button" class="ir-acc-btn main" data-make>Сделать PDF</button></div>`);
     const fr=w.querySelector("[data-fr]");
     const fit=()=>{const b=fr.contentDocument?.body;if(b)b.style.zoom=String(Math.max(.2,Math.min(1,(fr.clientWidth-30)/1123)))};
@@ -633,8 +654,8 @@
    go.disabled=pv.disabled=true;st.textContent="";
    try{const data=await collect(true);
     const r=await irBooklet.make(data,{services:services(),map:withMap(),fold:fold(),spread:spreadOpt(),onProgress:(i,n,name)=>setProg(20+i/n*75,"Фото объектов…",(i+1)+" из "+n+" — "+(name||""))});
-    setProg(100,r?"Буклет сохранён":"Буклет не сохранён",r?.path||"","ok")}
-   catch(e){setProg(100,"Буклет не получился",errText(e),"err")}
+    setProg(100,KIND+(r?" сохранён":" не сохранён"),r?.path||"","ok")}
+   catch(e){setProg(100,KIND+" не получился",errText(e),"err")}
    drawN()};
  }
  let siteSending=false;

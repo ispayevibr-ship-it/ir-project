@@ -378,7 +378,7 @@
  // рамке и малые под ним. Макет выбирается у каждого объекта (инженер «выбор для каждого объекта макета своего, сделай
  // 5-6 разных макетов»); Авто — по очереди, по числу фото.
  // 9 «Журнал», 10 «Диагональ» (инженер 24.11.2026 «еще есть макеты?», «поинтереснее»; «Полароид» — «фигня, удали»)
- const LAYOUTS=["Классика","Зеркало","Обложка","Мозаика","Панорама","Тёмный","Альбом","Фотоотчёт","Журнал","Диагональ"];
+ const LAYOUTS=["Классика","Зеркало","Обложка","Мозаика","Панорама","Тёмный","Альбом","Фотоотчёт","Акцент","Диагональ"];
  const titleCls=name=>{const len=name.length,word=Math.max(...name.split(/\s+/).map(w=>w.length));return len>70||word>15?" xs":len>45||word>12?" s":""};
  const worksOf=o=>(o.works||[]).filter(w=>num(w.volume)>0||num(w.plan)>0);
  // объём — смонтировано по программе на день выгрузки буклета, план — «из N», пока не выполнено (инженер 20.11.2026
@@ -547,7 +547,7 @@
  // objects: [{name, customer, general_contractor, address, status, years, summary, works:[{name,unit,volume,plan}], pictures:[src…]}]
  function build(objects,{logo="",company={},services=true,map=true,screen=false}={}){
   const d=new Date(),co={date:String(d.getDate()).padStart(2,"0")+"."+String(d.getMonth()+1).padStart(2,"0")+"."+d.getFullYear(),...COMPANY,...company},list=(Array.isArray(objects)?objects:[]).map((o,i)=>{const m=LAYOUT_MAX[layoutOf(o,i)];return(o.pictures||[]).length>m?{...o,pictures:o.pictures.slice(0,m)}:o});
-  return`<!doctype html><html lang="ru"><head><meta charset="utf-8"><title>Буклет ${esc(co.name)}</title>
+  return`<!doctype html><html lang="ru"><head><meta charset="utf-8"><title>Журнал ${esc(co.name)}</title>
 <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800;900&display=swap" rel="stylesheet"><style>${CSS}${screen?SCREEN:""}</style></head><body>
 ${(()=>{const pages=[["О компании",aboutPage(list,co,logo)],...(services?[["Что мы делаем",servicesPage(co,logo)]]:[]),...list.flatMap((o,i)=>{const g=galleryPage(o,co,logo,i),n=String(o.name||"Объект");return[[n,objectPage(o,co,logo,i)],...(g?[[n+" — фото",g]]:[])]})];const mp=map&&mapPage(list,co,logo);if(mp)pages.push(["География работ",mp]);
  return pages.map(([t,h],i)=>(screen?`<div class="pvn">Лист ${i+1} · ${esc(t)}</div>`:"")+h).join("")})()}</body></html>`
@@ -637,7 +637,7 @@ ${spOn?spreadHtml(spread)+mk([100,200])+"</section>":`<section class="tf"><div c
   <div class="pn ob"><div class="kk up">Объекты</div><h2>Наши объекты</h2>${shown.map(o=>{const ws=worksOf(o).slice(0,2),place=String(o.address||"").trim();
     return`<div class="oc"><div class="op"${bg((o.pictures||[])[0])}>${o.years?`<span>${esc(o.years)}</span>`:""}</div><b>${esc(o.name||"Объект")}</b>${place?`<small>${esc(place)}</small>`:""}<div class="ov">${ws.map(w=>`<em>${esc(fmt(num(w.volume)))}<s>${esc(unitOf(w.unit))}</s></em>`).join("")}</div></div>`}).join("")}
    ${list.length>shown.length?`<div class="om">и ещё ${list.length-shown.length} ${objWord(list.length-shown.length)} — на сайте ${esc(co.site)}</div>`:""}</div>${mk([100,200])}</section>`}`;
-  return`<!doctype html><html lang="ru"><head><meta charset="utf-8"><title>Евробуклет ${esc(co.name)}</title>
+  return`<!doctype html><html lang="ru"><head><meta charset="utf-8"><title>Буклет ${esc(co.name)}</title>
 <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800;900&display=swap" rel="stylesheet"><style>${CSS}${FOLD_CSS}${screen?SCREEN.replace(/\.page\{/g,".tf{")+".tf{margin:0 auto 10mm}":""}</style></head><body>
 ${screen?`<div class="pvn">Снаружи · клапан | задняя сторона | обложка</div>`:""}${screen?out.replace(/<\/section>(\s*)<section class="tf/,`</section><div class="pvn">Внутри · ${spOn?"фото на весь разворот с подписями":"цифры | услуги | объекты"}</div><section class="tf`):out}</body></html>`}
  // ---- в окне программы ----
@@ -678,7 +678,7 @@ ${screen?`<div class="pvn">Снаружи · клапан | задняя сто�
   if(fold&&spread?.file){const s=await read(spread.file);if(s){const src=await small(s,3500);opts.spread={...spread,src,px:await dims(s)}}}
   if(!fold)await dropTooLong(objects,opts);
   const html=fold?foldBuild(objects,opts):build(objects,opts);
-  const name=(fold?"Евробуклет ":"Буклет ")+String(profile?.name||COMPANY.name).replace(/[«»"]/g,"")+" "+new Date().toLocaleDateString("ru-RU");
+  const name=(fold?"Буклет ":"Журнал ")+String(profile?.name||COMPANY.name).replace(/[«»"]/g,"")+" "+new Date().toLocaleDateString("ru-RU");
   return root.irProject.ai.invoke("ai-documents:exec-export",{format:"pdf",name,html})
  }
  // предпросмотр (инженер 20.11.2026 «сделать предпросмотр как каждая страница выглядеть будет»): те же листы, что уйдут
