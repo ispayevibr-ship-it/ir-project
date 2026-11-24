@@ -106,7 +106,7 @@
 .gal .gs small{font-size:7pt;font-weight:800;letter-spacing:1.4px;color:var(--ord);margin-bottom:3mm}.gal .gt{font-size:8.6pt;line-height:1.55;color:#2c333b;overflow:hidden;min-height:0}.gal.gsm .gt{font-size:7.2pt;line-height:1.45}
 .gal .gt p,.gal .gt h5,.gal .gt ul,.gal .gt ol{margin:0 0 1.6mm}.gal .gt ul,.gal .gt ol{padding-left:4mm}.gal .gt h5{font-size:1.05em;font-weight:800}
 .gal.gl1,.gal.gl2{background:#eef1f4}.gal.gl3{background:#0d1013}.gal.gl3 .gh{background:#15191d}.gal.gl3 .gh b{color:#fff}.gal.gl3 .gg{gap:1.2mm}.gal.gl3 .gg div{border-radius:0}
-.gal .gg.jr{display:flex;flex-direction:column}.gal .gg.jb .top{display:flex;gap:3mm;min-height:0;background:none;border-radius:0;box-shadow:none}.gal .gg.jb .jc{display:flex;flex-direction:column;gap:3mm;min-width:0;background:none;border-radius:0;box-shadow:none}.gal .gg.jb .big{position:relative;border-radius:2mm;box-shadow:0 0 0 .9mm var(--or),0 1mm 4mm rgba(0,0,0,.4)}.gal .gg.jb .big:after{content:"";position:absolute;left:0;right:0;bottom:0;height:40%;border-radius:0 0 2mm 2mm;background:linear-gradient(transparent,rgba(0,0,0,.55))}.gal .gg.jb .big .cnt{position:absolute;left:4mm;bottom:3.5mm;z-index:1;color:#fff;font-size:7pt;font-weight:800;letter-spacing:1px;text-transform:uppercase}.gal .gg.jb .big .cnt b{display:block;font-size:20pt;font-weight:900;line-height:1;color:var(--or);letter-spacing:0}.gal .gg.jb .jc .rw:first-child div:first-child{box-shadow:0 .8mm 2.5mm rgba(0,0,0,.35)}.gal .gg.jb .jc .rw:first-child div:first-child:after{display:none}.gl3 .gg.jr,.gl3 .gg.jr .rw,.gl3 .gg.jb .jc{gap:1.2mm}.gl3 .gg.jr .rw div,.gl3 .gg.jb .big{border-radius:0}.gal .gg.jr .rw{display:flex;gap:3mm;min-height:0;background:none;border-radius:0}.gal .gg.jr .rw div{position:relative;min-width:0;border-radius:2mm;box-shadow:0 .8mm 2.5mm rgba(0,0,0,.35)}.gal .gg.jr .rw:first-child div:first-child{box-shadow:0 0 0 .9mm var(--or),0 1mm 4mm rgba(0,0,0,.4)}.gal .gg.jr .rw:first-child div:first-child:after{content:"";position:absolute;left:0;right:0;bottom:0;height:40%;border-radius:0 0 2mm 2mm;background:linear-gradient(transparent,rgba(0,0,0,.55))}.gal .gg.jr .cnt{position:absolute;left:4mm;bottom:3.5mm;z-index:1;color:#fff;font-size:7pt;font-weight:800;letter-spacing:1px;text-transform:uppercase}.gal .gg.jr .cnt b{display:block;font-size:20pt;font-weight:900;line-height:1;color:var(--or);letter-spacing:0}.gal.solo .gs{width:auto;right:6mm}.gal.solo .gt{column-count:2;column-gap:10mm}
+.gal .gg.jr{display:flex;flex-direction:column}.gal .gg.jb .top{display:flex;gap:3mm;min-height:0;background:none;border-radius:0;box-shadow:none}.gal .gg.jb .jc{display:flex;flex-direction:column;gap:3mm;min-width:0;background:none;border-radius:0;box-shadow:none}.gal .gg.jb .big{position:relative;border-radius:2mm;box-shadow:0 0 0 .9mm var(--or),0 1mm 4mm rgba(0,0,0,.4)}.gal .gg.jb .big:after{content:"";position:absolute;left:0;right:0;bottom:0;height:40%;border-radius:0 0 2mm 2mm;background:linear-gradient(transparent,rgba(0,0,0,.55))}.gal .gg.jb .big .cnt{position:absolute;left:4mm;bottom:3.5mm;z-index:1;color:#fff;font-size:7pt;font-weight:800;letter-spacing:1px;text-transform:uppercase}.gal .gg.jb .big .cnt b{display:block;font-size:20pt;font-weight:900;line-height:1;color:var(--or);letter-spacing:0}.gal .gg.jb .jc .rw:first-child div:first-child{box-shadow:0 .8mm 2.5mm rgba(0,0,0,.35)}.gal .gg.jb .jc .rw:first-child div:first-child:after{display:none}.gl3 .gg.jr,.gl3 .gg.jr .rw,.gl3 .gg.jb .jc{gap:1.2mm}.gl3 .gg.jr .rw div,.gl3 .gg.jb .big{border-radius:0}.gal .gg.jr .rw{display:flex;gap:3mm;min-height:0;background:none;border-radius:0}.gal .gg.jr .rw div{position:relative;min-width:0;border-radius:2mm;box-shadow:0 .8mm 2.5mm rgba(0,0,0,.35)}.gal .gg.jr .rw:first-child div:first-child{box-shadow:0 0 0 .9mm var(--or),0 1mm 4mm rgba(0,0,0,.4)}.gal .gg.jr .rw:first-child div:first-child:after{content:"";position:absolute;left:0;right:0;bottom:0;height:40%;border-radius:0 0 2mm 2mm;background:linear-gradient(transparent,rgba(0,0,0,.55))}.gal .gg.jr .cnt{position:absolute;left:4mm;bottom:3.5mm;z-index:1;color:#fff;font-size:7pt;font-weight:800;letter-spacing:1px;text-transform:uppercase}.gal .gg.jr .cnt b{display:block;font-size:20pt;font-weight:900;line-height:1;color:var(--or);letter-spacing:0}.gal.solo .gs{width:auto;right:6mm}.gal.solo .gt,.gal.solo .gw{column-count:2;column-gap:10mm}.gal .gw{flex:0 0 auto;margin-bottom:2mm}.gal .gw .wk{padding:2mm 0;break-inside:avoid}.gal .gw .wk b{font-size:7.4pt}.gal .gw .vol i{font-size:13pt}.gal.gsm .gw .wk{padding:1.2mm 0}.gal.gsm .gw .wk b{font-size:6.6pt}.gal.gsm .gw .vol i{font-size:11pt}.gal .gs small.s2{margin-top:3mm}
 .gal .n4{grid-template:1fr 1fr/1fr 1fr}.gal .n5{grid-template:1fr 1fr/1.5fr 1fr 1fr}.gal .n5 div:first-child{grid-row:span 2}.gal .n6{grid-template:1fr 1fr/1fr 1fr 1fr}
 .svcp:before{content:"";position:absolute;left:0;top:0;width:70mm;height:52mm;background:linear-gradient(135deg,var(--or2),var(--or));clip-path:polygon(0 0,100% 0,0 100%)}
 .svcp .sh{position:absolute;left:16mm;top:20mm;width:190mm}.svcp .sh .kick{font-size:7.5pt;font-weight:800;letter-spacing:1.4px;color:var(--ink);margin-bottom:2mm}
@@ -353,6 +353,12 @@
  // объём — смонтировано по программе на день выгрузки буклета, план — «из N», пока не выполнено (инженер 20.11.2026
  // «объемы должны также браться с программы, на день выгрузки буклета»)
  const planOf=w=>num(w.plan)>num(w.volume)?`<u>из ${esc(fmt(w.plan))}</u>`:"";
+ // сколько видов работ на листе объекта: у макета свой предел (Обложка 4, Тёмный 8, остальные 12) и wkMax после подгонки;
+ // остальные — на листе «Фото с объекта» колонкой «Виды работ (продолжение)» (инженер 24.11.2026 «если часть верхняя
+ // работы не вмещаются, можно их перенести на вторую страницу?»)
+ const WK_CAP={3:4,6:8};
+ const wkShown=(o,i)=>{const l0=layoutOf(o,i),l=l0===7?1:l0===8?4:l0,cap=WK_CAP[l]||12;return Math.min(cap,o.wkMax||cap)};
+ const wkRest=(o,i)=>worksOf(o).slice(wkShown(o,i));
  const wkRows=ws=>ws.map(w=>`<div class="wk"><b class="up">${esc(w.name)}</b><div class="vol"><i>${esc(fmt(num(w.volume)))}</i><s>${esc(unitOf(w.unit))}</s>${planOf(w)}</div></div>`).join("");
  const ringOf=p=>`<div class="ring" style="--p:${p}"><div><b>${p}%</b><span class="up">выполнено</span></div></div>`;
  const docOf=()=>`<div class="doc up"><em>${CHECK}</em>Полный пакет<br>исполнительной<br>документации</div>`;
@@ -381,7 +387,7 @@
   if(lay===2)return`<section class="page lay2"><div class="L"><div class="in">${textCol(o,12,co)}</div></div>
   <div class="R"><div class="ph"${bg(main)}></div>${logoOf(co,logo)}<div class="band"></div>${circlesOf(rest)}
   <div class="info">${placeOf(o,co)}</div>${footOf(o)}</div></section>`;
-  if(lay===3){const name=String(o.name||"Объект"),ws=worksOf(o).slice(0,4),p=doneOf(o),place=String(o.address||"").trim();
+  if(lay===3){const name=String(o.name||"Объект"),ws=worksOf(o).slice(0,Math.min(4,o.wkMax||4)),p=doneOf(o),place=String(o.address||"").trim();
    return`<section class="page lay3"><div class="ph"${bg(main)}></div><div class="shade"></div>${logoOf(co,logo)}
    <div class="hd"><div class="kick up">${esc(o.years?String(o.years):"Объект")}${place?" · "+esc(place):""}</div><h1 class="ttl up${titleCls(name)}">${esc(name)}</h1>
    ${o.summary&&!o.sumMoved?`<div class="sm">${sumHtml(o.summary)}</div>`:""}</div>
@@ -465,17 +471,17 @@
  // лист «Фото с объекта» — фото с пятого (1–4 уже на листе объекта, без повторов — инженер 24.11.2026 «одни и те же фото почему используется на разных листах»), если их больше четырёх или краткая характеристика не вместилась на
  // лист объекта: тогда она здесь, слева тёмной колонкой (инженер 20.11.2026 «если на страницу переносишь, то больше фото
  // показывай с краткой информацией»)
- function galleryPage(o,co,logo){const all=o.pictures||[],sm=o.summary&&o.sumMoved;
-  if(all.length<=4&&!sm)return"";const ps=all.slice(4,MAX_PHOTOS);const gn=Math.min(ps.length,12);if(!ps.length&&!sm)return"";
-  const gv=galleryOf(o),ra=k=>ratioOk((o.ratios||[])[4+k]),W0=sm?187:285,
+ function galleryPage(o,co,logo,i=0){const all=o.pictures||[],sm=o.summary&&o.sumMoved,wr=wkRest(o,i),side=sm||wr.length>0;
+  if(all.length<=4&&!side)return"";const ps=all.slice(4,MAX_PHOTOS);const gn=Math.min(ps.length,12);if(!ps.length&&!side)return"";
+  const gv=galleryOf(o),ra=k=>ratioOk((o.ratios||[])[4+k]),W0=side?187:285,
    // «Крупное + мелкие» (инженер 24.11.2026 «вот такие фотографии подобрать тяжело»): крупное — в своей пропорции слева
    // сверху (до 0,6 ширины и 0,72 высоты), справа от него и под ним — остальные рядами в своих пропорциях
    big=gv===2&&gn>=3&&bigOf(ps.slice(0,gn).map((_,k)=>ra(k)),W0,176),
    jr=!big&&gv!==1&&gn>=2&&rowsOf(ps.slice(0,gn).map((_,k)=>ra(k)),W0,176),gst=!big&&!jr&&galGrid(gv,gn,!!sm);
   const cellImg=s=>s?`background-image:url('${String(s).replace(/'/g,"%27")}')`:"";
-  return`<section class="page gal${gv?" gl"+gv:""}${sm?" wsum":""}${sm&&!ps.length?" solo":""}${o.galSmall?" gsm":""}"><div class="gh"><div class="t"><small class="up">Фото с объекта</small><b>${esc(o.name||"Объект")}</b></div>
+  return`<section class="page gal${gv?" gl"+gv:""}${side?" wsum":""}${side&&!ps.length?" solo":""}${o.galSmall?" gsm":""}"><div class="gh"><div class="t"><small class="up">${ps.length?"Фото с объекта":"Виды работ"}</small><b>${esc(o.name||"Объект")}</b></div>
   <div class="lg">${logo?`<img src="${esc(logo)}" alt="">`:`<b>${esc(co.name)}</b>`}</div></div>
-  ${sm?`<div class="gs"><small class="up">Краткая характеристика</small><div class="gt">${sumHtml(o.summary)}</div></div>`:""}
+  ${side?`<div class="gs">${wr.length?`<small class="up">Виды работ (продолжение)</small><div class="gw">${wkRows(wr)}</div>`:""}${sm?`<small class="up${wr.length?" s2":""}">Краткая характеристика</small><div class="gt">${sumHtml(o.summary)}</div>`:""}</div>`:""}
   ${big||jr?(()=>{const cnt=`<span class="cnt"><b>${gn}</b> фото</span>`,rowsH=(J,off)=>J.rows.map((r,j)=>`<div class="rw" style="flex:${J.hs[j].toFixed(2)} 1 0">${r.map(q=>{const k=q+off;return`<div style="flex:${ra(k).toFixed(3)} 1 0;${cellImg(ps[k])}">${k===0?cnt:""}</div>`}).join("")}</div>`).join("");
    if(!big)return`<div class="gg jr">${rowsH(jr,0)}</div>`;const H0=176;
    return`<div class="gg jr jb"><div class="top" style="flex:${big.Hb.toFixed(1)} 1 0"><div class="big" style="flex:${big.bw.toFixed(1)} 1 0;${cellImg(ps[0])}">${cnt}</div>${big.R?`<div class="jc" style="flex:${(W0-big.bw-3).toFixed(1)} 1 0">${rowsH(big.R,1)}</div>`:""}</div>${big.D?`<div class="jc" style="flex:${(H0-big.Hb-3).toFixed(1)} 1 0">${rowsH(big.D,1+big.k)}</div>`:""}</div>`})():ps.length?`<div class="gg n${gn}${gst?.big?" bento":""}"${gst?` style="${gst.st}"`:""}>${ps.slice(0,12).map((s,k)=>gst?`<div style="${gst.cell(k)}${s?`;background-image:url('${String(s).replace(/'/g,"%27")}')`:""}">${gst.big&&k===0?`<span class="cnt"><b>${gn}</b> фото</span>`:""}</div>`:`<div${bg(s)}></div>`).join("")}</div>`:""}</section>`}
@@ -484,7 +490,7 @@
   const d=new Date(),co={date:String(d.getDate()).padStart(2,"0")+"."+String(d.getMonth()+1).padStart(2,"0")+"."+d.getFullYear(),...COMPANY,...company},list=(Array.isArray(objects)?objects:[]).map((o,i)=>{const m=LAYOUT_MAX[layoutOf(o,i)];return(o.pictures||[]).length>m?{...o,pictures:o.pictures.slice(0,m)}:o});
   return`<!doctype html><html lang="ru"><head><meta charset="utf-8"><title>Буклет ${esc(co.name)}</title>
 <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800;900&display=swap" rel="stylesheet"><style>${CSS}${screen?SCREEN:""}</style></head><body>
-${(()=>{const pages=[["О компании",aboutPage(list,co,logo)],...(services?[["Что мы делаем",servicesPage(co,logo)]]:[]),...list.flatMap((o,i)=>{const g=galleryPage(o,co,logo),n=String(o.name||"Объект");return[[n,objectPage(o,co,logo,i)],...(g?[[n+" — фото",g]]:[])]})];const mp=map&&mapPage(list,co,logo);if(mp)pages.push(["География работ",mp]);
+${(()=>{const pages=[["О компании",aboutPage(list,co,logo)],...(services?[["Что мы делаем",servicesPage(co,logo)]]:[]),...list.flatMap((o,i)=>{const g=galleryPage(o,co,logo,i),n=String(o.name||"Объект");return[[n,objectPage(o,co,logo,i)],...(g?[[n+" — фото",g]]:[])]})];const mp=map&&mapPage(list,co,logo);if(mp)pages.push(["География работ",mp]);
  return pages.map(([t,h],i)=>(screen?`<div class="pvn">Лист ${i+1} · ${esc(t)}</div>`:"")+h).join("")})()}</body></html>`
  }
 
@@ -562,12 +568,12 @@ ${(()=>{const pages=[["О компании",aboutPage(list,co,logo)],...(service
      else if((o.fit||0)<4)objects[i]={...o,fit:(o.fit||0)+1};
      else{const n=pg.querySelectorAll(".wk").length;if(n>1)objects[i]={...o,wkMax:n-1};else changed=false}});
     const gals=[...d.querySelectorAll("section.gal.wsum")];
-    gals.forEach(g=>{const name=g.querySelector(".gh b")?.textContent;const i=objects.findIndex(o=>o.sumMoved&&!o.galSmall&&String(o.name||"Объект")===name);
-     if(i>=0&&overflows(g.querySelector(".gt"))){objects[i]={...objects[i],galSmall:true};changed=true}});
+    gals.forEach(g=>{const name=g.querySelector(".gh b")?.textContent;const i=objects.findIndex(o=>!o.galSmall&&String(o.name||"Объект")===name);
+     if(i>=0&&(overflows(g.querySelector(".gt"))||overflows(g.querySelector(".gs")))){objects[i]={...objects[i],galSmall:true};changed=true}});
    }catch(_){return}finally{fr.remove()}
    if(!changed)return;
   }
  }
- const api={rowsOf,GALLERIES,galleryOf,layoutSketch,gallerySketch,MAX_PHOTOS,LAYOUT_MAX,capOf,clientList,mapPage,geoGroups,dropTooLong,build,make,preview,totals,doneOf,parties,COMPANY,LAYOUTS,layoutOf,thumb,read,pickDefault};
+ const api={rowsOf,wkShown,wkRest,GALLERIES,galleryOf,layoutSketch,gallerySketch,MAX_PHOTOS,LAYOUT_MAX,capOf,clientList,mapPage,geoGroups,dropTooLong,build,make,preview,totals,doneOf,parties,COMPANY,LAYOUTS,layoutOf,thumb,read,pickDefault};
  if(typeof module!=="undefined"&&module.exports)module.exports=api;else root.irBooklet=api;
 })(typeof window!=="undefined"?window:globalThis);
