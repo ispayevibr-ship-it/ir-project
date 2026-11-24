@@ -13,7 +13,7 @@ window.irThreeSchemeView=(function irThreeModule(){
  // ускорить построение схемы?» — «да»). It is raised by scripts/scheme-model-digest.js, never by hand: the script builds
  // the checked schemes with this file and raises the number when what would be kept for any of them differs from the
  // record (knowledge/quality/model-digest.json); scripts/scheme-pack.js refuses a pack made without it.
- var MODEL_BUILD=102;
+ var MODEL_BUILD=104;
  var token=0,active=null,loadPromise=null,cameraMemory={};
  // Bundled with the app (works offline); the CDN is only a fallback for an incomplete hot update.
  var sources=[
@@ -1098,7 +1098,7 @@ function byCreation(list){if(!Array.isArray(list))return list;var key=function(c
   // (the order by the depth steps only, not by the slope factor: a trim lying along the roof seen from aside was moved by the
   // factor a long way in the picture — «Показать поверх» looked like the trim lifted aslant over the roof and the railing,
   // the engineer 20.11.2026 «он ее выше поднимает, но не ставит поверх металла»)
-  function orderedMat(base,order,f0){if(!order)return base;var k=base.uuid+"|"+order;if(!orderMats.has(k)){var m=base.clone();m.polygonOffset=true;m.polygonOffsetFactor=(f0||0);m.polygonOffsetUnits=(f0||0)*2-4*order;m.userData=Object.assign({},base.userData);orderMats.set(k,m)}return orderMats.get(k)}
+  function orderedMat(base,order,f0){if(!order)return base;var k=base.uuid+"|"+order;if(!orderMats.has(k)){var m=base.clone();m.polygonOffset=true;m.polygonOffsetFactor=(f0||0);m.polygonOffsetUnits=(f0||0)*2-4*order;m.userData=Object.assign({},base.userData,{ordered:order});orderMats.set(k,m)}return orderMats.get(k)}
   function baseMaterial(c){
    var color=baseColor(c),metal=plannedMetal(c),key=metal?"metal":ghostOf(c)?"p"+color:color;
    // (a trim lies over the panels and their seam lines at any distance: the panel is drawn 1 step back, the seam at its
@@ -6608,6 +6608,25 @@ function byCreation(list){if(!Array.isArray(list))return list;var key=function(c
     ductN++;return true
    }
   }
+  // Strips of one roof slope in one plane (the engineer's rule «панели одного ската строго в одной плоскости», 24.11.2026
+  // «почему эта панель выше чем остальные»): two roof panels side by side (parallel, edge to edge within 50 mm, the same
+  // marks of their ends in the scheme within 30 mm), their tops as built at the same places along them — a strip more than
+  // 3 mm over or under the other counts; data-roof-plane, printed by check-3d-clashes.js, target 0
+  function roofPlaneCheck(){var ps=[],n=0,ids=[],rc=new T.Raycaster();
+   elems.forEach(function(c){if(c.ft!=="panel"||!c.id||!c.lay||c.lay.panel!=="roof")return;var ax=number(c.x),ay=number(c.y),L=Math.hypot(number(c.x2)-ax,number(c.y2)-ay);if(L<1000)return;
+    var ms=(meshesById.get(String(c.id))||[]).filter(function(m){var u=m.userData||{};return m.isMesh&&m.parent&&m.visible!==false&&!u.lap&&!u.seam&&!u.edges&&!u.footing&&!u.screw&&m.geometry});if(!ms.length)return;
+    ps.push({c:c,ms:ms,ax:ax,ay:ay,ux:(number(c.x2)-ax)/L,uy:(number(c.y2)-ay)/L,L:L,w:Math.max(300,number(c.fd)||1000),z0:number(c.z0),z1:number(c.z2)})});
+   var topAt=function(p,X,Y,Z){var a=toWorld(X,Y,Z+3000),b=toWorld(X,Y,Z-3000),d=b.clone().sub(a),len=d.length();rc.set(a,d.divideScalar(len));rc.far=len;var best=null,hs=[];p.ms.forEach(function(m){hs.length=0;m.raycast(rc,hs);hs.forEach(function(h){if(!best||h.distance<best)best=h.distance})});return best===null?null:Z+3000-best*1000};
+   for(var i=0;i<ps.length;i++)for(var j=i+1;j<ps.length;j++){var A=ps[i],B=ps[j];if(A.ux*B.ux+A.uy*B.uy<.999)continue;
+    var off=(B.ax-A.ax)*-A.uy+(B.ay-A.ay)*A.ux,gap=Math.abs(off)-(A.w+B.w)/2;if(Math.abs(gap)>50)continue;
+    var s0=(B.ax-A.ax)*A.ux+(B.ay-A.ay)*A.uy,lo=Math.max(0,s0),hi=Math.min(A.L,s0+B.L);if(hi-lo<1000)continue;
+    var zA=function(s){return A.z0+(A.z1-A.z0)*s/A.L},zB=function(s){return B.z0+(B.z1-B.z0)*(s-s0)/B.L};if(Math.abs(zA(lo)-zB(lo))>30||Math.abs(zA(hi)-zB(hi))>30)continue;
+    var bad=false;[.2,.5,.8].forEach(function(f){if(bad)return;var s=lo+(hi-lo)*f,sg=off>0?1:-1,ea=A.w/2-60,eb=B.w/2-60;
+     var ta=topAt(A,A.ax+A.ux*s-A.uy*sg*ea,A.ay+A.uy*s+A.ux*sg*ea,zA(s)),tb=topAt(B,A.ax+A.ux*s-A.uy*(off-sg*eb),A.ay+A.uy*s+A.ux*(off-sg*eb),zA(s));if(ta===null||tb===null)return;
+     // (the top of A extended by its slope across to the edge of B: the planes compared at the seam)
+     if(Math.abs(ta-tb)>3)bad=true});
+    if(bad){n++;if(ids.length<12)ids.push(String(A.c.mark||"")+"/"+String(B.c.mark||"")+" ["+A.c.id+"×"+B.c.id+"]")}}
+   root.setAttribute("data-roof-plane",String(n));root.setAttribute("data-roof-plane-ids",ids.join(", "));return n}
   function roofSeats(list){
    roofShift.clear();roofMoved.clear();
    masonryN=0;masonryMat=null;masonryPart.clear();masonryCapN=0;ductPieces=[];gapDucts.clear();gapDuctNew=0;
@@ -6637,6 +6656,10 @@ function byCreation(list){if(!Array.isArray(list))return list;var key=function(c
     // (on its purlins where it has them: a beam or a girt under their lowest top does not carry it — Рр 300 mm under the
     // upper end of Пк-12 beside Пк-15 left a step of 100 mm between the two; within 100 mm under it it stays — the eave's
     // girt Ро under Пк-18 of the canopy at rows А–Б, on which that panel's lower end lies)
+    // (two supports at one place — a pair of girts Ро side by side under the eave of the canopy at rows А–Б — count once:
+    // twice they weighed the fit to the lower end, the strip Пк-18 at 09 over both stood 18 mm steeper than its
+    // neighbours over one, the engineer 24.11.2026 «почему эта панель выше чем остальные»)
+    pts=pts.filter(function(q,i){return!pts.some(function(p,j){return j<i&&Math.abs(p[0]-q[0])<30&&Math.abs(p[1]-q[1])<5})});
     var pmin=Infinity;pts.forEach(function(q){if(q[2])pmin=Math.min(pmin,q[1])});if(pmin<Infinity)pts=pts.filter(function(q){return q[2]||q[1]>=pmin-100});
     var rmx=-Infinity;pts.forEach(function(q){rmx=Math.max(rmx,q[1])});pts=pts.filter(function(q){return q[1]>=rmx-200});
     var a=0,b=0,n=pts.length;
@@ -15405,7 +15428,7 @@ function byCreation(list){if(!Array.isArray(list))return list;var key=function(c
   }
   function hitMember(){
    var h=rayFirst(rayTargets);
-   return h?{id:h.object.userData.memberId,point:h.point,d:h.distance,o:h.object}:null
+   return h?{id:h.object.userData.memberId,point:h.point,d:h.distance,o:h.object,face:h.face}:null
   }
   // ---- Copy a member to another place on the ground plane.
   function reportCopyError(message){
@@ -15734,7 +15757,8 @@ function byCreation(list){if(!Array.isArray(list))return list;var key=function(c
    lastPick=hit&&hit.o?{id:String(hit.id),o:hit.o,point:hit.point.clone()}:null;
    if(!selectedNode&&nodePanel)nodePanel.hidden=true;
    if(editSess&&hit&&(e.ctrlKey||e.shiftKey||e.metaKey)){multiToggle(hit.id);return}
-   multi.clear();choose(hit?hit.id:"")
+   multi.clear();choose(hit?hit.id:"");
+   if(editSess&&editSess.kind==="extend"&&hit&&hit.o){var k=editKind(hit.o);if(k){pairMode="extend";pairA={o:hit.o,id:String(hit.id),pt:fromWorld(hit.point),kind:k};renderer.domElement.title="Щёлкните грань, до которой продлить"}}
   }
   // The member under the cursor is looked for once a frame, not on every move of the mouse.
   var pendingHover=null;
@@ -15792,7 +15816,10 @@ function byCreation(list){if(!Array.isArray(list))return list;var key=function(c
   // stopped on a face slides on along it)
   var moveX=null;
   function moveSlide(o,vec,id,list){var off=new T.Vector3();[new T.Vector3(vec.x,0,0),new T.Vector3(0,vec.y,0),new T.Vector3(0,0,vec.z)].forEach(function(c){if(c.lengthSq()<1e-12)return;off.add(moveStop(o,c,id,off,list))});return off}
-  function moveStop(o,vec,id,off,list){off=off||new T.Vector3();var len=vec.length();if(len<1e-6)return vec;var ms=(list&&list.length?list:[o]),dir=vec.clone().divideScalar(len),X=moveX||(moveX=trimIndex()),b=new T.Box3();ms.forEach(function(m){b.expandByObject(m)});b.translate(off);var sw=b.clone();sw.min.add(new T.Vector3(Math.min(0,vec.x),Math.min(0,vec.y),Math.min(0,vec.z)));sw.max.add(new T.Vector3(Math.max(0,vec.x),Math.max(0,vec.y),Math.max(0,vec.z)));sw.expandByScalar(.003);
+  // (a trim edited by hand stops at nothing — the engineer, 24.11.2026 «почему не дает поставить к стене? сколько раз уже
+  // говорил что фасонка гнется как угодно»: moved, pulled, extended — where he takes it; the check of the model after
+  // «Сохранить» counts a trim through a trim or a panel, it moves nothing. The steel and a panel moved themselves still stop)
+  function moveStop(o,vec,id,off,list){off=off||new T.Vector3();var len=vec.length();if(len<1e-6)return vec;if(editKind(o)==="trim")return vec.clone();var ms=(list&&list.length?list:[o]),dir=vec.clone().divideScalar(len),X=moveX||(moveX=trimIndex()),b=new T.Box3();ms.forEach(function(m){b.expandByObject(m)});b.translate(off);var sw=b.clone();sw.min.add(new T.Vector3(Math.min(0,vec.x),Math.min(0,vec.y),Math.min(0,vec.z)));sw.max.add(new T.Vector3(Math.max(0,vec.x),Math.max(0,vec.y),Math.max(0,vec.z)));sw.expandByScalar(.003);
    var pts=[],v=new T.Vector3();ms.forEach(function(m){var P=m.geometry.attributes.position,step=Math.max(1,Math.floor(P.count/Math.max(40,Math.floor(400/ms.length))));m.updateMatrixWorld(true);for(var i=0;i<P.count;i+=step)pts.push(v.fromBufferAttribute(P,i).applyMatrix4(m.matrixWorld).clone().add(off))});
    var best=len,rc=new T.Raycaster(),hs=[];
    // (not through a trim, the steel or a panel)
@@ -15812,12 +15839,26 @@ X.all.forEach(function(f){var u=f.o.userData||{},c=dataById.get(f.id);if(f.o===o
      if(d-.0002<best)best=Math.max(0,d-.0002)})})}finally{ml.forEach(function(m,i){if(m)m.side=sd[i]})}});
    return dir.multiplyScalar(best)}
   function moveGeo(m,vec){var g=m.geometry.clone(),ps=g.attributes.position,inv=new T.Matrix4().copy(m.matrixWorld).invert(),v=new T.Vector3();m.updateMatrixWorld(true);
-   for(var i=0;i<ps.count;i++){v.fromBufferAttribute(ps,i).applyMatrix4(m.matrixWorld).add(vec).applyMatrix4(inv);ps.setXYZ(i,v.x,v.y,v.z)}ps.needsUpdate=true;g.computeBoundingBox();g.computeBoundingSphere();if(g.userData)delete g.userData.outline;m.geometry=g;m.updateMatrixWorld(true);m.userData.engineerFix=true;if(m.userData)delete m.userData.sphere}
+   for(var i=0;i<ps.count;i++){v.fromBufferAttribute(ps,i).applyMatrix4(m.matrixWorld).add(vec).applyMatrix4(inv);ps.setXYZ(i,v.x,v.y,v.z)}ps.needsUpdate=true;g.computeBoundingBox();g.computeBoundingSphere();if(g.userData)delete g.userData.outline;m.geometry=g;m.updateMatrixWorld(true);m.userData.engineerFix=true;if(m.userData)delete m.userData.sphere;editedOnTop(m)}
+  // (a trim edited by hand lies over the trims about it — drawn a step in front, not flickering with the one it lies on: the
+  // engineer 24.11.2026; an order set on purpose in the card stays)
+  function editedOnTop(m){var c=dataById.get(String(m&&m.userData&&m.userData.memberId)),mt=m&&m.material;if(!c||c.ft!=="trim"||drawOrder(c)!==0||!mt||Array.isArray(mt)||!(mt.userData&&mt.userData.bothSides)||mt.userData.ordered)return;m.material=orderedMat(mt,1,-2)}
   // (two trim pieces in a corner — «Сделать угол»: both run to the far face of the other and are cut on the mitre by the
   // bisector plane, tight, no lap, no gap (the engineer's rule «углы впритык»); «Этот поверх»: this one runs to the far face of
   // the other, the other stops at its near face — 20.11.2026 «углы не могу сделать, сдвинуть полку дальше не могу»)
   var pairMode="",pairA=null;
-  function setPairMode(v){if(/^(?:mitre|over)$/.test(String(v)))editStart(String(v));pairMode=/^(?:mitre|over)$/.test(String(v))?String(v):"";pairA=pairMode&&lastPick&&lastPick.o&&editKind(lastPick.o)==="trim"?{o:lastPick.o,id:String(lastPick.id),pt:fromWorld(lastPick.point)}:null;if(!pairA)pairMode="";renderer.domElement.title=pairMode?"Щёлкните второй кусок в углу":"";return pairMode}
+  function setPairMode(v){v=String(v||"");var ok=/^(?:mitre|over|extend)$/.test(v);if(ok)editStart(v);pairMode=ok?v:"";var k=lastPick&&lastPick.o?editKind(lastPick.o):null;pairA=pairMode&&k&&(pairMode==="extend"||k==="trim")?{o:lastPick.o,id:String(lastPick.id),pt:fromWorld(lastPick.point),kind:k}:null;if(!pairA&&pairMode!=="extend")pairMode="";renderer.domElement.title=pairMode==="extend"?(pairA?"Щёлкните грань, до которой продлить":"Щёлкните элемент, потом грань"):pairMode?"Щёлкните второй кусок в углу":"";return pairMode}
+  // («Продлить до грани» — the engineer's editor, 24.11.2026 «дальше»: a member chosen, then a face of another one clicked —
+  // the nearer end of the member goes to the plane of that face, longer or shorter. A trim or a panel — by the fix «ends» of
+  // its pieces, as «Тянуть край»: never through something on the way, it stops at it (dragStop); a member of steel — by its
+  // record, the page moves the end along the member's line to the plane (onExtendMember); then the next member)
+  function faceNormalMM(hit){if(!hit||!hit.face||!hit.o)return null;hit.o.updateMatrixWorld(true);var n=hit.face.normal.clone().transformDirection(hit.o.matrixWorld),a=fromWorld(hit.point),b=fromWorld(hit.point.clone().add(n)),v={x:b.x-a.x,y:b.y-a.y,z:b.z-a.z},l=Math.hypot(v.x,v.y,v.z);return l>1e-9?{x:v.x/l,y:v.y/l,z:v.z/l}:null}
+  function extendTo(A,hit){var q=fromWorld(hit.point),n=faceNormalMM(hit),rq=function(p){return[Math.round(p.x),Math.round(p.y),Math.round(p.z)]};
+   if(A.kind==="steel"){if(typeof P.onExtendMember!=="function")return false;try{P.onExtendMember({id:A.id,point:rq(q),normal:n?[n.x,n.y,n.z]:null,target:String(hit.id)})}catch(x){}return true}
+   var sp=pieceSpan(A.o),ax=sp.ax,v=q[ax];if(n&&Math.abs(n[ax])>.2)v=A.pt[ax]+((q.x-A.pt.x)*n.x+(q.y-A.pt.y)*n.y+(q.z-A.pt.z)*n.z)/n[ax];v=Math.round(v);
+   var end=Math.abs(v-sp.lo)<=Math.abs(v-sp.hi)?"lo":"hi";if(end==="lo"?v>sp.hi-20:v<sp.lo+20)return false;
+   var d={o:A.o,id:A.id,kind:A.kind,ax:ax,lo:sp.lo,hi:sp.hi,end:end,pt:A.pt,v:v,stop:""},st=dragStop(d,v,true);if(st.stop&&Math.abs(st.v-v)>3){d.v=st.v;d.stop=st.stop}
+   if(Math.abs(d.v-(end==="lo"?sp.lo:sp.hi))<2)return false;endsSend(d);return true}
   // («Показать поверх» of a trim that goes through the steel, a panel or another trim: the trim lifted whole along the normal
   // of its widest shelf — up, or out of the building for an upright one — just as far as it comes out of all it went
   // through, 0.5 mm over them; an edit of the mode like a move by the mouse — «Сохранить», «Отмена», «↶», the journal. The
@@ -15907,7 +15948,7 @@ X.all.forEach(function(f){var u=f.o.userData||{},c=dataById.get(f.id);if(f.o===o
   // ---- The mode of editing: the changes are seen at once and kept here; «Сохранить» — written as the engineer's fixes,
   // «Отмена» — the pieces as they were before the mode (each member touched kept as it stood before its first change)
   var editSess=null,editBar=null;
-  var EDIT_WORD={select:"Выбрать",move:"Двигать",pull:"Тянуть край",line:"Срезать по линии",rect:"Вырез прямоугольником",mitre:"Сделать угол",over:"Поверх соседнего"};
+  var EDIT_WORD={select:"Выбрать",move:"Двигать",pull:"Тянуть край",line:"Срезать по линии",rect:"Вырез прямоугольником",mitre:"Сделать угол",over:"Поверх соседнего",extend:"Продлить до грани"};
   function editSnap(f){if(!editSess)return;var ids=[String(f.member_id||"")];if(f.member2)ids.push(String(f.member2));if(!ids[0]){var m0=fixTarget(f);if(m0)ids[0]=String(m0.userData.memberId)}
    ids.forEach(function(id){if(!id||editSess.snaps.has(id))return;editSess.snaps.set(id,snapOf(id))})}
   function fixIds(f){var ids=[String(f.member_id||"")];if(f.member2)ids.push(String(f.member2));if(!ids[0]){var m0=fixTarget(f);if(m0)ids[0]=String(m0.userData.memberId)}return ids.filter(Boolean)}
@@ -15948,7 +15989,7 @@ X.all.forEach(function(f){var u=f.o.userData||{},c=dataById.get(f.id);if(f.o===o
   function editStart(kind){if(P.report||typeof P.onTrimFix!=="function"||!EDIT_WORD[kind])return"";
    if(!editSess)editSess={kind:kind,snaps:new Map(),pending:[],steps:[],redo:[],u0:unsavedFixes.slice(),t0:(P.trimFixes||[]).slice(),sig0:modelSig()};else editSess.kind=kind;
    panelMode=kind==="line"||kind==="rect"?kind:"pull";cutPts=[];rectDrag=null;formPreview(null);
-   if(kind!=="mitre"&&kind!=="over"){pairMode="";pairA=null}
+   if(kind!=="mitre"&&kind!=="over"&&kind!=="extend"){pairMode="";pairA=null}
    renderer.domElement.title="";paintEditBar();return kind}
   function editEnd(){editSess=null;multi.clear();panelMode="pull";cutPts=[];rectDrag=null;pairMode="";pairA=null;drag=null;controls.enabled=true;formPreview(null);renderer.domElement.title="";paintEditBar();try{if(typeof P.onEditMode==="function")P.onEditMode("")}catch(x){}}
   function editSave(){if(!editSess)return Promise.resolve(0);var list=editSess.pending.slice();editEnd();
@@ -16025,15 +16066,16 @@ X.all.forEach(function(f){var u=f.o.userData||{},c=dataById.get(f.id);if(f.o===o
    ghostTag(e,"длина "+Math.round(hi-lo).toLocaleString("ru-RU")+" мм",d.stop);invalidate()}
   function pullPieces(d){var l=[d.o];if(!dragWhole)return l;var e0=d.end==="lo"?d.lo:d.hi;(meshesById.get(d.id)||[]).forEach(function(m){if(m===d.o||!m.isMesh||!m.parent||m.userData.edges)return;var sp=pieceSpan(m);if(sp.ax===d.ax&&Math.abs((d.end==="lo"?sp.lo:sp.hi)-e0)<=5)l.push(m)});return l}
   function dragDown(e){if(e.button!==0||placing||copySource)return;screenRay(e);var hit=hitMember();if(panelDown(e,hit))return;
-   if(pairMode&&pairA&&hit&&hit.o&&hit.o!==pairA.o&&editKind(hit.o)==="trim"&&typeof P.onTrimFix==="function"){e.stopImmediatePropagation();e.preventDefault();panelClick=true;var q=fromWorld(hit.point),A=pairA,md=pairMode;pairMode="";pairA=null;renderer.domElement.title="";
+   if(pairMode&&pairMode!=="extend"&&pairA&&hit&&hit.o&&hit.o!==pairA.o&&editKind(hit.o)==="trim"&&typeof P.onTrimFix==="function"){e.stopImmediatePropagation();e.preventDefault();panelClick=true;var q=fromWorld(hit.point),A=pairA,md=pairMode;pairMode="";pairA=null;renderer.domElement.title="";
     panelSend({x:Math.round(A.pt.x),y:Math.round(A.pt.y),z:Math.round(A.pt.z),action:md,b:[Math.round(q.x),Math.round(q.y),Math.round(q.z)],member_id:A.id,member2:String(hit.id)});return}
+   if(pairMode==="extend"&&pairA&&hit&&hit.o&&String(hit.id)!==pairA.id){e.stopImmediatePropagation();e.preventDefault();panelClick=true;var A2=pairA;pairA=null;extendTo(A2,hit);renderer.domElement.title="Щёлкните элемент, потом грань";return}
    var pe=pieceEnd(hit);if(!pe)return;
    if(pe.move){moveX=null;drag=pe;drag.w0=moveAt(e,pe);drag.vec=new T.Vector3();drag.X=null;drag.stop="";ghostStart(drag);e.stopImmediatePropagation();e.preventDefault();try{renderer.domElement.setPointerCapture(e.pointerId)}catch(x){}controls.enabled=false;return}
    drag=pe;drag.v=pe.end==="lo"?pe.lo:pe.hi;drag.t0=dragAt(e);drag.X=null;drag.stop="";drag.pieces=pullPieces(drag);ghostStart(drag,true);e.stopImmediatePropagation();e.preventDefault();try{renderer.domElement.setPointerCapture(e.pointerId)}catch(x){}controls.enabled=false}
   // (a trim does not go through a trim, only up to it — the engineer, 20.11.2026 «одна фасонка сквозь другую не может
   // проходить, только упираться», rule trim-through-trim: the end pulled out stops 1 mm before the first other trim on its
   // way — rays from its end face along the piece, a skirt edge-on by overLeg)
-  function dragStop(d,v){var e0=d.end==="lo"?d.lo:d.hi,sg=d.end==="lo"?-1:1;if(sg*(v-e0)<=0)return{v:v};if(!d.X)d.X=trimIndex();
+  function dragStop(d,v,hand){if(hand&&(d.kind==="trim"||d.o&&editKind(d.o)==="trim"))return{v:v};var e0=d.end==="lo"?d.lo:d.hi,sg=d.end==="lo"?-1:1;if(sg*(v-e0)<=0)return{v:v};if(!d.X)d.X=trimIndex();
    var X=d.X,o=d.o,b=new T.Box3().setFromObject(o),isT=function(f){var u=f.o.userData||{},c=dataById.get(f.id);if(f.id===d.id||f.o===o)return false;
     // (a panel stops at another panel, the plinth or the foundation; a trim — at a trim or a roof)
     if(d.kind==="panel")return Boolean(c&&c.ft==="panel"&&!u.footing||u.plinth||u.footing||u.foundation);// (and at a wall, the masonry, the existing building and the steel — over them, never through: 20.11.2026 «сквозь стену
@@ -16053,14 +16095,18 @@ X.all.forEach(function(f){var u=f.o.userData||{},c=dataById.get(f.id);if(f.o===o
   function dragMove(e){if(panelMove(e))return;if(!drag)return;
    if(drag.move){var w=moveAt(e,drag);if(!w||!drag.w0||!isFinite(w.x+w.y+w.z+drag.w0.x+drag.w0.y+drag.w0.z))return;var dv=w.clone().sub(drag.w0),m0=fromWorld(drag.p0),m1=fromWorld(drag.p0.clone().add(dv));var dd={x:Math.round((m1.x-m0.x)/5)*5,y:Math.round((m1.y-m0.y)/5)*5,z:Math.round((m1.z-m0.z)/5)*5};
     var want=toWorld(m0.x+dd.x,m0.y+dd.y,m0.z+dd.z).sub(toWorld(m0.x,m0.y,m0.z)),got=moveSlide(drag.o,want,drag.id,dragGhost&&dragGhost.ms);drag.stop=got.length()<want.length()-.0005?"фасонный элемент":"";var g1=fromWorld(drag.p0.clone().add(got));drag.d={x:Math.round(g1.x-m0.x),y:Math.round(g1.y-m0.y),z:Math.round(g1.z-m0.z)};
-    ghostMove(e,got,drag.d,drag.stop);e.stopImmediatePropagation();return}var v=dragAt(e);if(v===null)return;if(drag.t0===null){drag.t0=v;return}v=(drag.end==="lo"?drag.lo:drag.hi)+v-drag.t0;if(v===null)return;v=Math.round(v/10)*10;if(drag.end==="lo")v=Math.min(v,drag.hi-20);else v=Math.max(v,drag.lo+20);var st=dragStop(drag,v);drag.v=st.v;drag.stop=st.stop||"";dragLine(e);e.stopImmediatePropagation()}
+    ghostMove(e,got,drag.d,drag.stop);e.stopImmediatePropagation();return}var v=dragAt(e);if(v===null)return;if(drag.t0===null){drag.t0=v;return}v=(drag.end==="lo"?drag.lo:drag.hi)+v-drag.t0;if(v===null)return;v=Math.round(v/10)*10;if(drag.end==="lo")v=Math.min(v,drag.hi-20);else v=Math.max(v,drag.lo+20);var st=dragStop(drag,v,true);drag.v=st.v;drag.stop=st.stop||"";dragLine(e);e.stopImmediatePropagation()}
   function dragUp(e){if(panelUp(e))return;if(!drag)return;var d=drag;drag=null;controls.enabled=true;formPreview(null);ghostEnd();renderer.domElement.title="";e.stopImmediatePropagation();
    if(d.move){moveX=null;if(!d.d||Math.abs(d.d.x)+Math.abs(d.d.y)+Math.abs(d.d.z)<1)return;var c0=boxMM(d.o).c;panelSend({x:Math.round(c0.x),y:Math.round(c0.y),z:Math.round(c0.z),action:"move",dx:d.d.x,dy:d.d.y,dz:d.d.z,member_id:d.id,whole:d.whole?1:undefined,stop:d.stop||undefined});return}
-   var lo=d.end==="lo"?d.v:d.lo,hi=d.end==="lo"?d.hi:d.v;if(Math.abs(d.v-(d.end==="lo"?d.lo:d.hi))<5)return;
+   if(Math.abs(d.v-(d.end==="lo"?d.lo:d.hi))<5)return;endsSend(d)}
+  function endsSend(d){var lo=d.end==="lo"?d.v:d.lo,hi=d.end==="lo"?d.hi:d.v;
    var fs=[{x:Math.round(d.pt.x),y:Math.round(d.pt.y),z:Math.round(d.pt.z),action:"ends",ax:d.ax,lo:Math.round(lo),hi:Math.round(hi),from:[Math.round(d.lo),Math.round(d.hi)],member_id:d.id,stop:d.stop||undefined}];
    // («весь элемент» — every shelf and piece of this trim whose end is at the same place moves with it, each by its own fix)
    // (a trim — its whole run by the one fix, runOf in applyFix; only «one shelf» when «весь элемент» is off)
    var trimD=editKind(d.o)==="trim";if(trimD&&!dragWhole)fs[0].one=1;
+   // (a trim's end set by hand stays where he set it when the fixes are laid again — free, fixStop passes it; the ends made
+   // before 24.11.2026 keep their stop as they were saved)
+   if(trimD)fs[0].free=1;
    if(dragWhole&&!trimD){var e0=d.end==="lo"?d.lo:d.hi,dv=d.v-e0;(meshesById.get(d.id)||[]).forEach(function(m){if(m===d.o||!m.isMesh||!m.parent||m.userData.edges)return;var sp=pieceSpan(m);if(sp.ax!==d.ax||Math.abs((d.end==="lo"?sp.lo:sp.hi)-e0)>5)return;
      m.updateMatrixWorld(true);var cq=fromWorld(new T.Box3().setFromObject(m).getCenter(new T.Vector3()));fs.push({x:Math.round(cq.x),y:Math.round(cq.y),z:Math.round(cq.z),action:"ends",ax:d.ax,lo:Math.round(d.end==="lo"?sp.lo+dv:sp.lo),hi:Math.round(d.end==="lo"?sp.hi:sp.hi+dv),from:[Math.round(sp.lo),Math.round(sp.hi)],member_id:d.id})})}
    fs.forEach(function(f){panelSend(f)})}
@@ -20063,7 +20109,7 @@ X.all.forEach(function(f){var u=f.o.userData||{},c=dataById.get(f.id);if(f.o===o
    try{trimStubs()}catch(e){if(window.console)console.warn("trimStubs",e&&e.stack||e)}
     },
     function(){
-   root.setAttribute("data-panel-cuts",panelCutsN+"/"+Math.round(performance.now()-t0)+"ms");root.setAttribute("data-cut-outline",cutRectN+"/"+cutFillN+"/"+cutBackN);root.setAttribute("data-cut-through",String(cutThroughN));root.setAttribute("data-cut-recentred",String(recentred));root.setAttribute("data-plate-down",String(plateDownN))
+   try{roofPlaneCheck()}catch(e){if(window.console)console.warn("roofPlaneCheck",e&&e.stack||e)}root.setAttribute("data-panel-cuts",panelCutsN+"/"+Math.round(performance.now()-t0)+"ms");root.setAttribute("data-cut-outline",cutRectN+"/"+cutFillN+"/"+cutBackN);root.setAttribute("data-cut-through",String(cutThroughN));root.setAttribute("data-cut-recentred",String(recentred));root.setAttribute("data-plate-down",String(plateDownN))
     }];
    if(queue){var safe=function(f){return function(m){try{f(m)}catch(e){if(window.console)console.warn("panelSteelCuts",e&&e.stack||e)}}},push=function(f){queue.push({w:0,text:"Обрезка сэндвича",run:safe(f)})};
     // (by ~60 ms, not by five panels: a step of five stood 0,5 s; each panel on its own, as before by five)
@@ -20267,7 +20313,7 @@ X.all.forEach(function(f){var u=f.o.userData||{},c=dataById.get(f.id);if(f.o===o
    for(i=0;i<ps.count;i++){v.fromBufferAttribute(ps,i).applyMatrix4(m.matrixWorld);q=fromWorld(v);var na=lo+(q[a]-t0)*(hi-lo)/(t1-t0);
     if(dir){var k=(na-q[a])/dir[a];q.x+=dir.x*k;q.y+=dir.y*k;q.z+=dir.z*k}else q[a]=na;
     v.copy(toWorld(q.x,q.y,q.z)).applyMatrix4(inv);ps.setXYZ(i,v.x,v.y,v.z)}
-   ps.needsUpdate=true;g.computeVertexNormals();g.computeBoundingBox();g.computeBoundingSphere();if(g.userData)delete g.userData.outline;m.geometry=g;m.updateMatrixWorld(true);m.userData.engineerFix=true;return true}
+   ps.needsUpdate=true;g.computeVertexNormals();g.computeBoundingBox();g.computeBoundingSphere();if(g.userData)delete g.userData.outline;m.geometry=g;m.updateMatrixWorld(true);m.userData.engineerFix=true;editedOnTop(m);return true}
   // (from the card: the fix at once on the model — no rebuilding; the whole list kept, the next drawing with it the same)
   // (an end pulled out stops at the first trim or roof on its way — typed, by the mouse, and when the fixes are laid again on
   // a model taken anew: the engineer's ends made before the stop went 51 mm into Пк-12 by 08 — the abutment 11900)
@@ -20282,13 +20328,48 @@ X.all.forEach(function(f){var u=f.o.userData||{},c=dataById.get(f.id);if(f.o===o
    var ok=f?applyFix(f):true;if(ok&&f&&(f.action==="ends"||f.action==="move"))try{trimJoins();trimLayers()}catch(e){}if(ok&&f&&(f.action==="cut"||f.action==="rect"||f.action==="ends")){var mid=String(f.member_id||"");if(mid&&dataById.get(mid)&&dataById.get(mid).ft==="panel")try{cutLines(mid)}catch(e){}}
    if(f&&!unsavedFixes.some(function(q){return fixKeyOf(q)===fixKeyOf(f)}))unsavedFixes.push(f);
    P.trimFixes=Array.isArray(list)?(f?list.slice():fixesIn(list)):(P.trimFixes||[]).concat([f]);appliedFixes=P.trimFixes.slice();builtFixKey=fixesSig(P.trimFixes);built=signature(P.elements);try{rebatch()}catch(e){}pickOf=null;lit=null;try{paintHighlight()}catch(e){}invalidate();return ok}
+  // ---- The ends of the trims up to what is in front of them (the engineer, 24.11.2026 «честно? я уже устал от этого» — the
+  // corner of the canopy Пк-18 at rows А–Б: the abutment along the wall stopped 230 mm before the gable trim, a hole at the
+  // corner between the roof, the wall and the corner trims): each shelf of a trim of a roof or a wall (eave, abutment, gable,
+  // cap, ridge, tier, at the existing building) whose end has another trim, a panel, the masonry or the building in front of
+  // it within 400 mm along its own line — with no steel between — goes on up to it, butt, 0,5 mm off; a shelf lying on a
+  // shelf it meets is not lengthened over it (the ray of each shelf from its own middle). dry: only counted —
+  // data-trim-ends «gaps before / closed / left»
+  var trimEndsN,trimEndsList;
+  function trimEndsClose(dry){var KIND=/^(?:eave|abutment|gable|cap|ridge|tier|existing)$/,pieces=[],tg=[],n=0,closed=0;if(!trimEndsN)trimEndsN=[0,0,0];if(dry||!trimEndsList)trimEndsList=[];
+   var src=new Set(allMeshes);meshesById.forEach(function(l){l.forEach(function(m){src.add(m)})});
+   src.forEach(function(m){var u=m.userData||{};if(!m.isMesh||m.isInstancedMesh||m.isBatchedMesh||!m.parent||m.visible===false||u.edges||u.seam||u.screw||u.weld||u.bolt||u.memberId===undefined||!m.geometry||!m.geometry.attributes||!m.geometry.attributes.position)return;
+    var c=dataById.get(String(u.memberId));m.updateMatrixWorld(true);var b=new T.Box3().setFromObject(m,true);if(b.isEmpty())return;
+    var e={o:m,b:b,id:String(u.memberId),c:c,steel:Boolean(c&&!c.ft&&!u.wood&&!u.building&&!u.floor&&!u.masonry),tgt:Boolean(c&&(c.ft==="trim"||c.ft==="panel")||u.masonry||u.building||u.tl!==undefined||u.wallCap)};
+    if(u.footing&&!u.masonry&&!(c&&c.ft==="panel"))e.tgt=false;tg.push(e);
+    if(c&&c.ft==="trim"&&c.lay&&KIND.test(String(c.lay.trim))&&editKind(m)==="trim")pieces.push(e)});
+   var C=1,grid=new Map(),key=function(i,k){return i+","+k};tg.forEach(function(e,ix){for(var i=Math.floor(e.b.min.x/C);i<=Math.floor(e.b.max.x/C);i++)for(var k=Math.floor(e.b.min.z/C);k<=Math.floor(e.b.max.z/C);k++){var kk=key(i,k);(grid.get(kk)||grid.set(kk,[]).get(kk)).push(ix)}});
+   var rc=new T.Raycaster(),hs=[];
+   var cast=function(p,d,far,own){var q=p.clone().addScaledVector(d,far),seg=new T.Box3().setFromPoints([p,q]).expandByScalar(.002),cand=new Set();
+    for(var i=Math.floor(seg.min.x/C);i<=Math.floor(seg.max.x/C);i++)for(var k=Math.floor(seg.min.z/C);k<=Math.floor(seg.max.z/C);k++)(grid.get(key(i,k))||[]).forEach(function(j){cand.add(j)});
+    rc.set(p,d);rc.far=far;var best=null;cand.forEach(function(j){var e=tg[j];if((own&&own.has?own.has(e.o):e.id===own)||!(e.tgt||e.steel)||!e.b.intersectsBox(seg))return;var ml=Array.isArray(e.o.material)?e.o.material:[e.o.material],sd=ml.map(function(x){return x&&x.side});ml.forEach(function(x){if(x)x.side=T.DoubleSide});hs.length=0;try{e.o.raycast(rc,hs)}finally{ml.forEach(function(x,i){if(x)x.side=sd[i]})}hs.forEach(function(h){if(!best||h.distance<best.d)best={d:h.distance,e:e}})});return best};
+   var done=new Set(),byM=new Map();pieces.forEach(function(e){byM.set(e.o,e)});
+   pieces.forEach(function(e0){if(done.has(e0.o))return;var ax=pieceSpan(e0.o).ax,run=runOf(e0.o,ax).filter(function(q){return byM.has(q)&&!done.has(q)});if(run.indexOf(e0.o)<0)run.push(e0.o);run.forEach(function(q){done.add(q)});var runSet=new Set(run);
+    var dir=lineDir(e0.id),u={x:0,y:0,z:0};u[ax]=1;if(dir&&Math.abs(dir[ax])>.6){var sg0=dir[ax]>0?1:-1;u={x:dir.x*sg0,y:dir.y*sg0,z:dir.z*sg0}}
+    var sps=run.map(function(q){return trueSpanOn(q,ax)}),mx=Math.max.apply(null,sps.map(function(r){return r[1]-r[0]}));if(!(mx>50))return;
+    var lo=Math.min.apply(null,sps.map(function(r){return r[0]})),hi=Math.max.apply(null,sps.map(function(r){return r[1]})),nlo=lo,nhi=hi;
+    // (one trim = one body: each end — the shelves at the run's end cast along the line; steel first or no hit — left; the nearest stop of all shelves — the end of all)
+    [[0,-1],[1,1]].forEach(function(en){var tip=en[0]?hi:lo,tgt=null,blocked=false;
+     run.forEach(function(q,i){var r=sps[i];if(r[1]-r[0]<.5*mx||Math.abs(r[en[0]]-tip)>30)return;var e=byM.get(q),cm=fromWorld(e.b.getCenter(new T.Vector3())),k=(r[en[0]]-cm[ax])/u[ax],E={x:cm.x+u.x*k,y:cm.y+u.y*k,z:cm.z+u.z*k},Ew=toWorld(E.x,E.y,E.z),dw=toWorld(E.x+u.x*en[1]*100,E.y+u.y*en[1]*100,E.z+u.z*en[1]*100).sub(Ew).normalize();
+      // (the centre and the four corners of the shelf's section, 1 mm in: the nearest stop of all — the shelf's end does not go into a panel beside its centre line)
+      var bm0=fromWorld(e.b.min),bm1=fromWorld(e.b.max),oo=["x","y","z"].filter(function(t){return t!==ax}),hw=oo.map(function(t){return Math.max(0,Math.abs(bm1[t]-bm0[t])/2-1)}),h=null,hit0=false;
+      [[0,0],[1,1],[1,-1],[-1,1],[-1,-1],[0,1],[0,-1],[1,0],[-1,0]].forEach(function(sg){var F={x:E.x,y:E.y,z:E.z};F[oo[0]]+=sg[0]*hw[0];F[oo[1]]+=sg[1]*hw[1];var Fw=toWorld(F.x,F.y,F.z),h1=cast(Fw.clone().addScaledVector(dw,-.002),dw,.402,runSet);if(!h1)return;hit0=true;if(!h||h1.d<h.d)h=h1});
+      if(!h)return;if(h.e.steel){blocked=true;return}var d=h.d*1000-2;if(!(d<=400))return;var v=r[en[0]]+en[1]*(d-.5)*Math.abs(u[ax]);if(tgt===null||(en[1]>0?v<tgt:v>tgt))tgt=v});
+     if(blocked||tgt===null||Math.abs(tgt-tip)<=3||(en[1]>0?tgt<tip:tgt>tip))return;n++;if(dry){var c0=fromWorld(e0.b.getCenter(new T.Vector3()));trimEndsList.push({id:e0.id,end:en[0]?"hi":"lo",mm:Math.round(Math.abs(tgt-tip)),kind:String(e0.c.lay.trim),at:c0})}if(en[0])nhi=tgt;else nlo=tgt});
+    if(dry||(nlo===lo&&nhi===hi))return;run.forEach(function(q,i){var r=sps[i],a2=Math.abs(r[0]-lo)<=30&&nlo!==lo?nlo:r[0],b2=Math.abs(r[1]-hi)<=30&&nhi!==hi?nhi:r[1];if((a2!==r[0]||b2!==r[1])&&b2-a2>50&&stretchPiece(q,ax,a2,b2))q.userData.endsClosed=true});closed+=(nlo!==lo?1:0)+(nhi!==hi?1:0)});
+   if(dry){trimEndsN[2]=n}else{trimEndsN[0]=n;trimEndsN[1]=closed}root.setAttribute("data-trim-ends",trimEndsN.join("/"));return n}
   function edRestore(more){
    edN=0;fixN=0;
    (edSnap||[]).forEach(function(e){var keep=new Set(e.ms.map(function(x){return x.m})),l=meshesById.get(e.id)||[];
     l.forEach(function(m){if(m.isMesh&&!keep.has(m)&&m.parent&&!m.userData.edges){m.parent.remove(m)}});
     e.ms.forEach(function(x){var m=x.m;m.geometry=x.g;m.position.copy(x.p);m.quaternion.copy(x.q);m.scale.copy(x.s);m.userData=x.ud;if(!m.parent)x.par.add(m);m.visible=true;m.updateMatrixWorld(true)});
     meshesById.set(e.id,l.filter(function(m){return keep.has(m)||!m.isMesh||m.userData.edges}));edN++});
-   chunked((Array.isArray(P.trimFixes)?P.trimFixes:[]).slice(),function(f){try{fixStop(f)}catch(e){}if(applyFix(f))fixN++},function(){root.setAttribute("data-engineer-trims",edN+"/"+fixN);try{trimJoins()}catch(e){if(window.console)console.warn("trimJoins",e&&e.stack||e)}try{trimLayers()}catch(e){if(window.console)console.warn("trimLayers",e&&e.stack||e)}try{trimChecks()}catch(e){if(window.console)console.warn("trimChecks",e&&e.stack||e)}},"Правки инженера",more)
+   chunked((Array.isArray(P.trimFixes)?P.trimFixes:[]).slice(),function(f){try{fixStop(f)}catch(e){}if(applyFix(f))fixN++},function(){root.setAttribute("data-engineer-trims",edN+"/"+fixN);try{trimJoins()}catch(e){if(window.console)console.warn("trimJoins",e&&e.stack||e)}try{trimLayers()}catch(e){if(window.console)console.warn("trimLayers",e&&e.stack||e)}try{trimChecks()}catch(e){if(window.console)console.warn("trimChecks",e&&e.stack||e)}try{trimEndsClose(true)}catch(e){if(window.console)console.warn("trimEnds",e&&e.stack||e)}},"Правки инженера",more)
   }
   // ---- Two records of one trim line meeting end to end (the gable of 08 by И: поз. 37 Е–И and И–Л, one slope of one roof)
   // butt to butt: every shelf of each up to the joint, plumb, no step, no gap, none into the other — the engineer,
@@ -20434,7 +20515,7 @@ X.all.forEach(function(f){var u=f.o.userData||{},c=dataById.get(f.id);if(f.o===o
     function(){abutOverGutters();},
     function(){plinthWalls();},
     // (the passes of the walls and the trims each its own step: buildSteps gives the list for the steps a step adds)
-    function(more){[stepTopsUnder,stepFeetOnRoof,wallTopsUp,capCorners,wallGapFills,cornerTrimTops,abutMissing,abutCorners,gutterEndCaps,tierUnderAbutment,toiletCubicles,revealMiters,revealBottoms,profileClear,cornerClose,stepFootLine,footTrims,roofOverWall,cornerUpPost,abutSeat,trimStandOff,parapetToFace,cornerOverLow,cornerToRoof,cornerTopsUp,cornerUnderRoof,gableUnderDeck,gableSeat,stepInnerCorners,tierAtWindows,trimUncross,gutterUnderRoof,stubTrims,gableReturns,screwsFind].forEach(function(f){var g=function(m){try{f(f.chunky?m:undefined)}catch(e){if(window.console)console.warn(f.name,e&&e.stack||e)}};if(more)more.push({w:0,text:"Обрезка сэндвича и фасонок",run:g});else g()})},
+    function(more){[stepTopsUnder,stepFeetOnRoof,wallTopsUp,capCorners,wallGapFills,cornerTrimTops,abutMissing,abutCorners,gutterEndCaps,tierUnderAbutment,toiletCubicles,revealMiters,revealBottoms,profileClear,cornerClose,stepFootLine,footTrims,roofOverWall,cornerUpPost,abutSeat,trimStandOff,parapetToFace,cornerOverLow,cornerToRoof,cornerTopsUp,cornerUnderRoof,gableUnderDeck,gableSeat,stepInnerCorners,tierAtWindows,trimEndsClose,trimUncross,gutterUnderRoof,stubTrims,gableReturns,screwsFind].forEach(function(f){var g=function(m){try{f(f.chunky?m:undefined)}catch(e){if(window.console)console.warn(f.name,e&&e.stack||e)}};if(more)more.push({w:0,text:"Обрезка сэндвича и фасонок",run:g});else g()})},
     function(){roofDrains();},
     function(){try{gableAtDrains()}catch(e){if(window.console)console.warn("gableAtDrains",e&&e.stack||e)}},
     function(){try{eaveOver()}catch(e){if(window.console)console.warn("eaveOver",e&&e.stack||e)}},
@@ -20951,7 +21032,7 @@ X.all.forEach(function(f){var u=f.o.userData||{},c=dataById.get(f.id);if(f.o===o
    try{out.parts=e.enc(derivedParts)}catch(x){out.parts="!"}
    return JSON.stringify(out).replace(/,"id":\d+/g,"").replace(/\{"R":\d+\}/g,'"R"').replace(/\{"MT":\d+\}/g,'"MT"').replace(/\{"G":\d+\}/g,'"G"').replace(/\{"T":"[A-Za-z0-9]+","b":\d+\}/g,'"B"')
   }
-  return{host:host,key:key,root:root,bolts:boltsForCheck,update:update,metalDetail:function(){var d=[];metalOf(d);return d},setSpecs:function(r){specList=Array.isArray(r)?r:[];specAsked=true;metalRows=null;if(metalEl&&!metalEl.hidden)metalPaint()},modelText:modelText,camAt:function(){return camera.position.toArray().concat(controls.target.toArray())},formPreview:formPreview,pickInfo:pickInfo,trimFix:trimFix,setDragWhole:setDragWhole,dragWhole:function(){return dragWhole},setPanelMode:setPanelMode,panelMode:function(){return panelMode},setPairMode:setPairMode,editStart:editStart,editSave:editSave,editCancel:editCancel,editUndo:editUndo,editRedo:editRedo,moveBy:moveBy,selection:function(){return multiIds()},selectionAdd:function(id){multiToggle(id);return multiIds()},selectionClear:function(){multiClear();return 0},editInfo:function(){return editSess?{n:editSess.pending.length,undo:editSess.steps.length,redo:editSess.redo.length,at:editSess.steps.length?editSess.steps[editSess.steps.length-1].at:0}:{n:0,undo:0,redo:0,at:0}},editMode:function(){return editSess?editSess.kind:""},liftOver:liftOver,trimChecks:function(l){return trimChecks(l)},trimJoins:function(){trimJoins();return trimJoinN},trimLayers:function(){return trimLayers()},rebuild:function(){built="";update(P)},focus:focus,look:look,startCopy:startCopy,startPlacement:startPlacement,nodes:nodeList,openNode:openNode,snapshots:snapshots,card:card,lightPart:lightPart,
+  return{host:host,key:key,root:root,bolts:boltsForCheck,update:update,metalDetail:function(){var d=[];metalOf(d);return d},setSpecs:function(r){specList=Array.isArray(r)?r:[];specAsked=true;metalRows=null;if(metalEl&&!metalEl.hidden)metalPaint()},modelText:modelText,camAt:function(){return camera.position.toArray().concat(controls.target.toArray())},formPreview:formPreview,pickInfo:pickInfo,trimFix:trimFix,setDragWhole:setDragWhole,dragWhole:function(){return dragWhole},setPanelMode:setPanelMode,panelMode:function(){return panelMode},setPairMode:setPairMode,editStart:editStart,editSave:editSave,editCancel:editCancel,editUndo:editUndo,editRedo:editRedo,moveBy:moveBy,selection:function(){return multiIds()},selectionAdd:function(id){multiToggle(id);return multiIds()},selectionClear:function(){multiClear();return 0},editInfo:function(){return editSess?{n:editSess.pending.length,undo:editSess.steps.length,redo:editSess.redo.length,at:editSess.steps.length?editSess.steps[editSess.steps.length-1].at:0}:{n:0,undo:0,redo:0,at:0}},editMode:function(){return editSess?editSess.kind:""},liftOver:liftOver,trimChecks:function(l){return trimChecks(l)},trimEnds:function(){return{n:(trimEndsN||[0,0,0]).slice(),list:(trimEndsList||[]).slice()}},trimJoins:function(){trimJoins();return trimJoinN},trimLayers:function(){return trimLayers()},rebuild:function(){built="";update(P)},focus:focus,look:look,startCopy:startCopy,startPlacement:startPlacement,nodes:nodeList,openNode:openNode,snapshots:snapshots,card:card,lightPart:lightPart,
    dispose:function(){
     cameraMemory[memoryKey]={position:camera.position.clone(),target:controls.target.clone(),up:camera.up.clone()};
     alive=false;clearExplode();cancelCopy();cancelPlacement();if(raf)cancelAnimationFrame(raf);if(awayTimer)clearTimeout(awayTimer);
@@ -20995,5 +21076,5 @@ X.all.forEach(function(f){var u=f.o.userData||{},c=dataById.get(f.id);if(f.o===o
   formPreview:function(p){return call("formPreview",p)},
   pickInfo:function(){return call("pickInfo")||null},
   trimFix:function(f,l){return call("trimFix",f,l)},
-  setDragWhole:function(v){return call("setDragWhole",v)},dragWhole:function(){return Boolean(call("dragWhole"))},setPanelMode:function(v){return call("setPanelMode",v)},panelMode:function(){return call("panelMode")||"pull"},setPairMode:function(v){return call("setPairMode",v)},editStart:function(v){return call("editStart",v)},editSave:function(){return call("editSave")},editCancel:function(o){return call("editCancel",o)},editUndo:function(){return call("editUndo")||0},editRedo:function(){return call("editRedo")||0},moveBy:function(x,y,z){return call("moveBy",x,y,z)||0},selectionAdd:function(id){return call("selectionAdd",id)||[]},selection:function(){return call("selection")||[]},selectionClear:function(){return call("selectionClear")||0},editInfo:function(){return call("editInfo")||{n:0,undo:0,redo:0,at:0}},rebuild:function(){return call("rebuild")},editMode:function(){return call("editMode")||""},liftOver:function(id,dry){return call("liftOver",id,dry)||null},trimChecks:function(l){return call("trimChecks",l)||null},trimJoins:function(){return call("trimJoins")},trimLayers:function(){return call("trimLayers")}}
+  setDragWhole:function(v){return call("setDragWhole",v)},dragWhole:function(){return Boolean(call("dragWhole"))},setPanelMode:function(v){return call("setPanelMode",v)},panelMode:function(){return call("panelMode")||"pull"},setPairMode:function(v){return call("setPairMode",v)},editStart:function(v){return call("editStart",v)},editSave:function(){return call("editSave")},editCancel:function(o){return call("editCancel",o)},editUndo:function(){return call("editUndo")||0},editRedo:function(){return call("editRedo")||0},moveBy:function(x,y,z){return call("moveBy",x,y,z)||0},selectionAdd:function(id){return call("selectionAdd",id)||[]},selection:function(){return call("selection")||[]},selectionClear:function(){return call("selectionClear")||0},editInfo:function(){return call("editInfo")||{n:0,undo:0,redo:0,at:0}},rebuild:function(){return call("rebuild")},editMode:function(){return call("editMode")||""},liftOver:function(id,dry){return call("liftOver",id,dry)||null},trimChecks:function(l){return call("trimChecks",l)||null},trimEnds:function(){return call("trimEnds")||null},trimJoins:function(){return call("trimJoins")},trimLayers:function(){return call("trimLayers")}}
 })();

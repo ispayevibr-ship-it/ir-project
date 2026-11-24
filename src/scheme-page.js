@@ -155,7 +155,7 @@ window.irSchemePage=async function(objectId,opts){
  // «Выбрать»), справа карточка выбранного, внизу виды и разделы КМ/АР — панель 3D. Инструмент нажимает кнопку режима
  // в карточке выбранного (как меню правой кнопки), без выбранного — недоступен.
  const editInfo3d=()=>{try{return window.irThreeSchemeView?.editInfo?.()||{n:0,undo:0,redo:0,at:0}}catch(e){return{n:0,undo:0,redo:0,at:0}}};
- const EDIT_TOOLS=[["select","Выбрать (Esc)","↖"],["add","Добавить элемент","＋"],["-"],["move","Двигать","✥",["[data-edit-move]","[data-trim-mode='whole']"]],["shift","Сдвинуть на мм (Ctrl+щелчок — добавить элемент к выбору)","⇲"],["copy","Копировать / массив (Ctrl+C, Ctrl+V)","⎘"],["turn","Повернуть / зеркало","⟲"],["pull","Тянуть край","⇥",["[data-edit-pull]"]],["line","Срезать по линии","✂",["[data-trim-line]","[data-panel-mode='line']"]],["rect","Вырез прямоугольником","▭",["[data-panel-mode='rect']"]],["mitre","Сделать угол","◿",["[data-trim-corner]"]],["over","Этот поверх","⧉",["[data-trim-over]"]],["-"],["back","Показать позади","⤓",["[data-order-step='-1']"]],["front","Показать поверх","⤒",["[data-order-step='1']"]],["-"],["hide","Убрать кусок","⌫",["[data-trim-hide]"]],["delete","Удалить элемент","🗑",["[data-scheme-delete]"]]];
+ const EDIT_TOOLS=[["select","Выбрать (Esc)","↖"],["add","Добавить элемент","＋"],["-"],["move","Двигать","✥",["[data-edit-move]","[data-trim-mode='whole']"]],["shift","Сдвинуть на мм (Ctrl+щелчок — добавить элемент к выбору)","⇲"],["copy","Копировать / массив (Ctrl+C, Ctrl+V)","⎘"],["turn","Повернуть / зеркало","⟲"],["extend","Продлить до грани: щёлкните элемент, потом грань","⇤"],["pull","Тянуть край","⇥",["[data-edit-pull]"]],["line","Срезать по линии","✂",["[data-trim-line]","[data-panel-mode='line']"]],["rect","Вырез прямоугольником","▭",["[data-panel-mode='rect']"]],["mitre","Сделать угол","◿",["[data-trim-corner]"]],["over","Этот поверх","⧉",["[data-trim-over]"]],["-"],["back","Показать позади","⤓",["[data-order-step='-1']"]],["front","Показать поверх","⤒",["[data-order-step='1']"]],["-"],["hide","Убрать кусок","⌫",["[data-trim-hide]"]],["delete","Удалить элемент","🗑",["[data-scheme-delete]"]]];
  // Журнал правок схемы (инженер 20.11.2026 «сделай журнал и возможность возврата»): каждая правка мышью или в карточке —
  // когда, кто, что; «Вернуть» — эта правка, «Вернуть к этому» — все правки после неё. Возврат тоже идёт через режим
  // редактирования: пишется по «Сохранить», модель не перестраивается целиком
@@ -244,6 +244,29 @@ window.irSchemePage=async function(objectId,opts){
   document.body.appendChild(dlg);dlg.addEventListener("close",async()=>{const f=dlg.querySelector("form"),k=dlg.returnValue;const v=f&&["rot","mx","my"].includes(k)?[k,f.deg.value,f.copy.checked]:null;dlg.remove();restoreKeyboardAfterConfirm();
    if(v)await turnMembers(ids,...v)});
   dlg.showModal();dlg.querySelector("input[name=deg]")?.select()}
+ // Продлить до грани (инженер 24.11.2026, инструменты редактора: «продлить до грани»): элемент, потом грань другого —
+ // ближний конец элемента идёт по его линии до плоскости этой грани, длиннее или короче; фасонный и сэндвич — правкой
+ // «конец» в 3D (как «Тянуть край», с упором), сталь — правкой точек записи (start или end по линии); одна правка —
+ // ↶ возвращает; до «Сохранить» ничего не пишется; схема не строится заново — элемент строится на месте (changedOnly)
+ function extendData(d0,mv,kind,S0,E0,P,n){if(/^(?:bent|shell|plate)$/.test(kind))return{why:"У гнутого элемента, оболочки и листа конец так не продлевается."};
+  const S={x:S0.x+mv.dx,y:S0.y+mv.dy,z:S0.z+mv.dz},E={x:E0.x+mv.dx,y:E0.y+mv.dy,z:E0.z+mv.dz},dir={x:E.x-S.x,y:E.y-S.y,z:E.z-S.z},L=Math.hypot(dir.x,dir.y,dir.z);
+  if(!(L>1))return{why:"У элемента нет длины."};n=n&&Number.isFinite(n.x+n.y+n.z)&&Math.hypot(n.x,n.y,n.z)>1e-6?n:{x:dir.x/L,y:dir.y/L,z:dir.z/L};
+  const nl=Math.hypot(n.x,n.y,n.z),den=(n.x*dir.x+n.y*dir.y+n.z*dir.z)/nl;if(Math.abs(den)<.1*L)return{why:"Грань идёт вдоль элемента — конец до неё не доходит. Щёлкните грань поперёк элемента."};
+  const t=(n.x*(P.x-S.x)+n.y*(P.y-S.y)+n.z*(P.z-S.z))/nl/den,X={x:S.x+t*dir.x,y:S.y+t*dir.y,z:S.z+t*dir.z},atEnd=t>=.5,o=atEnd?S:E;
+  if(Math.hypot(X.x-o.x,X.y-o.y,X.z-o.z)<20)return{why:"Элемент стал бы короче 20 мм."};
+  const d=clone(d0),r=v=>Math.round(v),nx=r(X.x-mv.dx),ny=r(X.y-mv.dy),nz=r(X.z-mv.dz),add=(k,dv)=>{if(finiteOf(d[k]))d[k]=r(Number(d[k])+dv)};
+  if(!atEnd){add("offset_x_mm",nx-S0.x);add("offset_y_mm",ny-S0.y);d.absolute_x_mm=nx;d.absolute_y_mm=ny;d.z0_mm=nz;delete d.start_anchor_member_id}
+  else if(kind==="column"){d.z1_mm=nz;if(finiteOf(d.end_z_mm))d.end_z_mm=nz;delete d.end_anchor_member_id}
+  else{add("end_offset_x_mm",nx-E0.x);add("end_offset_y_mm",ny-E0.y);d.absolute_x2_mm=nx;d.absolute_y2_mm=ny;d.end_z_mm=nz;d.z1_mm=nz;delete d.end_anchor_member_id}
+  if(kind!=="column"&&finiteOf(d.absolute_mid_x_mm)&&finiteOf(d.absolute_mid_y_mm)){const s1=atEnd?S0:{x:nx,y:ny,z:nz},e1=atEnd?{x:nx,y:ny,z:nz}:E0,mx=r((s1.x+e1.x)/2),my=r((s1.y+e1.y)/2);
+   add("mid_offset_x_mm",mx-Number(d.absolute_mid_x_mm));add("mid_offset_y_mm",my-Number(d.absolute_mid_y_mm));d.absolute_mid_x_mm=mx;d.absolute_mid_y_mm=my;if(finiteOf(d.mid_z_mm))d.mid_z_mm=r((s1.z+e1.z)/2)}
+  delete d.engineer_confirmed;d.engineer_edited=true;return{data:d,end:atEnd?"end":"start",len:Math.round(Math.hypot(X.x-o.x,X.y-o.y,X.z-o.z))}}
+ async function extendMember(q){if(!editStage||!canEdit()||!q)return false;const r=arr(rows).find(x=>sameId(x.id,q.id));if(!r)return false;
+  const d=r.data||{},kind=geometry(d),c=coord(d),S0={x:c.x,y:c.y,z:c.z0},E0=kind==="column"?{x:c.x,y:c.y,z:c.z1}:{x:c.x2,y:c.y2,z:c.z2};
+  const P=Array.isArray(q.point)?{x:num(q.point[0]),y:num(q.point[1]),z:num(q.point[2])}:null,n=Array.isArray(q.normal)?{x:num(q.normal[0]),y:num(q.normal[1]),z:num(q.normal[2])}:null;if(!P)return false;
+  const out=extendData(d,movedOf(r.id),kind,S0,E0,P,n);if(out.why){alert(out.why);return false}
+  const at0=editStage.ops.length;await schemeApi.update(r.id,{record_type:r.record_type||"scheme_column",parent_id:r.parent_id,title:r.title,data:out.data});
+  editStage.ops.slice(at0).forEach(o=>{o.g="extend"+Date.now()});rows=clone(editStage.rows);selectedId=String(r.id);paintEditState();renderDetails();refreshAfterMemberChange();return true}
  function editTopHtml(){return`<div class="scheme-edit-top" role="toolbar" aria-label="Режим редактирования"><b>✎ Редактирование</b><small id="schemeEditWord">Правок нет</small><button type="button" id="schemeEditUndo" title="Отменить последнюю правку (Ctrl+Z)" disabled>↶ Отменить</button><button type="button" id="schemeEditRedo" title="Повторить (Ctrl+Y)" disabled>↷ Повторить</button><button type="button" id="schemeEditLog" title="Все правки схемы: когда, кто, что — и возврат">🕘 Журнал правок</button><span class="scheme-edit-gap"></span><button type="button" class="ok" id="schemeEditSave" disabled>Сохранить</button><button type="button" id="schemeEditCancel">Выйти без сохранения</button></div>`}
  function editToolsHtml(){return`<nav class="scheme-edit-tools" aria-label="Инструменты">${EDIT_TOOLS.map(t=>t[0]==="-"?"<hr>":`<button type="button" data-edit-tool="${t[0]}" title="${esc(t[1])}" aria-label="${esc(t[1])}">${t[2]}</button>`).join("")}</nav>`}
  const toolBtn=t=>{const box=document.getElementById("schemeDetails");if(!box||!t[3])return null;for(const q of t[3]){const b=box.querySelector(q);if(b&&!b.disabled)return b}return null};
@@ -254,6 +277,7 @@ window.irSchemePage=async function(objectId,opts){
   if(id==="select"){try{V?.editStart?.("select")}catch(e){}paintTools();return}
   if(id==="add"){if(V?.startPlacement)V.startPlacement();else openEditor();return}
   if(id==="shift"){openShift();return}if(id==="copy"){openCopy(false);return}if(id==="turn"){openTurn();return}
+  if(id==="extend"){try{V?.setPairMode?.("extend")}catch(e){}paintTools();return}
   toolBtn(t)?.click();setTimeout(paintTools,60)}
  // (↶ — последняя правка: мышью в 3D — шагом 3D, на месте; добавление, удаление, правка в окне — список схемы назад)
  const applyOp=(rs,o)=>o.op==="create"?[{...clone(o.p),id:o.id},...rs]:o.op==="update"?rs.map(r=>sameId(r.id,o.id)?{...r,...clone(o.p),id:r.id}:r):rs.filter(r=>!sameId(r.id,o.id));
@@ -1181,6 +1205,7 @@ const fittingSection=c=>c.ft==="flight"||c.ft==="ladder"||c.ft==="deck"?(c.fd>0?
    onCopied:id=>{selectedId=String(id||"");refreshAfterMemberChange()},
    onDelete:remove,
    // (a piece of a trim changed in the 3D itself — saved as a fix of the card; applied:true — the 3D has laid it already)
+   onExtendMember:canEdit()?q=>{extendMember(q)}:null,
    onTrimFix:canEdit()?f=>{if(!canEdit()||!f)return Promise.resolve(false);const c=allRecords().find(r=>String(r.id)===String(f.member_id))||{id:f.member_id,mark:""};return trimFixSave(c,{...f,applied:true}).then(ok=>{if(String(selectedId)===String(c.id))renderDetails();return ok})}:null,
    // The model built by steps with the bar of the opening — 12 % to 98 % of it, as in the exported scheme. After the
    // opening a rebuild after a filter or a cut goes by steps too, with the same bar over the 3D (one asked for while the

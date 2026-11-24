@@ -148,6 +148,7 @@
 .doc{display:flex;align-items:center;gap:3mm;font-size:6.8pt;font-weight:800;line-height:1.3;letter-spacing:.3px}
 .doc em{flex:none;width:11mm;height:11mm;border-radius:3mm;background:var(--or);display:grid;place-items:center}.doc em svg{width:6.5mm;height:6.5mm}
 .R{position:absolute;left:100mm;right:0;top:0;bottom:0;background:#2b3036}
+.ph.soft{overflow:hidden}.ph.soft>b{position:absolute;inset:-8mm;background:center/cover no-repeat;filter:blur(6mm) brightness(.62) saturate(.9)}.ph.soft>i{position:absolute;inset:0;background:center/contain no-repeat;z-index:0}.ph.soft:after{z-index:1}
 .R .ph{position:absolute;inset:0 0 25mm 0;background:#3a4047 center 40%/cover no-repeat}
 .R .ph:after{content:"";position:absolute;inset:0;background:linear-gradient(180deg,rgba(0,0,0,.12),rgba(0,0,0,0) 30%,rgba(0,0,0,0) 55%,rgba(0,0,0,.35))}
 .logo{position:absolute;top:9mm;right:10mm;background:rgba(255,255,255,.95);border-radius:3mm;padding:2.5mm 4mm;box-shadow:0 2mm 6mm rgba(0,0,0,.18);z-index:3}
@@ -380,15 +381,22 @@
   ${statsOf(o,co)}<div class="badges">${ringOf(p)}${docOf()}</div>`}
  function placeOf(o,co){const place=String(o.address||"").trim();
   return`${yearOf(o)}${place?`<h4 class="up">Место выполнения</h4><p>${esc(place)}</p>`:""}`}
+ // главное фото на листе объекта (инженер 24.11.2026 «такое чувство что фото слишком растягивается», «или наоборот
+ // меньше не делается»): фото на всю ячейку обрезается и растягивается; если для этого у него мало точек (меньше
+ // 4 на мм — ~100 точек на дюйм, например обложка 900×405 на ячейку 197×185 мм — 2,2) — оно целиком в своих
+ // пропорциях, без увеличения сверх нужного, а поле вокруг — то же фото размыто и затемнено
+ const PH_MM={1:[197,185],2:[197,185],3:[297,210],5:[297,112],6:[168,124]};
+ const softMain=(o,lay)=>{const d=o.mainPx,c=PH_MM[lay];if(!d||!c||!(d[0]>0&&d[1]>0))return false;return Math.min(d[0]/c[0],d[1]/c[1])<4};
+ const phOf=(o,lay,main)=>softMain(o,lay)?`<div class="ph soft"${bg(main)}><b${bg(main)}></b><i${bg(main)}></i></div>`:`<div class="ph"${bg(main)}></div>`;
  function circlesOf(rest){return rest.length?`<div class="circles">${rest.map((s,i)=>`<div class="c${rest.length===3&&i===1?" big":""}"${bg(s)}></div>`).join("")}</div>`:""}
  function objectPage(o,co,logo,i=0){const h=objectPage0(o,co,logo,i);return o.fit?h.replace('<section class="page','<section class="page fit'+o.fit):h}
  function objectPage0(o,co,logo,i=0){
   const lay0=layoutOf(o,i),lay=lay0===7?1:lay0===8?4:lay0,pics=o.pictures||[],main=pics[0]||"",rest=pics.slice(1,4);
   if(lay===2)return`<section class="page lay2"><div class="L"><div class="in">${textCol(o,12,co)}</div></div>
-  <div class="R"><div class="ph"${bg(main)}></div>${logoOf(co,logo)}<div class="band"></div>${circlesOf(rest)}
+  <div class="R">${phOf(o,2,main)}${logoOf(co,logo)}<div class="band"></div>${circlesOf(rest)}
   <div class="info">${placeOf(o,co)}</div>${footOf(o)}</div></section>`;
   if(lay===3){const name=String(o.name||"Объект"),ws=worksOf(o).slice(0,Math.min(4,o.wkMax||4)),p=doneOf(o),place=String(o.address||"").trim();
-   return`<section class="page lay3"><div class="ph"${bg(main)}></div><div class="shade"></div>${logoOf(co,logo)}
+   return`<section class="page lay3">${phOf(o,3,main)}<div class="shade"></div>${logoOf(co,logo)}
    <div class="hd"><div class="kick up">${esc(o.years?String(o.years):"Объект")}${place?" · "+esc(place):""}</div><h1 class="ttl up${titleCls(name)}">${esc(name)}</h1>
    ${o.summary&&!o.sumMoved?`<div class="sm">${sumHtml(o.summary)}</div>`:""}</div>
    ${rest.length?`<div class="thumbs">${rest.slice(0,3).map(s=>`<div${bg(s)}></div>`).join("")}</div>`:""}
@@ -396,12 +404,12 @@
    <div class="tr">${ringOf(p)}</div></div>
    <div class="strip"><div><small class="up">Генеральный подрядчик</small><b>${esc(o.general_contractor||"—")}</b></div><div><small class="up">Заказчик</small><b>${esc(o.customer||"—")}</b></div><div class="doc up"><em>${CHECK}</em>Полный пакет исполнительной документации</div></div></section>`}
   if(lay===5){const name=String(o.name||"Объект"),ws=worksOf(o).slice(0,12),p=doneOf(o);
-   return`<section class="page lay5"><div class="ph"${bg(main)}></div>${logoOf(co,logo)}${circlesOf(rest)}
+   return`<section class="page lay5">${phOf(o,5,main)}${logoOf(co,logo)}${circlesOf(rest)}
    <div class="lo"><h1 class="ttl up${titleCls(name)}">${esc(name)}</h1>
    <div class="info">${placeOf(o,co)}</div><div class="badges">${ringOf(p)}${docOf()}</div></div>
    <div class="ro"><div class="wks">${wkRows(ws.slice(0,o.wkMax||ws.length))}</div></div>${footOf(o," f5")}</section>`}
   if(lay===6){const name=String(o.name||"Объект"),p=doneOf(o);
-   return`<section class="page lay6"><div class="fr${rest.length?"":" full"}"><div class="ph"${bg(main)}></div></div>
+   return`<section class="page lay6"><div class="fr${rest.length?"":" full"}">${phOf(o,6,main)}</div>
    ${rest.length?`<div class="row">${rest.slice(0,3).map(s=>`<div${bg(s)}></div>`).join("")}</div>`:""}
    <div class="tx">${logoOf(co,logo," l6")}<h1 class="ttl up${titleCls(name)}">${esc(name)}</h1>
    <div class="wks">${wkRows(worksOf(o).slice(0,Math.min(8,o.wkMax||8)))}</div><div class="badges">${ringOf(p)}<div class="meta">${yearOf(o)}<p>${esc(o.address||"")}</p></div></div>
@@ -411,7 +419,7 @@
    <div class="info">${placeOf(o,co)}</div></div>
    <div class="O"><div class="in">${textCol(o,12,co)}</div></div>${footOf(o," f4")}</section>`}
   return`<section class="page"><div class="L"><div class="in">${textCol(o,12,co)}</div></div>
-  <div class="R"><div class="ph"${bg(main)}></div>${logoOf(co,logo)}
+  <div class="R">${phOf(o,1,main)}${logoOf(co,logo)}
   <div class="band"></div>${circlesOf(rest)}
   <div class="info">${placeOf(o,co)}</div>${footOf(o)}</div></section>`
  }
@@ -506,7 +514,8 @@ ${(()=>{const pages=[["О компании",aboutPage(list,co,logo)],...(service
    const g=c.getContext("2d");g.imageSmoothingQuality="high";g.drawImage(img,0,0,c.width,c.height);return c.toDataURL("image/jpeg",q)}catch{return src}
  }
  // пропорции фото для листа «Фото с объекта» (ряды без обрезки)
- const ratios=ps=>Promise.all(ps.map(src=>new Promise(ok=>{if(!src||typeof Image==="undefined")return ok(0);const i=new Image();i.onload=()=>ok(i.naturalWidth/Math.max(1,i.naturalHeight));i.onerror=()=>ok(0);i.src=src})));
+ const dims=src=>new Promise(ok=>{if(!src||typeof Image==="undefined")return ok(null);const i=new Image();i.onload=()=>ok([i.naturalWidth,i.naturalHeight]);i.onerror=()=>ok(null);i.src=src});
+ const ratios=ps=>Promise.all(ps.map(async src=>{const d=await dims(src);return d?d[0]/Math.max(1,d[1]):0}));
  // маленькая картинка для окна выбора фото
  const thumb=src=>small(src,360,.8);
  const read=async f=>{if(!f)return"";if(/^data:/.test(f))return f;try{return await root.irProject.images.read(f)||""}catch{return""}};
@@ -525,7 +534,7 @@ ${(()=>{const pages=[["О компании",aboutPage(list,co,logo)],...(service
    onProgress?.(i,data.length,o.name);
    const files=(o.files||pickDefault(o).files).slice(0,capOf(o)),pictures=[];
    for(const f of files){const s=await read(f);if(s)pictures.push(await small(s,pictures.length?1400:2800))}
-   objects.push({...o,pictures,ratios:await ratios(pictures)})
+   objects.push({...o,pictures,ratios:await ratios(pictures),mainPx:await dims(pictures[0])})
   }
   const opts={logo,company:profile?.name?{name:profile.name}:{},services,map};
   await dropTooLong(objects,opts);
@@ -539,7 +548,7 @@ ${(()=>{const pages=[["О компании",aboutPage(list,co,logo)],...(service
   const profile=await root.irProject.company.get().catch(()=>({}));
   const logo=await small(await read(profile?.logo||""),600);
   const objects=[];
-  for(const o of data){const pictures=[];for(const f of (o.files||pickDefault(o).files).slice(0,capOf(o))){const s=(pic&&await pic(f))||await small(await read(f),900,.8);if(s)pictures.push(s)}objects.push({...o,pictures,ratios:await ratios(pictures)})}
+  for(const o of data){const pictures=[];for(const f of (o.files||pickDefault(o).files).slice(0,capOf(o))){const s=(pic&&await pic(f))||await small(await read(f),900,.8);if(s)pictures.push(s)}const f0=(o.files||pickDefault(o).files)[0];objects.push({...o,pictures,ratios:await ratios(pictures),mainPx:await dims(await read(f0))})}
   const opts={logo,company:profile?.name?{name:profile.name}:{},services,map};
   await dropTooLong(objects,opts);
   return build(objects,{...opts,screen:true})
@@ -574,6 +583,6 @@ ${(()=>{const pages=[["О компании",aboutPage(list,co,logo)],...(service
    if(!changed)return;
   }
  }
- const api={rowsOf,wkShown,wkRest,GALLERIES,galleryOf,layoutSketch,gallerySketch,MAX_PHOTOS,LAYOUT_MAX,capOf,clientList,mapPage,geoGroups,dropTooLong,build,make,preview,totals,doneOf,parties,COMPANY,LAYOUTS,layoutOf,thumb,read,pickDefault};
+ const api={softMain,rowsOf,wkShown,wkRest,GALLERIES,galleryOf,layoutSketch,gallerySketch,MAX_PHOTOS,LAYOUT_MAX,capOf,clientList,mapPage,geoGroups,dropTooLong,build,make,preview,totals,doneOf,parties,COMPANY,LAYOUTS,layoutOf,thumb,read,pickDefault};
  if(typeof module!=="undefined"&&module.exports)module.exports=api;else root.irBooklet=api;
 })(typeof window!=="undefined"?window:globalThis);
