@@ -201,7 +201,7 @@
 .lay3 .strip{position:absolute;left:0;right:0;bottom:0;height:17mm;background:linear-gradient(100deg,var(--or),var(--or2));display:grid;grid-template-columns:1fr 1fr auto;gap:8mm;align-items:center;padding:0 14mm}
 .lay3 .strip small{display:block;font-size:6.3pt;font-weight:800;letter-spacing:.8px;opacity:.7}.lay3 .strip b{font-size:9pt;font-weight:800}
 .lay3 .strip .doc em{background:#1d2228}
-.lay4 .M{position:absolute;left:0;top:0;bottom:22mm;width:190mm;display:grid;gap:2.5mm;background:#fff;padding:0 0 2.5mm}
+.lay4 .M{position:absolute;left:0;top:0;bottom:22mm;width:190mm;display:grid;gap:2.5mm;background:#fff;padding:0}
 .lay4 .g{background:#3a4047 center/cover no-repeat}
 .lay4 .m1{grid-template:1fr/1fr}.lay4 .m2{grid-template:1fr/1.6fr 1fr}.lay4 .m3{grid-template:1fr 1fr/1.7fr 1fr}.lay4 .m3 .g0{grid-row:1/3}
 .lay4 .m4{grid-template:1fr 1fr 1fr/1.7fr 1fr}.lay4 .m4 .g0{grid-row:1/4}
