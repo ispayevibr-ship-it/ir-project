@@ -155,7 +155,7 @@ window.irSchemePage=async function(objectId,opts){
  // «Выбрать»), справа карточка выбранного, внизу виды и разделы КМ/АР — панель 3D. Инструмент нажимает кнопку режима
  // в карточке выбранного (как меню правой кнопки), без выбранного — недоступен.
  const editInfo3d=()=>{try{return window.irThreeSchemeView?.editInfo?.()||{n:0,undo:0,redo:0,at:0}}catch(e){return{n:0,undo:0,redo:0,at:0}}};
- const EDIT_TOOLS=[["select","Выбрать (Esc)","↖"],["add","Добавить элемент","＋"],["-"],["move","Двигать","✥",["[data-edit-move]","[data-trim-mode='whole']"]],["shift","Сдвинуть на мм (Ctrl+щелчок — добавить элемент к выбору)","⇲"],["pull","Тянуть край","⇥",["[data-edit-pull]"]],["line","Срезать по линии","✂",["[data-trim-line]","[data-panel-mode='line']"]],["rect","Вырез прямоугольником","▭",["[data-panel-mode='rect']"]],["mitre","Сделать угол","◿",["[data-trim-corner]"]],["over","Этот поверх","⧉",["[data-trim-over]"]],["-"],["back","Показать позади","⤓",["[data-order-step='-1']"]],["front","Показать поверх","⤒",["[data-order-step='1']"]],["-"],["hide","Убрать кусок","⌫",["[data-trim-hide]"]],["delete","Удалить элемент","🗑",["[data-scheme-delete]"]]];
+ const EDIT_TOOLS=[["select","Выбрать (Esc)","↖"],["add","Добавить элемент","＋"],["-"],["move","Двигать","✥",["[data-edit-move]","[data-trim-mode='whole']"]],["shift","Сдвинуть на мм (Ctrl+щелчок — добавить элемент к выбору)","⇲"],["copy","Копировать / массив (Ctrl+C, Ctrl+V)","⎘"],["pull","Тянуть край","⇥",["[data-edit-pull]"]],["line","Срезать по линии","✂",["[data-trim-line]","[data-panel-mode='line']"]],["rect","Вырез прямоугольником","▭",["[data-panel-mode='rect']"]],["mitre","Сделать угол","◿",["[data-trim-corner]"]],["over","Этот поверх","⧉",["[data-trim-over]"]],["-"],["back","Показать позади","⤓",["[data-order-step='-1']"]],["front","Показать поверх","⤒",["[data-order-step='1']"]],["-"],["hide","Убрать кусок","⌫",["[data-trim-hide]"]],["delete","Удалить элемент","🗑",["[data-scheme-delete]"]]];
  // Журнал правок схемы (инженер 20.11.2026 «сделай журнал и возможность возврата»): каждая правка мышью или в карточке —
  // когда, кто, что; «Вернуть» — эта правка, «Вернуть к этому» — все правки после неё. Возврат тоже идёт через режим
  // редактирования: пишется по «Сохранить», модель не перестраивается целиком
@@ -178,6 +178,33 @@ window.irSchemePage=async function(objectId,opts){
   dlg.innerHTML=`<form method="dialog"><header><b>Сдвинуть на мм</b><button value="close" aria-label="Закрыть">✕</button></header>${ids.length?`<p>Выбрано элементов: ${ids.length}. Ещё — Ctrl+щелчок по элементу.</p><div class="scheme-shift-row"><label>ΔX <input type="number" step="1" name="dx" value="0"></label><label>ΔY <input type="number" step="1" name="dy" value="0"></label><label>ΔZ <input type="number" step="1" name="dz" value="0"></label></div><footer><button type="submit" value="go" class="ok">Сдвинуть</button></footer>`:`<p>Сначала выберите элемент щелчком, ещё — Ctrl+щелчок.</p>`}</form>`;
   document.body.appendChild(dlg);dlg.addEventListener("close",()=>{const f=dlg.querySelector("form");if(dlg.returnValue==="go"&&f){const n=V?.moveBy?.(f.dx.value,f.dy.value,f.dz.value)||0;if(n){paintEditState();if(selectedId)renderDetails()}}dlg.remove();restoreKeyboardAfterConfirm()});
   dlg.showModal();dlg.querySelector("input")?.select()}
+ // Копировать и массив (инженер 24.11.2026, инструменты редактора: «копировать/вставить», «массив»): выбранные элементы
+ // (щелчок, ещё — Ctrl+щелчок) — N копий с шагом ΔX/ΔY/ΔZ мм, каждая копия — новая запись того же вида с координатами
+ // со сдвигом k×шаг, перенос элемента правкой «Сдвинуть» входит в место копии; одна правка — ↶ убирает все копии; до
+ // «Сохранить» ничего не пишется; схема не строится заново — копии строятся на месте (addLocal)
+ let copyBuf=[];const COPY_MAX=60,NO_COPY=new Set(["floor","building"]);
+ const COPY_X=["absolute_x_mm","absolute_x2_mm","absolute_mid_x_mm","offset_x_mm","end_offset_x_mm","mid_offset_x_mm"],COPY_Y=["absolute_y_mm","absolute_y2_mm","absolute_mid_y_mm","offset_y_mm","end_offset_y_mm","mid_offset_y_mm"],COPY_Z=["z0_mm","z1_mm","end_z_mm","mid_z_mm"];
+ function movedOf(id){const m={dx:0,dy:0,dz:0};for(const r of trimFixRows()){const f=r.data;if(String(f.member_id||"")!==String(id)||f.action!=="move")continue;const c=storedSchemeElement(id);if((c?.fitting_type==="trim"||c?.fitting_type==="panel")&&!f.whole)continue;m.dx+=num(f.dx);m.dy+=num(f.dy);m.dz+=num(f.dz)}return m}
+ function copyOne(r,dx,dy,dz,used){const d=clone(r.data||{}),mv=movedOf(r.id);
+  const sh=(keys,v)=>{for(const k of keys)if(d[k]!==undefined&&d[k]!==null&&d[k]!==""&&Number.isFinite(Number(d[k])))d[k]=Math.round(Number(d[k])+v)};
+  sh(COPY_X,dx+mv.dx);sh(COPY_Y,dy+mv.dy);sh(COPY_Z,dz+mv.dz);
+  for(const k of ["start_anchor_member_id","end_anchor_member_id","mid_anchor_member_id","engineer_edited","legs_fixed"])delete d[k];
+  if(d.layout&&typeof d.layout==="object"){d.layout={...d.layout};delete d.layout.legs_fixed}
+  const pre=d.fitting_type==="trim"?"TRM-":d.fitting_type==="panel"?"PNL-":"COL-";let i=1,title;do{title=pre+String(i++).padStart(4,"0")}while(used.has(title));used.add(title);
+  Object.assign(d,{position:title,status:"planned",engineer_added:true,copied_from:String(r.id)});
+  return{record_type:"scheme_column",title,data:d}}
+ async function copyMembers(ids,n,dx,dy,dz){if(!editStage||!canEdit())return 0;n=Math.max(1,Math.min(COPY_MAX,Math.round(num(n))||1));dx=num(dx);dy=num(dy);dz=num(dz);
+  if(!dx&&!dy&&!dz)return 0;const src=ids.map(id=>arr(rows).find(r=>sameId(r.id,id))).filter(r=>r&&(r.record_type==="scheme_column"||r.data?.entity_type==="column")&&!NO_COPY.has(String(r.data?.fitting_type||"")));
+  if(!src.length)return 0;const total=src.length*n;if(total>COPY_MAX){alert("За один раз — не больше "+COPY_MAX+" копий: выбрано "+src.length+" × "+n+".");return 0}
+  const used=new Set(allRecords().map(r=>String(r.position||r.title||""))),g="copy"+Date.now(),at0=editStage.ops.length,made=[];
+  for(let k=1;k<=n;k++)for(const r of src){const rec=await schemeApi.create(copyOne(r,dx*k,dy*k,dz*k,used));made.push(rec.id);journalAuto(rec.id,"placed",{copied_from:String(r.id)})}
+  editStage.ops.slice(at0).forEach(o=>{o.g=g});rows=clone(editStage.rows);if(made.length)selectedId=String(made.at(-1));paintEditState();refreshAfterMemberChange();return made.length}
+ function openCopy(paste){const V=window.irThreeSchemeView;document.getElementById("schemeCopy")?.remove();const ids=paste&&copyBuf.length?copyBuf.slice():V?.selection?.()||[];
+  const dlg=document.createElement("dialog");dlg.id="schemeCopy";dlg.className="scheme-shift";
+  dlg.innerHTML=`<form method="dialog"><header><b>${paste?"Вставить копию":"Копировать / массив"}</b><button value="close" aria-label="Закрыть">✕</button></header>${ids.length?`<p>Элементов: ${ids.length}. Копия ставится со сдвигом на шаг, массив — N копий через шаг.</p><div class="scheme-shift-row"><label>Копий <input type="number" min="1" max="${COPY_MAX}" step="1" name="n" value="1"></label></div><div class="scheme-shift-row"><label>шаг ΔX <input type="number" step="1" name="dx" value="0"></label><label>ΔY <input type="number" step="1" name="dy" value="0"></label><label>ΔZ <input type="number" step="1" name="dz" value="0"></label></div><footer><button type="submit" value="go" class="ok">${paste?"Вставить":"Копировать"}</button></footer>`:`<p>Сначала выберите элемент щелчком, ещё — Ctrl+щелчок.</p>`}</form>`;
+  document.body.appendChild(dlg);dlg.addEventListener("close",async()=>{const f=dlg.querySelector("form");const go=dlg.returnValue==="go"&&f;const v=go?[f.n.value,f.dx.value,f.dy.value,f.dz.value]:null;dlg.remove();restoreKeyboardAfterConfirm();
+   if(v){const made=await copyMembers(ids,...v);if(!made&&!(num(v[1])||num(v[2])||num(v[3])))alert("Укажите шаг — копия на том же месте прошла бы сквозь элемент.")}});
+  dlg.showModal();dlg.querySelector("input[name=dx]")?.select()}
  function editTopHtml(){return`<div class="scheme-edit-top" role="toolbar" aria-label="Режим редактирования"><b>✎ Редактирование</b><small id="schemeEditWord">Правок нет</small><button type="button" id="schemeEditUndo" title="Отменить последнюю правку (Ctrl+Z)" disabled>↶ Отменить</button><button type="button" id="schemeEditRedo" title="Повторить (Ctrl+Y)" disabled>↷ Повторить</button><button type="button" id="schemeEditLog" title="Все правки схемы: когда, кто, что — и возврат">🕘 Журнал правок</button><span class="scheme-edit-gap"></span><button type="button" class="ok" id="schemeEditSave" disabled>Сохранить</button><button type="button" id="schemeEditCancel">Выйти без сохранения</button></div>`}
  function editToolsHtml(){return`<nav class="scheme-edit-tools" aria-label="Инструменты">${EDIT_TOOLS.map(t=>t[0]==="-"?"<hr>":`<button type="button" data-edit-tool="${t[0]}" title="${esc(t[1])}" aria-label="${esc(t[1])}">${t[2]}</button>`).join("")}</nav>`}
  const toolBtn=t=>{const box=document.getElementById("schemeDetails");if(!box||!t[3])return null;for(const q of t[3]){const b=box.querySelector(q);if(b&&!b.disabled)return b}return null};
@@ -187,7 +214,7 @@ window.irSchemePage=async function(objectId,opts){
  function editTool(id){const V=window.irThreeSchemeView,t=EDIT_TOOLS.find(x=>x[0]===id);if(!t)return;
   if(id==="select"){try{V?.editStart?.("select")}catch(e){}paintTools();return}
   if(id==="add"){if(V?.startPlacement)V.startPlacement();else openEditor();return}
-  if(id==="shift"){openShift();return}
+  if(id==="shift"){openShift();return}if(id==="copy"){openCopy(false);return}
   toolBtn(t)?.click();setTimeout(paintTools,60)}
  // (↶ — последняя правка: мышью в 3D — шагом 3D, на месте; добавление, удаление, правка в окне — список схемы назад)
  const applyOp=(rs,o)=>o.op==="create"?[{...clone(o.p),id:o.id},...rs]:o.op==="update"?rs.map(r=>sameId(r.id,o.id)?{...r,...clone(o.p),id:r.id}:r):rs.filter(r=>!sameId(r.id,o.id));
@@ -195,10 +222,10 @@ window.irSchemePage=async function(objectId,opts){
   if(selectedId&&!allRecords().some(x=>sameId(x.id,selectedId)))selectedId="";paintEditState();refreshAfterMemberChange()}
  function editUndo(){if(!editStage)return;const V=window.irThreeSchemeView,info=editInfo3d(),op=editStage.ops.at(-1);
   if(info.undo&&(!op||info.at>=(op.at||0))){V.editUndo();paintEditState();if(selectedId)renderDetails();return}
-  if(!op)return;editStage.redo=editStage.redo||[];editStage.redo.push(editStage.ops.pop());editReplay()}
+  if(!op)return;editStage.redo=editStage.redo||[];do{editStage.redo.push(editStage.ops.pop())}while(op.g&&editStage.ops.at(-1)?.g===op.g);editReplay()}
  function editRedo(){if(!editStage)return;const V=window.irThreeSchemeView,info=editInfo3d();
   if(info.redo){V.editRedo();paintEditState();if(selectedId)renderDetails();return}
-  if(!editStage.redo?.length)return;editStage.ops.push(editStage.redo.pop());editReplay()}
+  if(!editStage.redo?.length)return;const g=editStage.redo.at(-1).g;do{editStage.ops.push(editStage.redo.pop())}while(g&&editStage.redo.at(-1)?.g===g);editReplay()}
  let editKeysOn=false,toolsSeen=null;
  function bindEditLayout(){
   if(!editOn){document.body.classList.remove("scheme-editing");return}
@@ -211,7 +238,9 @@ window.irSchemePage=async function(objectId,opts){
   if(!editKeysOn){editKeysOn=true;document.addEventListener("keydown",e=>{if(!editOn||e.target?.closest?.("input,textarea,select,[contenteditable]"))return;
    if(e.key==="Escape"&&!document.querySelector("dialog[open]")){editTool("select")}
    else if((e.ctrlKey||e.metaKey)&&!e.shiftKey&&(e.key==="z"||e.key==="я"||e.code==="KeyZ")){e.preventDefault();editUndo()}
-   else if((e.ctrlKey||e.metaKey)&&(e.key==="y"||e.code==="KeyY"||e.shiftKey&&e.code==="KeyZ")){e.preventDefault();editRedo()}})}}
+   else if((e.ctrlKey||e.metaKey)&&(e.key==="y"||e.code==="KeyY"||e.shiftKey&&e.code==="KeyZ")){e.preventDefault();editRedo()}
+   else if((e.ctrlKey||e.metaKey)&&e.code==="KeyC"){const ids=window.irThreeSchemeView?.selection?.()||[];if(ids.length){e.preventDefault();copyBuf=ids.slice()}}
+   else if((e.ctrlKey||e.metaKey)&&e.code==="KeyV"&&copyBuf.length){e.preventDefault();openCopy(true)}})}}
  function editEnter(){if(!canWrite()||editOn)return;editOn=true;editStage=newStage();draw()}
  async function editLeave(save){
   if(!editOn)return;const V=window.irThreeSchemeView;

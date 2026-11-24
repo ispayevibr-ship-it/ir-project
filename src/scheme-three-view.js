@@ -16374,7 +16374,10 @@ X.all.forEach(function(f){var u=f.o.userData||{},c=dataById.get(f.id);if(f.o===o
   }
   // The members are rebuilt only when they changed: choosing a member or a toggle on the page only repaints.
   var built="";
-  function addedOnly(old,now){if(!old||!Array.isArray(now)||now.length<=old.size||now.length-old.size>5)return null;var seen=0,out=[];
+  // (the key of the fixes laid is fixesSig everywhere — kept as JSON.stringify when the list came back from the page, it never
+  // matched the fixesSig compared with: every element added, removed or changed by hand rebuilt the whole scheme; up to 60
+  // added at once are built on the spot — copies and arrays of the editor, the engineer 24.11.2026)
+  function addedOnly(old,now){if(!old||!Array.isArray(now)||now.length<=old.size||now.length-old.size>60)return null;var seen=0,out=[];
    for(var i=0;i<now.length;i++){var n=now[i];if(!n||n.id==null)return null;var w=old.get(String(n.id));if(w===undefined){if(isPorchPart(n))return null;out.push(n);continue}if(!sameLoose(w,n))return null;seen++}return seen===old.size?out:null}
   function addLocal(list){
    try{list.forEach(function(c){if(dataById.has(String(c.id)))return;elems.push(c);memberBuilder(c)});
@@ -16455,10 +16458,10 @@ X.all.forEach(function(f){var u=f.o.userData||{},c=dataById.get(f.id);if(f.o===o
    // it stands, no rebuilding: a fix of a trim rebuilt the whole scheme, the list coming back from the page a moment later
    // before the fix was written — the engineer 20.11.2026 «Перестроение 3D-схемы 86 % · Обрезка сэндвича» on one trim)
    if(!P.report){var inF=fixesIn(P.trimFixes),aK=new Set(appliedFixes.map(fixKeyOf)),iK=inF.map(fixKeyOf),iS=new Set(iK);
-    if(iS.size===aK.size&&iK.every(function(k){return aK.has(k)})){P.trimFixes=appliedFixes;builtFixKey=JSON.stringify(appliedFixes)}
+    if(iS.size===aK.size&&iK.every(function(k){return aK.has(k)})){P.trimFixes=appliedFixes;builtFixKey=fixesSig(appliedFixes)}
     else if(iS.size>aK.size&&iS.size-aK.size<=20&&Array.from(aK).every(function(k){return iS.has(k)})&&memberBuilder&&built){
      // (a fix written elsewhere — laid on the model as it stands)
-     inF.forEach(function(f){if(aK.has(fixKeyOf(f)))return;try{fixStop(f)}catch(e){}try{applyFix(f)}catch(e){}});P.trimFixes=inF;appliedFixes=inF.slice();builtFixKey=JSON.stringify(inF);try{rebatch()}catch(e){}}
+     inF.forEach(function(f){if(aK.has(fixKeyOf(f)))return;try{fixStop(f)}catch(e){}try{applyFix(f)}catch(e){}});P.trimFixes=inF;appliedFixes=inF.slice();builtFixKey=fixesSig(inF);try{rebatch()}catch(e){}}
     else P.trimFixes=inF}
    var prevRefs=builtRefs,prevFix=builtFixKey,fixKey=fixesSig(P.trimFixes),sig=sameRefs(P.elements)&&fixKey===builtFixKey?built:signNew(P.elements);builtFixKey=fixKey;var prevTexts=forceBuild?null:builtTexts;forceBuild=false;if(sig!==built){builtRefs=(P.elements||[]).slice();builtTexts=textsOf(P.elements)}
    // (an element deleted by hand — only its pieces leave the model, no rebuilding of the whole scheme: the engineer, 20.11.2026
