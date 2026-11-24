@@ -19,14 +19,12 @@
   head:"Саргаскаев Аслан Каскенович",
   bank:["ИИК KZ20601A371002289201","АО «Народный Банк Казахстана»","БИК HSBKKZKX · КБе 17"],
   title:"Изготовление и монтаж металлоконструкций",
-  about:["ТОО «А-Темир Строй» работает в промышленном строительстве с 2023 года: изготовление и монтаж металлоконструкций, монтаж технологического оборудования, ограждающих конструкций и резервуаров, демонтажные работы по всему Казахстану.",
-   "Собственный штат специалистов и полный комплект исполнительной документации по каждому объекту."],
+  about:["Мы стремимся к постоянному развитию, внедряем современные строительные технологии и применяем передовые материалы. Это позволяет повышать эффективность работ и обеспечивать высокое качество на всех этапах строительства."],
   // преимущества, заказчики, принципы — из буклета фирмы в Canva (инженер 24.11.2026 «текста с канвы еще возьми,
   // добавь, а то пустовато первая и вторая страница»)
   adv:[["Собственный штат","Инженеры, прорабы, сварщики, монтажники, рабочие"],["Своя строительная техника","Работаем оперативно, без зависимости от подрядчиков"],["Комплексный подход","От проекта и смет до сдачи объекта «под ключ»"],["Сроки и качество","Строгое соответствие нормам и требованиям заказчика"]],
-  pledges:[["Гарантия","На все виды выполненных работ"],["Весь Казахстан","Объекты по всей стране, офис в Темиртау"]],
+  pledges:[["Весь Казахстан","Работаем на объектах по всей стране"]],
   license:"Государственная лицензия на строительно-монтажные работы II категории",
-  clients:["ТОО «Темиртауский Казмеханомонтаж №2»","ТОО «СМУ-5»","ТОО «KVINTEC Construction»","ТОО «КазМетКокс»","ТОО «Құрылыс ТС»","ТОО «Eurasia Copper Operating»","ТОО «QAZCLINKER»","ТОО «ВЕЛЕТ»","ТОО «AAEngineering Group»","ТОО «Fonet Er-Tai AK Mining»","ТОО «KYZYL ARAY COPPER»","ТОО «Завод Техно-Караганда»","ТОО «Средазэнергомонтаж Павлодар»"],
   principles:{lead:"Мы стремимся к постоянному развитию, внедряем современные строительные технологии и применяем передовые материалы. Это позволяет повышать эффективность работ и обеспечивать высокое качество на всех этапах строительства.",
    items:[["Индивидуальный подход","Внимательно изучаем задачи каждого заказчика и подбираем оптимальные решения."],["Прозрачность и честность","Понятные объёмы, сроки и отчётность на каждом этапе."],["Безопасность прежде всего","Строго соблюдаем требования охраны труда и техники безопасности на объектах."],["Гарантийные обязательства","Предоставляем гарантию на все виды выполненных работ."]],
    note:"Надёжное строительство начинается с ответственности — и именно это является основой нашей репутации."},
@@ -113,11 +111,11 @@
 .svcp h2{margin:0;font-size:34pt;font-weight:900;line-height:1;text-transform:uppercase;letter-spacing:-.5px}
 .svcp .ld{margin:5mm 0 0;font-size:10pt;line-height:1.55;color:#4b525c}
 .svcp .lg{position:absolute;right:14mm;top:13mm;height:20mm;width:60mm;display:flex;justify-content:flex-end;align-items:flex-start}.svcp .lg img{max-height:20mm;max-width:60mm;object-fit:contain}.svcp .lg b{font-size:11pt;font-weight:900}
-.svcp .sg{position:absolute;left:16mm;right:16mm;top:56mm;bottom:64mm;display:grid;grid-template-columns:repeat(4,1fr);grid-template-rows:1fr 1fr;border-top:.35mm solid var(--ink);border-bottom:.35mm solid var(--ink)}
+.svcp .sg{position:absolute;left:16mm;right:16mm;top:58mm;bottom:58mm;display:grid;grid-template-columns:repeat(4,1fr);grid-template-rows:1fr 1fr;border-top:.35mm solid var(--ink);border-bottom:.35mm solid var(--ink)}
 .svcp .sc{padding:4mm 6mm 3mm 0;border-left:.35mm solid var(--ink);padding-left:6mm;overflow:hidden}.svcp .sc:nth-child(4n+1){border-left:0;padding-left:0}.svcp .sc:nth-child(n+5){border-top:.35mm solid var(--ink)}
 .svcp .sc i{display:block;font-style:normal;font-size:9pt;font-weight:800;color:var(--ord);letter-spacing:.6px;margin-bottom:2mm}
-.svcp .pr{position:absolute;left:16mm;right:16mm;top:151mm;bottom:26mm;display:grid;grid-template-columns:1.25fr repeat(4,1fr);gap:4mm}
-.svcp .ph .kick{font-size:7.5pt;font-weight:800;letter-spacing:1.4px;color:var(--ord);margin-bottom:2mm}.svcp .ph p{margin:0;font-size:8pt;line-height:1.5;color:#4b525c}
+.svcp .pr{position:absolute;left:16mm;right:16mm;top:157mm;bottom:14mm;display:grid;grid-template-columns:1.25fr repeat(4,1fr);gap:4mm}
+.svcp .ph .kick{font-size:7.5pt;font-weight:800;letter-spacing:1.4px;color:var(--ord);margin-bottom:2mm}.svcp .ph h3{margin:0;font-size:15pt;font-weight:900;line-height:1.15}
 .svcp .pi{background:#faf6ee;border-radius:2.5mm;padding:3.2mm 3.6mm;border-top:1.2mm solid var(--or);overflow:hidden}.svcp .pi b{display:block;font-size:9.5pt;font-weight:800;line-height:1.2;margin-bottom:2mm}.svcp .pi p{margin:0;font-size:7.8pt;line-height:1.45;color:var(--mut)}
 .svcp .sc b{display:block;font-size:11.5pt;font-weight:800;line-height:1.15;margin-bottom:2mm}.svcp .sc p{margin:0;font-size:7.9pt;line-height:1.45;color:var(--mut)}
 .svcp .bd{position:absolute;left:0;right:0;bottom:0;height:20mm;background:#1d2228;color:#fff;display:flex;align-items:center;padding:0 16mm;gap:8mm}
@@ -177,8 +175,8 @@
 .adv{display:grid;grid-template-columns:1fr 1fr;gap:3mm}.adv div{background:#faf6ee;border-radius:2mm;padding:3mm;font-size:7.4pt;line-height:1.35}.adv b{display:block;font-size:8pt;margin-bottom:.6mm}
 .slogan{margin-top:auto;padding-top:6mm;font-size:13pt;font-weight:900;line-height:1.2}.slogan i{font-style:normal;color:var(--or)}
 .A3{position:absolute;left:199mm;right:0;top:0;bottom:0;background:#1d2228;color:#fff;padding:13mm 9mm 12mm;display:flex;flex-direction:column}.A3 .kick{color:var(--or)}
-.A3 h2{font-size:15pt;font-weight:900;margin:1mm 0 5mm;line-height:1.15}.cust{list-style:none;margin:0;padding:0;max-height:138mm;overflow:hidden}.cust.many li{font-size:7.2pt;padding:1.2mm 0}.cust li.more{color:#c9ced5;font-weight:500}.cust li.more:before{background:none}
-.gar{margin-top:auto;padding-top:3mm;display:grid;grid-template-columns:1fr 1fr;gap:2.4mm}.gar div{background:#1d2228;color:#fff;border-radius:2mm;padding:2.4mm 2.6mm;font-size:6.8pt;line-height:1.35;color:#d6d9dd}.gar b{display:block;color:var(--or);font-size:8.4pt;font-weight:800;margin-bottom:.5mm}
+.A3 h2{font-size:15pt;font-weight:900;margin:1mm 0 5mm;line-height:1.15}.cust{list-style:none;margin:0;padding:0;max-height:138mm;overflow:hidden}.cust.many li{font-size:7.2pt;padding:1.2mm 0}.cust.few li{font-size:10pt;padding:4mm 0;line-height:1.3}.cust li.more{color:#c9ced5;font-weight:500}.cust li.more:before{background:none}
+.gar{margin-top:auto;padding-top:3mm;display:grid;grid-template-columns:1fr;gap:2.4mm}.gar div{background:#1d2228;color:#fff;border-radius:2mm;padding:2.4mm 2.6mm;font-size:6.8pt;line-height:1.35;color:#d6d9dd}.gar b{display:block;color:var(--or);font-size:8.4pt;font-weight:800;margin-bottom:.5mm}
 .lic{margin-top:1.5mm;padding:3mm;border-radius:2mm;background:rgba(255,255,255,.35);font-size:7.6pt;line-height:1.4;font-weight:700}.lic small{display:block;font-weight:900;font-size:6.6pt;letter-spacing:.8px;opacity:.75}
 .cust li{font-size:8pt;font-weight:600;padding:1.9mm 0;border-bottom:1px solid rgba(255,255,255,.1);display:flex;gap:2.5mm;align-items:center}
 .cust li:before{content:"";flex:none;width:1.6mm;height:1.6mm;background:var(--or);transform:rotate(45deg)}
@@ -252,7 +250,7 @@
 .geop .office line{stroke:#141414;stroke-width:2;stroke-dasharray:4 4}.geop .office rect{fill:#141414}.geop .office .od{fill:#141414;stroke:#fff;stroke-width:3}.geop .office .oc{fill:var(--or)}
 .geop .office .pl{fill:none;stroke:var(--or);stroke-width:2.5;opacity:.6}.geop .office text{font:800 17px Montserrat,Arial,sans-serif;fill:#fff}.geop .office text.s{font-weight:500;font-size:13px;fill:#d9d4c7}
 .geop .office path{fill:none;stroke:var(--or);stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round}
-.geop div.pl{position:absolute;left:222mm;right:14mm;top:62mm;bottom:28mm;display:flex;flex-direction:column;gap:2mm;overflow:hidden}
+.geop div.pl{position:absolute;left:222mm;right:14mm;top:62mm;bottom:14mm;display:flex;flex-direction:column;gap:2mm;overflow:hidden}
 .geop div.pl div{display:flex;justify-content:space-between;align-items:center;gap:3mm;background:#f3f1ec;border-radius:2.5mm;padding:2.6mm 3.4mm;font-size:8.6pt;font-weight:700;line-height:1.2}
 .geop div.pl span{color:var(--mut);font-weight:500;font-size:7.6pt;white-space:nowrap}.geop div.pl .more{background:none;color:var(--mut);font-weight:500}
 .geop .bd{position:absolute;left:0;right:0;bottom:0;height:20mm;background:#1d2228;color:#fff;display:flex;align-items:center;padding:0 16mm;gap:8mm}
@@ -265,8 +263,8 @@
   return`<section class="page svcp"><div class="lg">${logo?`<img src="${esc(logo)}" alt="">`:`<b>${esc(co.name)}</b>`}</div>
   <div class="sh"><div class="kick up">Услуги</div><h2>Что мы делаем</h2><p class="ld">${esc(w.lead)}</p></div>
   <div class="sg">${w.items.slice(0,8).map(([t,d],i)=>`<div class="sc"><i>${String(i+1).padStart(2,"0")}</i><b>${esc(t)}</b><p>${esc(d)}</p></div>`).join("")}</div>
-  ${(()=>{const pr=co.principles||COMPANY.principles;return`<div class="pr"><div class="ph"><div class="kick up">Наши принципы</div><p>${esc(pr.lead)}</p></div>${pr.items.map(([t,d])=>`<div class="pi"><b>${esc(t)}</b><p>${esc(d)}</p></div>`).join("")}</div>`})()}
-  <div class="bd"><div class="sl">${esc(co.slogan[0])} <i>${esc(co.slogan[1])}</i></div><div class="ct">${esc(co.site)} · ${esc(co.contactMail)}<br>WhatsApp ${esc(co.whatsapp)}</div></div></section>`}
+  ${(()=>{const pr=co.principles||COMPANY.principles;return`<div class="pr"><div class="ph"><div class="kick up">Наши принципы</div><h3>Работаем так, чтобы нам доверяли</h3></div>${pr.items.map(([t,d])=>`<div class="pi"><b>${esc(t)}</b><p>${esc(d)}</p></div>`).join("")}</div>`})()}
+</section>`}
  // лист «География работ» — последний лист буклета, как раздел сайта a-ts.kz (server/pb_public/index.html #geo:
  // тот же контур Казахстана, те же города и центры областей, близкие города одной точкой, офис в Темиртау; инженер
  // 20.11.2026 «карту тоже сделай отдельной страницей в самом низу»). Точки — по адресам объектов буклета. Окно печати
@@ -317,11 +315,12 @@
   <div class="sh"><div class="kick up">Где мы работали</div><h2>География работ</h2><p class="ld">${n} ${objWord(n)} в ${all.length} ${all.length%10===1&&all.length%100!==11?"месте":"местах"} Казахстана. Офис компании — г. Темиртау.</p></div>
   <div class="mp"><svg viewBox="0 0 1000 546"><path class="kz" d="${KZ_PATH}"/>${off}${pts}</svg></div>
   <div class="pl">${rows.map(g=>`<div><b>${esc(g.name)}</b><span>${g.list.length} ${objWord(g.list.length)}</span></div>`).join("")}${all.length>rows.length?`<div class="more">и ещё ${all.length-rows.length}</div>`:""}</div>
-  <div class="bd"><div class="sl">${esc(co.slogan[0])} <i>${esc(co.slogan[1])}</i></div><div class="ct">${esc(co.address)}<br>${esc(co.site)} · WhatsApp ${esc(co.whatsapp)}</div></div></section>`}
+</section>`}
  // предпросмотр в окне «Буклет» — те же листы уменьшенными, серый фон, номер и название листа над каждым
  const SCREEN=`body{background:#5d646c;padding:8mm 0}.page{margin:0 auto 10mm;box-shadow:0 2mm 8mm rgba(0,0,0,.35)}.pvn{width:297mm;margin:0 auto 2.5mm;color:#fff;font:600 11pt Montserrat,"Segoe UI",Arial,sans-serif}`;
- // заказчики объектов буклета первыми, затем список из буклета Canva; одинаковые названия — один раз
- const clientList=(objects,co)=>{const seen=new Set(),out=[];for(const t of [...parties(objects),...(co.clients||[])]){const k=String(t).toLowerCase().replace(/ё/g,"е").replace(/[«»"“”'\s.,-]|^(тоо|ао|ип)/g,"");if(t&&!seen.has(k)){seen.add(k);out.push(t)}}return out};
+ // заказчики и генподрядчики — только из объектов программы, отмеченных для буклета (инженер 24.11.2026 «из канвы ты
+ // берешь только реквизиты и текста, объемы, объекты, заказчики с программы»); одинаковые названия — один раз
+ const clientList=(objects,co)=>{const seen=new Set(),out=[];for(const t of parties(objects)){const k=String(t).toLowerCase().replace(/ё/g,"е").replace(/[«»"“”'\s.,-]|^(тоо|ао|ип)/g,"");if(t&&!seen.has(k)){seen.add(k);out.push(t)}}return out};
  function aboutPage(objects,co,logo){
   const ps=clientList(objects,co),many=ps.length>14,cut=ps.length>20?ps.slice(0,19):ps;
   return`<section class="page"><div class="A1"><div class="lg">${logo?`<img src="${esc(logo)}" alt="">`:`<b>${esc(co.name)}</b>`}</div>
@@ -338,7 +337,7 @@
   <div class="adv">${co.adv.map(([b,s])=>`<div><b>${esc(b)}</b>${esc(s)}</div>`).join("")}</div>
   <div class="slogan">${esc(co.slogan[0])}<br><i>${esc(co.slogan[1])}</i></div></div>
   <div class="A3"><div class="kick up">Нам доверяют</div><h2>Заказчики и генподрядчики</h2>
-  <ul class="cust${many?" many":""}">${cut.map(p=>`<li>${esc(p)}</li>`).join("")}${cut.length<ps.length?`<li class="more">и ещё ${ps.length-cut.length}</li>`:""}</ul>${(co.principles||COMPANY.principles).note?`<div class="rep">${esc((co.principles||COMPANY.principles).note)}</div>`:""}<div class="q">${co.trust}</div></div></section>`
+  <ul class="cust${many?" many":ps.length<=6?" few":""}">${cut.map(p=>`<li>${esc(p)}</li>`).join("")}${cut.length<ps.length?`<li class="more">и ещё ${ps.length-cut.length}</li>`:""}</ul>${(co.principles||COMPANY.principles).note?`<div class="rep">${esc((co.principles||COMPANY.principles).note)}</div>`:""}<div class="q">${co.trust}</div></div></section>`
  }
  // лист объекта — четыре макета, чтобы листы не были одинаковыми (инженер 20.11.2026 «чтобы не все страницы были
  // одинаковые, макет разный»): 1 «Классика» — текст слева, фото справа с полосой и кругами; 2 «Зеркало» — фото слева,
@@ -372,7 +371,7 @@
   <div class="wks">${wkRows(ws.slice(0,Math.min(max,o.wkMax||max)))}</div>${o.summary&&!o.sumMoved?`<div class="sum">${sumHtml(o.summary)}</div>`:""}
   ${statsOf(o,co)}<div class="badges">${ringOf(p)}${docOf()}</div>`}
  function placeOf(o,co){const place=String(o.address||"").trim();
-  return`${yearOf(o)}${place?`<h4 class="up">Место выполнения</h4><p>${esc(place)}</p>`:""}<div class="contact">${esc(co.contactMail)}<br>WhatsApp ${esc(co.whatsapp)}</div>`}
+  return`${yearOf(o)}${place?`<h4 class="up">Место выполнения</h4><p>${esc(place)}</p>`:""}`}
  function circlesOf(rest){return rest.length?`<div class="circles">${rest.map((s,i)=>`<div class="c${rest.length===3&&i===1?" big":""}"${bg(s)}></div>`).join("")}</div>`:""}
  function objectPage(o,co,logo,i=0){const h=objectPage0(o,co,logo,i);return o.fit?h.replace('<section class="page','<section class="page fit'+o.fit):h}
  function objectPage0(o,co,logo,i=0){
