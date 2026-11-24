@@ -517,7 +517,7 @@
   const d=dialog(doc,"wide ir-acc-so ir-acc-bk",head("Буклет","Отметьте объекты, у каждого выберите фото и макет листа — получится PDF-буклет фирмы. «Предпросмотр» покажет все листы до печати.")+
    `<div class="ir-acc-body">
     <div class="ir-so-bar"><input type="search" data-q placeholder="Поиск по названию, заказчику, адресу"><div class="ir-so-tabs" data-tabs></div></div>
-    <div class="ir-so-sum"><button type="button" class="ir-acc-btn small" data-all>Выбрать все объекты</button><button type="button" class="ir-acc-btn small" data-none>Снять все</button><span class="grow"></span><label class="ir-bk-opt"><input type="checkbox" data-svc checked> Лист «Что мы делаем»</label><label class="ir-bk-opt"><input type="checkbox" data-map checked> Лист «География работ»</label></div>
+    <div class="ir-so-sum"><button type="button" class="ir-acc-btn small" data-all>Выбрать все объекты</button><button type="button" class="ir-acc-btn small" data-none>Снять все</button><span class="grow"></span><label class="ir-bk-opt" title="Один лист А4 с двух сторон, складывается в три: обложка, о компании, цифры, услуги, 3 объекта, карта и контакты"><input type="checkbox" data-fold> Евробуклет (в 3 сложения)</label><label class="ir-bk-opt"><input type="checkbox" data-svc checked> Лист «Что мы делаем»</label><label class="ir-bk-opt"><input type="checkbox" data-map checked> Лист «География работ»</label></div>
     <div class="ir-so-prog" data-prog hidden><div class="row"><b data-pt></b><span data-pp>0%</span></div><div class="track"><i data-pb></i></div><div class="row"><span data-ps></span></div></div>
     <div class="ir-acc-st" data-st></div>
     <div class="ir-so-list ir-bk-list" data-list><div class="ir-so-empty">Загружаем…</div></div></div>
@@ -579,7 +579,9 @@
   $("[data-all]").onclick=()=>{objects.filter(match).forEach(o=>{const id=Number(o.id);if(!chosen.includes(id))chosen.push(id)});draw()};
   $("[data-none]").onclick=()=>{chosen=[];draw()};
   try{objects=sarr(await irProject.data.objects.list());if(!objects.some(o=>STATUS_TAG(o.status||"")==="done"))tab="all";draw()}catch(e){bad(e)}
-  const services=()=>$("[data-svc]").checked,withMap=()=>$("[data-map]").checked;
+  const services=()=>$("[data-svc]").checked,withMap=()=>$("[data-map]").checked,fold=()=>$("[data-fold]").checked;
+  // евробуклет (инженер 24.11.2026 «чтобы в 3 раза сложить можно было»): листы «Что мы делаем» и «География» в нём всегда
+  $("[data-fold]").onchange=()=>{const f=fold();$("[data-svc]").disabled=$("[data-map]").disabled=f};
   async function collect(save){const data=[];for(const [i,id] of chosen.entries()){const o=objects.find(x=>Number(x.id)===id);setProg(i/chosen.length*20,"Собираем объекты…",(i+1)+" из "+chosen.length+" — "+(o?.name||""));
     if(!info.has(id))await load(id);const x=info.get(id);if(!x)continue;
     if(x.locked){const L=x.locked;data.push({...x.data,...L.data,asOf:L.date,files:L.files||[],layout:Number(L.layout)||0,gallery:Number(L.gallery)||0});continue}
@@ -589,7 +591,7 @@
   pv.onclick=async()=>{pv.disabled=go.disabled=true;st.textContent="";
    try{const data=await collect(false);setProg(60,"Собираем листы…","");
     const pic=async f=>thumbs.get(f)||"";
-    const html=await irBooklet.preview(data,{pic,services:services(),map:withMap()});prog.hidden=true;
+    const html=await irBooklet.preview(data,{pic,services:services(),map:withMap(),fold:fold()});prog.hidden=true;
     const w=dialog(doc,"wide ir-bk-pvd",head("Предпросмотр буклета","Так будут выглядеть листы PDF. Фото здесь уменьшены — в PDF они в полном качестве.")+
      `<div class="ir-bk-pvb"><iframe data-fr title="Предпросмотр"></iframe></div><div class="ir-acc-foot"><span class="grow"></span><button type="button" class="ir-acc-btn" data-close>Закрыть</button><button type="button" class="ir-acc-btn main" data-make>Сделать PDF</button></div>`);
     const fr=w.querySelector("[data-fr]");
@@ -601,7 +603,7 @@
   go.onclick=async()=>{
    go.disabled=pv.disabled=true;st.textContent="";
    try{const data=await collect(true);
-    const r=await irBooklet.make(data,{services:services(),map:withMap(),onProgress:(i,n,name)=>setProg(20+i/n*75,"Фото объектов…",(i+1)+" из "+n+" — "+(name||""))});
+    const r=await irBooklet.make(data,{services:services(),map:withMap(),fold:fold(),onProgress:(i,n,name)=>setProg(20+i/n*75,"Фото объектов…",(i+1)+" из "+n+" — "+(name||""))});
     setProg(100,r?"Буклет сохранён":"Буклет не сохранён",r?.path||"","ok")}
    catch(e){setProg(100,"Буклет не получился",errText(e),"err")}
    drawN()};
