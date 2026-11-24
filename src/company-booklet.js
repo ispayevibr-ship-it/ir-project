@@ -587,11 +587,37 @@ ${(()=>{const pages=[["О компании",aboutPage(list,co,logo)],...(service
 .tf .oc .op{flex:1 1 0;min-height:16mm;border-radius:2mm;background:#3a4047 center/cover no-repeat;position:relative}.tf .oc .op span{position:absolute;left:2mm;bottom:2mm;background:var(--or);color:var(--ink);font-size:6pt;font-weight:900;padding:.6mm 2mm;border-radius:1mm}
 .tf .oc b{display:block;font-size:7.6pt;font-weight:900;line-height:1.25;margin-top:2mm;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}.tf .oc small{display:block;font-size:6.2pt;color:var(--mut);font-weight:600;margin-top:.6mm;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .tf .oc .ov{display:flex;gap:4mm;margin-top:1.2mm}.tf .oc .ov em{font-style:normal;font-size:9pt;font-weight:900}.tf .oc .ov s{text-decoration:none;font-size:6.4pt;font-weight:700;color:var(--ord);margin-left:.6mm}
-.tf .om{font-size:6.6pt;font-weight:700;color:var(--mut);margin-top:3mm}`;
+.tf .om{font-size:6.6pt;font-weight:700;color:var(--mut);margin-top:3mm}
+.tf.sp{background:#2b3036}.tf.sp>.ph{position:absolute;inset:0;background:#3a4047 center/cover no-repeat}.tf.sp .sh{position:absolute;inset:0;background:radial-gradient(ellipse at 50% 55%,rgba(0,0,0,0) 40%,rgba(0,0,0,.35));pointer-events:none}
+.tf.sp svg.ld{position:absolute;inset:0;width:297mm;height:210mm;z-index:2}.tf.sp .ld polyline{fill:none;stroke:var(--or);stroke-width:.45;stroke-linejoin:round}.tf.sp .ld circle{fill:#fff;stroke:var(--or);stroke-width:.6}
+.tf.sp .lb{position:absolute;z-index:3;color:#fff;font-size:9.5pt;font-weight:900;line-height:1.08;letter-spacing:.4px;text-shadow:0 .3mm 1.2mm rgba(0,0,0,.85),0 0 .4mm rgba(0,0,0,.6);white-space:nowrap}
+.tf.sp .lr{text-align:right}.tf.sp .row{position:absolute;left:12mm;right:12mm;bottom:12mm;display:flex;flex-wrap:wrap;gap:3mm 7mm;z-index:3}.tf.sp .row .lb{position:static;border-bottom:.45mm solid var(--or);padding-bottom:1mm}
+.tf.sp .cap{position:absolute;left:10mm;top:9mm;z-index:3;background:rgba(29,34,40,.82);color:#fff;border-left:1.4mm solid var(--or);border-radius:1.5mm;padding:2.4mm 4mm;max-width:120mm}
+.tf.sp .cap small{display:block;font-size:5.8pt;font-weight:800;letter-spacing:1.4px;color:var(--or2)}.tf.sp .cap b{display:block;font-size:8pt;font-weight:800;line-height:1.25;margin-top:.6mm}.tf.sp .cap span{display:block;font-size:6.4pt;color:#c9ced5;margin-top:.4mm}
+.tf .nb{display:grid;grid-template-columns:1fr 1fr;gap:3mm;margin-bottom:4mm}.tf .nb div{border-top:1mm solid var(--or);padding-top:1.8mm}.tf .nb b{display:block;font-size:11.5pt;font-weight:900;line-height:1.05;white-space:nowrap}.tf .nb span{display:block;font-size:6pt;font-weight:700;color:var(--mut);line-height:1.25;margin-top:.8mm}`;
  const FOLD_OBJ=3;
  function foldMap(objects){const all=geoGroups(objects),f=v=>v.toFixed(1),[ox,oy]=gxy(50.06,72.96);
   return`<svg viewBox="0 0 1000 546"><path class="kz" d="${KZ_PATH}"/>${all.map(g=>{const [x,y]=gxy(g.lat,g.lon),r=Math.min(30,16+g.list.length*2.5);return`<circle class="dt" cx="${f(x)}" cy="${f(y)}" r="${r}"/><text class="dn" x="${f(x)}" y="${f(y)}">${g.list.length}</text>`}).join("")}<circle class="of" cx="${f(ox)}" cy="${f(oy)}" r="9"/></svg>`}
- function foldBuild(objects,{logo="",company={},screen=false}={}){
+ // разворот «фото с подписями» (инженер 24.11.2026 прислал образец — внутри одно фото на весь разворот, подписи с линиями
+ // к частям фото): подписи — направления работ фирмы, точку каждой ставит инженер щелчком по фото в окне «Буклет»
+ // (pts: [[подпись, x, y]] в долях листа). Подпись уходит от точки к ближнему краю: вверх на 14 мм, в сторону на 10 мм,
+ // линия под подписью и наискось к точке. Без точек — подписи строкой внизу, без линий.
+ const SPREAD_LABELS=()=>COMPANY.what.items.map(([t])=>t);
+ const lbLines=t=>{t=String(t);if(t.length<=16)return[t];const ws=t.split(" ");let best=[t],bd=1e9;for(let i=1;i<ws.length;i++){const a=ws.slice(0,i).join(" "),b=ws.slice(i).join(" "),d=Math.max(a.length,b.length);if(d<bd){bd=d;best=[a,b]}}return best};
+ function spreadHtml(sp){const f=v=>v.toFixed(1),pts=(sp.pts||[]).filter(p=>p&&p[0]&&p[1]>=0&&p[1]<=1&&p[2]>=0&&p[2]<=1);
+  const d=sp.px,soft=d&&d[0]>0&&Math.min(d[0]/297,d[1]/210)<4,src=sp.src;
+  const ph=soft?`<div class="ph soft"${bg(src)}><b${bg(src)}></b><i${bg(src)}></i></div>`:`<div class="ph"${bg(src)}></div>`;
+  let svg="",lbs="";
+  for(const [t,x,y] of pts){const P=[x*297,y*210],dir=P[0]<148.5?-1:1,ls=lbLines(t),w=Math.max(...ls.map(l=>l.length))*2.45+1,h=ls.length*4.3;
+   let ey=P[1]<34?P[1]+16+h:P[1]-14,ex=P[0]+dir*10;ey=Math.min(200,Math.max(8+h,ey));
+   let x0=dir<0?ex-w:ex,x1=dir<0?ex:ex+w;if(x0<7){const k=7-x0;x0+=k;x1+=k}if(x1>290){const k=x1-290;x0-=k;x1-=k}
+   const near=dir<0?x1:x0;svg+=`<polyline points="${f(dir<0?x0:x1)},${f(ey+1)} ${f(near)},${f(ey+1)} ${f(P[0])},${f(P[1])}"/><circle cx="${f(P[0])}" cy="${f(P[1])}" r="1.1"/>`;
+   lbs+=`<div class="lb up${dir<0?" lr":""}" style="left:${f(x0)}mm;width:${f(x1-x0)}mm;top:${f(ey-h)}mm">${ls.map(esc).join("<br>")}</div>`}
+  const row=pts.length?"":`<div class="row">${(sp.labels||SPREAD_LABELS()).map(t=>`<div class="lb up">${esc(t)}</div>`).join("")}</div>`;
+  const cap=sp.cap&&sp.cap.name?`<div class="cap"><small class="up">На фото</small><b>${esc(sp.cap.name)}</b>${sp.cap.place?`<span>${esc(sp.cap.place)}</span>`:""}</div>`:"";
+  return`<section class="tf sp">${ph}<div class="sh"></div><svg class="ld" viewBox="0 0 297 210">${svg}</svg>${lbs}${row}${cap}`}
+ function foldBuild(objects,{logo="",company={},screen=false,spread=null}={}){
+  const spOn=!!(spread&&spread.src);
   const co={...COMPANY,...company},list=Array.isArray(objects)?objects:[],lg=logo?`<img src="${esc(logo)}" alt="">`:`<b>${esc(co.name)}</b>`;
   const mk=xs=>xs.map(x=>`<i class="mk t" style="left:${x}mm"></i><i class="mk b" style="left:${x}mm"></i>`).join("");
   // обложка — фото с лучшим разрешением для полосы 100×210 мм; мало точек — целиком, вокруг размыто (как softMain)
@@ -599,21 +625,21 @@ ${(()=>{const pages=[["О компании",aboutPage(list,co,logo)],...(service
   const cover=cvo&&cvo.mainPx&&score(cvo)<4?`<div class="ph soft"${bg(cvp)}><b${bg(cvp)}></b><i${bg(cvp)}></i></div>`:`<div class="ph"${bg(cvp)}></div>`;
   const geo=geoGroups(list),tot=totals(list),cl=clientList(list,co),sv=(co.what||COMPANY.what).items.slice(0,8),shown=list.slice(0,FOLD_OBJ);
   const out=`<section class="tf"><div class="pn ab"><div class="kk up">О компании</div><h2>${esc(co.name)}</h2>${(co.about||[]).map(t=>`<p class="ld">${esc(t)}</p>`).join("")}
-   ${co.license?`<div class="lic"><em>${CHECK}</em>${esc(co.license)}</div>`:""}<div class="adv">${(co.adv||[]).map(([t,d])=>`<div><b>${esc(t)}</b><span>${esc(d)}</span></div>`).join("")}</div>
+   ${co.license?`<div class="lic"><em>${CHECK}</em>${esc(co.license)}</div>`:""}${spOn?`<div class="kk up">В цифрах</div><div class="nb">${tot.slice(0,8).map(([b,t])=>`<div><b>${esc(b)}</b><span>${esc(t)}</span></div>`).join("")}</div>`:`<div class="adv">${(co.adv||[]).map(([t,d])=>`<div><b>${esc(t)}</b><span>${esc(d)}</span></div>`).join("")}</div>`}
    <div class="slg">${esc(co.slogan[0])}<br><span>${esc(co.slogan[1])}</span></div></div>
   <div class="pn bk"><div class="kk up">География работ</div>${geo.length?foldMap(list)+`<div class="pl">${geo.slice(0,8).map(g=>`<b>${esc(g.name)}</b> ${g.list.length}`).join(" · ")} · офис — <b>Темиртау</b></div>`:""}
    <div class="kk up">Контакты</div><div class="ct">${co.phones.map(([t,v])=>`<div><small class="up">${esc(t)}</small><b>${esc(v)}</b></div>`).join("")}<div><small class="up">Почта</small><b>${esc(co.contactMail||co.mail)}</b></div><div><small class="up">Сайт</small><b>${esc(co.site)}</b></div></div>
    <div class="rq"><b>${esc(co.full)}</b><br>БИН ${esc(co.bin)}<br>${esc(co.address)}<br>${co.bank.map(esc).join("<br>")}<br>Директор — ${esc(co.head)}</div></div>
   <div class="pn cv">${cover}<div class="cut"></div><div class="lg">${lg}</div><div class="tt"><h1>${esc(co.title)}</h1>${(co.pledges||[])[0]?`<p class="up">${esc(co.pledges[0][1])}</p>`:""}</div></div>${mk([97,197])}</section>
- <section class="tf"><div class="pn nm"><div class="kk up">В цифрах</div><h2>Что мы уже сделали</h2><div class="tot">${tot.slice(0,8).map(([b,t])=>`<div><b>${esc(b)}</b><span>${esc(t)}</span></div>`).join("")}</div>
+${spOn?spreadHtml(spread)+mk([100,200])+"</section>":`<section class="tf"><div class="pn nm"><div class="kk up">В цифрах</div><h2>Что мы уже сделали</h2><div class="tot">${tot.slice(0,8).map(([b,t])=>`<div><b>${esc(b)}</b><span>${esc(t)}</span></div>`).join("")}</div>
    ${cl.length?`<div class="cl"><div class="kk up">Нам доверяют</div>${cl.slice(0,8).map(t=>`<div>${esc(t)}</div>`).join("")}${cl.length>8?`<div>и ещё ${cl.length-8}</div>`:""}</div>`:""}</div>
   <div class="pn sv"><div class="kk up">Услуги</div><h2>Что мы делаем</h2>${sv.map(([t,d],i)=>`<div class="it"><i>${String(i+1).padStart(2,"0")}</i><b>${esc(t)}</b><p>${esc(d)}</p></div>`).join("")}</div>
   <div class="pn ob"><div class="kk up">Объекты</div><h2>Наши объекты</h2>${shown.map(o=>{const ws=worksOf(o).slice(0,2),place=String(o.address||"").trim();
     return`<div class="oc"><div class="op"${bg((o.pictures||[])[0])}>${o.years?`<span>${esc(o.years)}</span>`:""}</div><b>${esc(o.name||"Объект")}</b>${place?`<small>${esc(place)}</small>`:""}<div class="ov">${ws.map(w=>`<em>${esc(fmt(num(w.volume)))}<s>${esc(unitOf(w.unit))}</s></em>`).join("")}</div></div>`}).join("")}
-   ${list.length>shown.length?`<div class="om">и ещё ${list.length-shown.length} ${objWord(list.length-shown.length)} — на сайте ${esc(co.site)}</div>`:""}</div>${mk([100,200])}</section>`;
+   ${list.length>shown.length?`<div class="om">и ещё ${list.length-shown.length} ${objWord(list.length-shown.length)} — на сайте ${esc(co.site)}</div>`:""}</div>${mk([100,200])}</section>`}`;
   return`<!doctype html><html lang="ru"><head><meta charset="utf-8"><title>Евробуклет ${esc(co.name)}</title>
 <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800;900&display=swap" rel="stylesheet"><style>${CSS}${FOLD_CSS}${screen?SCREEN.replace(/\.page\{/g,".tf{")+".tf{margin:0 auto 10mm}":""}</style></head><body>
-${screen?`<div class="pvn">Снаружи · клапан | задняя сторона | обложка</div>`:""}${out.replace('</section>\n <section class="tf">',screen?'</section><div class="pvn">Внутри · цифры | услуги | объекты</div><section class="tf">':'</section><section class="tf">')}</body></html>`}
+${screen?`<div class="pvn">Снаружи · клапан | задняя сторона | обложка</div>`:""}${screen?out.replace(/<\/section>(\s*)<section class="tf/,`</section><div class="pvn">Внутри · ${spOn?"фото на весь разворот с подписями":"цифры | услуги | объекты"}</div><section class="tf`):out}</body></html>`}
  // ---- в окне программы ----
  // Качество фото (инженер 20.11.2026 «почему такое плохое качество фото»): обложка объекта в программе хранится
  // вырезом 900×400 — на весь лист она расплывалась. Берётся её исходник (original_path, до 4000 точек — object-image-crop),
@@ -638,7 +664,7 @@ ${screen?`<div class="pvn">Снаружи · клапан | задняя сто�
  const pickDefault=o=>{const all=allFiles(o),saved=(o.booklet?.files||[]).filter(f=>all.includes(f));return{all,files:saved.length?saved:all.slice(0,7),layout:Number(o.booklet?.layout)||0,gallery:Number(o.booklet?.gallery)||0}};
  // data: объекты так, как их собирает окно «Сайт» (siteObjectData) — cover, cover_full, photos, hero; files — выбранные
  // фото (первое — главное), layout — номер макета (0 — авто)
- async function make(data,{onProgress,services=true,map=true,fold=false}={}){
+ async function make(data,{onProgress,services=true,map=true,fold=false,spread=null}={}){
   const profile=await root.irProject.company.get().catch(()=>({}));
   const logo=await small(await read(profile?.logo||""),1200);
   const objects=[];
@@ -649,6 +675,7 @@ ${screen?`<div class="pvn">Снаружи · клапан | задняя сто�
    objects.push({...o,pictures,ratios:await ratios(pictures),mainPx:await dims(pictures[0])})
   }
   const opts={logo,company:profile?.name?{name:profile.name}:{},services,map};
+  if(fold&&spread?.file){const s=await read(spread.file);if(s){const src=await small(s,3500);opts.spread={...spread,src,px:await dims(s)}}}
   if(!fold)await dropTooLong(objects,opts);
   const html=fold?foldBuild(objects,opts):build(objects,opts);
   const name=(fold?"Евробуклет ":"Буклет ")+String(profile?.name||COMPANY.name).replace(/[«»"]/g,"")+" "+new Date().toLocaleDateString("ru-RU");
@@ -656,13 +683,13 @@ ${screen?`<div class="pvn">Снаружи · клапан | задняя сто�
  }
  // предпросмотр (инженер 20.11.2026 «сделать предпросмотр как каждая страница выглядеть будет»): те же листы, что уйдут
  // в PDF, с малыми фото (pic(f) — готовая маленькая картинка из окна), краткая характеристика — по той же проверке
- async function preview(data,{pic,services=true,map=true,fold=false}={}){
+ async function preview(data,{pic,services=true,map=true,fold=false,spread=null}={}){
   const profile=await root.irProject.company.get().catch(()=>({}));
   const logo=await small(await read(profile?.logo||""),600);
   const objects=[];
   for(const [i,o] of data.entries()){const pictures=[];for(const f of (o.files||pickDefault(o).files).slice(0,fold?(i<FOLD_OBJ?1:0):capOf(o))){const s=(pic&&await pic(f))||await small(await read(f),900,.8);if(s)pictures.push(s)}const f0=(o.files||pickDefault(o).files)[0];objects.push({...o,pictures,ratios:await ratios(pictures),mainPx:await dims(await read(f0))})}
   const opts={logo,company:profile?.name?{name:profile.name}:{},services,map};
-  if(fold)return foldBuild(objects,{...opts,screen:true});
+  if(fold){if(spread?.file){const s=await read(spread.file);if(s)opts.spread={...spread,src:await small(s,1400,.82),px:await dims(s)}}return foldBuild(objects,{...opts,screen:true})}
   await dropTooLong(objects,opts);
   return build(objects,{...opts,screen:true})
  }
@@ -696,6 +723,6 @@ ${screen?`<div class="pvn">Снаружи · клапан | задняя сто�
    if(!changed)return;
   }
  }
- const api={foldBuild,FOLD_OBJ,softMain,rowsOf,wkShown,wkRest,GALLERIES,galleryOf,layoutSketch,gallerySketch,MAX_PHOTOS,LAYOUT_MAX,capOf,clientList,mapPage,geoGroups,dropTooLong,build,make,preview,totals,doneOf,parties,COMPANY,LAYOUTS,layoutOf,thumb,read,pickDefault};
+ const api={foldBuild,spreadHtml,SPREAD_LABELS,FOLD_OBJ,softMain,rowsOf,wkShown,wkRest,GALLERIES,galleryOf,layoutSketch,gallerySketch,MAX_PHOTOS,LAYOUT_MAX,capOf,clientList,mapPage,geoGroups,dropTooLong,build,make,preview,totals,doneOf,parties,COMPANY,LAYOUTS,layoutOf,thumb,read,pickDefault};
  if(typeof module!=="undefined"&&module.exports)module.exports=api;else root.irBooklet=api;
 })(typeof window!=="undefined"?window:globalThis);
