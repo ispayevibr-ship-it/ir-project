@@ -203,27 +203,27 @@
 .lay3 .strip{position:absolute;left:0;right:0;bottom:0;height:17mm;background:linear-gradient(100deg,var(--or),var(--or2));display:grid;grid-template-columns:1fr 1fr auto;gap:8mm;align-items:center;padding:0 14mm}
 .lay3 .strip small{display:block;font-size:6.3pt;font-weight:800;letter-spacing:.8px;opacity:.7}.lay3 .strip b{font-size:9pt;font-weight:800}
 .lay3 .strip .doc em{background:#1d2228}
-.lay4 .M{position:absolute;left:0;top:0;bottom:22mm;width:190mm;display:grid;gap:2.5mm;background:#fff;padding:0}
+.lay4 .M{position:absolute;left:7mm;top:7mm;bottom:29mm;width:180mm;display:grid;gap:3mm;background:#fff;padding:0}.lay4 .g{border-radius:2mm}
 .lay4 .g{background:#3a4047 center/cover no-repeat}
 .lay4 .m1{grid-template:1fr/1fr}.lay4 .m2{grid-template:1fr/1.6fr 1fr}.lay4 .m3{grid-template:1fr 1fr/1.7fr 1fr}.lay4 .m3 .g0{grid-row:1/3}
 .lay4 .m4{grid-template:1fr 1fr 1fr/1.7fr 1fr}.lay4 .m4 .g0{grid-row:1/4}
-.lay4 .logo{left:10mm;right:auto}
-.lay4 .info{position:absolute;left:10mm;bottom:8mm;z-index:3;background:rgba(255,255,255,.95);border-radius:3mm;padding:4mm 5mm;width:78mm;box-shadow:0 2mm 6mm rgba(0,0,0,.18)}
+.lay4 .logo{left:6mm;top:6mm;right:auto}
+.lay4 .info{position:absolute;left:6mm;bottom:6mm;z-index:3;background:rgba(255,255,255,.95);border-radius:3mm;padding:4mm 5mm;width:78mm;box-shadow:0 2mm 6mm rgba(0,0,0,.18)}
 .lay4 .info{text-align:left}.lay4 .info .yr{background:var(--or)}
-.lay4 .O{position:absolute;right:0;top:0;bottom:22mm;width:107mm;background:linear-gradient(170deg,var(--or2),var(--or) 55%,var(--ord))}
-.lay4 .O .in{position:absolute;left:10mm;right:10mm;top:14mm;bottom:9mm;display:flex;flex-direction:column}
+.lay4 .O{position:absolute;right:7mm;top:7mm;bottom:29mm;width:96mm;border-radius:2mm;background:linear-gradient(170deg,var(--or2),var(--or) 55%,var(--ord))}
+.lay4 .O .in{position:absolute;left:8mm;right:8mm;top:10mm;bottom:8mm;display:flex;flex-direction:column}
 .lay4 .O .sub{color:#4a3500}.lay4 .O .wk{border-bottom-color:rgba(0,0,0,.12)}.lay4 .O .vol s{color:#1d2228}.lay4 .O .sum{border-left-color:#1d2228;color:#2a2410}.lay4 .O .ost div{border-top-color:#1d2228}.lay4 .O .ost span{color:#4a3500}
 .lay4 .O .ring{background:conic-gradient(#1d2228 calc(var(--p)*1%),rgba(255,255,255,.45) 0)}.lay4 .O .doc em{background:#1d2228}
 .lay4 .f4{height:22mm;grid-template-columns:1fr 1fr}
 .lay5 .ph{position:absolute;left:0;right:0;top:0;height:112mm;background:#3a4047 center 45%/cover no-repeat;clip-path:polygon(0 0,100% 0,100% 82%,0 100%)}
 .lay5 .ph:after{content:"";position:absolute;left:0;right:0;bottom:0;height:4mm;background:var(--or)}
 .lay5 .circles{left:auto;right:14mm;bottom:auto;top:78mm}.lay5 .c{width:28mm;height:28mm}.lay5 .c.big{width:34mm;height:34mm;margin-top:-6mm}
-.lay5 .lo{position:absolute;left:14mm;top:118mm;width:105mm;bottom:22mm;display:flex;flex-direction:column}
+.lay5 .lo{position:absolute;left:14mm;top:118mm;width:84mm;bottom:25mm;display:flex;flex-direction:column}.lay5 .lo .badges{margin-top:3mm;padding-top:0}.lay5 .lo .ring{width:22mm;height:22mm}.lay5 .lo .ring div{width:17.5mm;height:17.5mm}.lay5 .lo .doc{font-size:6pt}
 .lay5 .lo .ttl{font-size:18pt}.lay5 .lo .ttl.s{font-size:15pt}.lay5 .lo .ttl.xs{font-size:12.5pt}
 .lay5 .info{position:static;text-align:left;width:auto;margin-top:auto}.lay5 .info .yr{background:var(--or);margin-bottom:2mm}.lay5 .info p{font-size:8pt}.lay5 .contact{display:none}
-.lay5 .ro{position:absolute;left:128mm;right:14mm;top:118mm;bottom:22mm;display:flex;gap:6mm}
-.lay5 .ro .wks{flex:1;display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);column-gap:6mm;align-content:start}.lay5 .ro .wk{padding:2.4mm 0}.lay5 .ro .vol i{font-size:13pt}.lay5 .ro .wk b{font-size:7.4pt}
-.lay5 .ro .badges{flex:none;flex-direction:column;margin:0;padding:0;align-items:flex-start;justify-content:flex-end}.lay5 .ro .doc{font-size:6pt}
+.lay5 .ro{position:absolute;left:108mm;right:14mm;top:118mm;bottom:23mm;display:flex}
+.lay5 .ro .wks{flex:1;display:block;column-count:2;column-gap:9mm;column-fill:balance}.lay5 .ro .wk{break-inside:avoid;page-break-inside:avoid}.lay5 .ro .wk{padding:2.4mm 0}.lay5 .ro .vol i{font-size:13pt}.lay5 .ro .wk b{font-size:7.4pt}
+
 .lay5 .f5{height:20mm;background:#faf6ee;padding:0 14mm}
 .lay6{background:#1d2228;color:#fff}
 .lay6 .fr{position:absolute;left:14mm;top:14mm;width:168mm;height:124mm}.lay6 .fr:before{content:"";position:absolute;left:-5mm;top:-5mm;width:60mm;height:45mm;background:var(--or)}
@@ -392,8 +392,8 @@
   if(lay===5){const name=String(o.name||"Объект"),ws=worksOf(o).slice(0,12),p=doneOf(o);
    return`<section class="page lay5"><div class="ph"${bg(main)}></div>${logoOf(co,logo)}${circlesOf(rest)}
    <div class="lo"><h1 class="ttl up${titleCls(name)}">${esc(name)}</h1>${o.customer?`<div class="sub up">${esc(o.customer)}</div>`:""}
-   <div class="info">${placeOf(o,co)}</div></div>
-   <div class="ro"><div class="wks">${wkRows(ws.slice(0,o.wkMax||ws.length))}</div><div class="badges">${ringOf(p)}${docOf()}</div></div>${footOf(o," f5")}</section>`}
+   <div class="info">${placeOf(o,co)}</div><div class="badges">${ringOf(p)}${docOf()}</div></div>
+   <div class="ro"><div class="wks">${wkRows(ws.slice(0,o.wkMax||ws.length))}</div></div>${footOf(o," f5")}</section>`}
   if(lay===6){const name=String(o.name||"Объект"),p=doneOf(o);
    return`<section class="page lay6"><div class="fr${rest.length?"":" full"}"><div class="ph"${bg(main)}></div></div>
    ${rest.length?`<div class="row">${rest.slice(0,3).map(s=>`<div${bg(s)}></div>`).join("")}</div>`:""}
