@@ -160,7 +160,7 @@
 .ir-bk-t{position:relative;padding:0;border:2px solid #d9e4ee;border-radius:10px;overflow:hidden;background:#eef2f5;cursor:pointer;aspect-ratio:4/3}
 .ir-bk-t img{width:100%;height:100%;object-fit:cover;display:block}.ir-bk-t:hover{border-color:#a9c6df}.ir-bk-t.on{border-color:#d9a520;box-shadow:0 0 0 3px #f6e2a6}
 .ir-bk-var{display:flex;flex-wrap:wrap;gap:6px;align-items:center;border:1px solid #d9e4ee;background:#f6f9fc;border-radius:12px;padding:8px 12px;margin:0 0 10px;font-size:13px;color:#33485a}.ir-bk-var b{font-weight:700;margin-right:2px}.ir-bk-var select,.ir-bk-var input{font:inherit;font-size:13px;padding:5px 8px;border:1.5px solid #d9e4ee;border-radius:8px;background:#fff;min-width:150px}.ir-bk-var input{flex:1;min-width:160px}.ir-bk-var small{flex-basis:100%;color:#6b7c8c;font-size:11.5px}
-.ir-bk-lpv{position:relative;width:min(100%,760px);aspect-ratio:297/210;border-radius:8px;overflow:hidden;box-shadow:0 0 0 1px #d9e4ee;background:#fff;margin-bottom:8px}.ir-bk-lpv iframe{position:absolute;left:0;top:0;width:1123px;height:794px;border:0;transform-origin:0 0;pointer-events:none}.ir-bk-lpv .hit{position:absolute;inset:0;cursor:crosshair}.ir-bk-lbb{display:grid;gap:6px}
+.ir-bk-lpv{position:relative;width:min(100%,760px);aspect-ratio:297/210;border-radius:8px;overflow:hidden;box-shadow:0 0 0 1px #d9e4ee;background:#fff;margin-bottom:8px}.ir-bk-lpv iframe{position:absolute;left:0;top:0;width:1123px;height:794px;border:0;transform-origin:0 0;pointer-events:none}.ir-bk-lpv .hit{position:absolute;inset:0;cursor:crosshair;touch-action:none}.ir-bk-lin{position:absolute;z-index:3;display:flex;gap:4px;padding:4px;background:#fff;border-radius:8px;box-shadow:0 4px 14px rgba(0,0,0,.28)}.ir-bk-lin input{font:inherit;font-size:13px;width:180px;padding:4px 7px;border:1.5px solid #d9a520;border-radius:6px;outline:0}.ir-bk-lin button{font:inherit;font-size:13px;width:28px;border:0;border-radius:6px;cursor:pointer;background:#f6e2a6;color:#5a4410}.ir-bk-lin button.del{background:#fde3e0;color:#a33}.ir-bk-ldot{position:absolute;z-index:2;width:10px;height:10px;margin:-5px 0 0 -5px;border-radius:50%;background:#fff;border:2px solid #e0821c;pointer-events:none}.ir-bk-lbb{display:grid;gap:6px}
 .ir-bk-sp{border:1px solid #f0d98f;background:#fffaf0;border-radius:12px;padding:8px 12px 12px;margin:0 0 10px}.ir-bk-spl{display:flex;flex-wrap:wrap;gap:6px;margin:0 0 8px}
 .ir-bk-spl button{font:inherit;font-size:12px;font-weight:600;padding:4px 10px;border:1.5px solid #d9e4ee;border-radius:14px;background:#fff;color:#33485a;cursor:pointer}.ir-bk-spl button.on{border-color:#d9a520;box-shadow:0 0 0 2px #f6e2a6}.ir-bk-spl button.set{background:#fff3d1}.ir-bk-spl button i{font-style:normal;color:#b0752a;margin-left:5px}
 .ir-bk-spv{position:relative;width:min(100%,760px);aspect-ratio:297/210;border-radius:8px;background:#3a4047 center/cover no-repeat;cursor:crosshair;margin-bottom:8px;box-shadow:0 0 0 1px #d9e4ee;overflow:hidden}
@@ -557,26 +557,48 @@
   const layTiles=x=>`<div class="ir-bk-lh">Макет листа объекта</div><div class="ir-bk-lts">${["Авто",...irBooklet.LAYOUTS].map((t,i)=>tile(`data-lay="${i}"`,x.layout===i,i?irBooklet.layoutSketch(i):"",t,i?"до "+irBooklet.LAYOUT_MAX[i]+" фото":"подберёт сам")).join("")}</div>
    <div class="ir-bk-lh">Макет листа «Фото с объекта» <small>— лист с фото сверх основного листа и с характеристикой, если она не вместилась</small></div><div class="ir-bk-lts g">${["Авто",...irBooklet.GALLERIES].map((t,i)=>tile(`data-gal="${i}"`,(x.gallery||0)===i,irBooklet.gallerySketch(i),t,"")).join("")}</div>`;
   // подписи с линиями к точкам на листе (инженер 24.11.2026 «везде дай подписи ставить», «и в журнале тоже», «на одном
-  // фото как я могу показать несколько видов работ»): подписи по одной в строке, щелчок по листу ставит точку выбранной
-  // подписи; лист показан так, как уйдёт в PDF. st = {labels, pts:{подпись:[x,y]}, cur}
-  const lbHtml=(st,def)=>{const L=st.labels||[],cur=st.cur&&L.includes(st.cur)?st.cur:L.find(t=>!st.pts[t])||L[0]||"";st.cur=cur;
-   return`<div class="ir-bk-lh">Подписи на листе <small>— выберите подпись и щёлкните на листе, куда она показывает; без точки подпись не печатается</small></div>
-    <div class="ir-bk-spe"><label><span>Подписи — по одной в строке, пишите свои</span><textarea data-lt rows="${Math.min(8,Math.max(3,L.length+1))}" placeholder="Например: Монтаж металлоконструкций">${esc(L.join("\n"))}</textarea></label><span class="ir-bk-lbb"><button type="button" class="ir-acc-btn small" data-ldef>${esc(def[0])}</button><button type="button" class="ir-acc-btn small" data-lclr>Убрать все точки</button></span></div>
-    <div class="ir-bk-spl">${L.map(l=>`<button type="button" class="${l===cur?"on":""}${st.pts[l]?" set":""}" data-ll="${esc(l)}">${esc(l)}${st.pts[l]?`<i data-lx="${esc(l)}" title="Убрать точку">✕</i>`:""}</button>`).join("")}</div>
-    <div class="ir-bk-lpv" data-lv><iframe data-lf tabindex="-1" title="Лист"></iframe><div class="hit" data-lh></div></div>`};
-  const lbSet=(st,txt)=>{const old=st.labels||[],nw=[...new Set(String(txt).split(/\n/).map(t=>t.replace(/\s+/g," ").trim()).filter(Boolean))].slice(0,16),pts={};
-   nw.forEach((t,i)=>{if(st.pts[t])pts[t]=st.pts[t];else if(old[i]&&!nw.includes(old[i])&&st.pts[old[i]])pts[t]=st.pts[old[i]]});
-   if(st.cur&&!nw.includes(st.cur)){const i=old.indexOf(st.cur);st.cur=nw[i]||""}st.labels=nw;st.pts=pts};
-  const lbArr=st=>(st.labels||[]).filter(l=>st.pts[l]).map(l=>[l,...st.pts[l]]);
-  const lbBind=(box,st,def,html,changed)=>{const ta=box.querySelector("[data-lt]");if(!ta)return;
-   ta.onchange=()=>{lbSet(st,ta.value);changed()};
-   box.querySelector("[data-ldef]").onclick=()=>{lbSet(st,def[1]().join("\n"));changed()};
-   box.querySelector("[data-lclr]").onclick=()=>{st.pts={};changed()};
-   box.querySelectorAll("[data-ll]").forEach(b=>b.onclick=e=>{const x=e.target.closest("[data-lx]");if(x)delete st.pts[x.dataset.lx];else st.cur=b.dataset.ll;changed()});
-   const v=box.querySelector("[data-lv]"),fr=box.querySelector("[data-lf]");
+  // фото как я могу показать несколько видов работ»), проще (24.11.2026 «Ткнул на место, поставил Тег, сохранил»):
+  // щелчок по листу — поле прямо там, вписал тег, Enter — тег на листе и запомнен; щелчок по тегу или его точке —
+  // исправить или удалить (пустой — удалить), тег можно перетащить. Лист показан так, как уйдёт в PDF.
+  // st = {labels — порядок и подсказки, pts:{тег:[x,y]}}
+  const lbHtml=(st,sugg)=>{const n=Object.keys(st.pts||{}).length,o=[...new Set([...(sugg?sugg():[]),...(st.labels||[])])].filter(t=>!(st.pts||{})[t]);
+   return`<div class="ir-bk-lh">Теги на листе <small>— щёлкните по листу, куда тег показывает, впишите и нажмите Enter; щелчок по тегу — исправить или удалить, тег можно перетащить${n?` · на листе: ${n}`:""}</small></div>
+    <div class="ir-bk-lpv" data-lv><iframe data-lf tabindex="-1" title="Лист"></iframe><div class="hit" data-lh></div></div><datalist id="ir-bk-lsug">${o.map(t=>`<option value="${esc(t)}">`).join("")}</datalist>`};
+  const lbArr=st=>{const P=st.pts||{},ks=[...(st.labels||[]).filter(l=>P[l]),...Object.keys(P).filter(l=>!(st.labels||[]).includes(l))];return[...new Set(ks)].filter(l=>Array.isArray(P[l])).map(l=>[l,...P[l]])};
+  const lbBind=(box,st,sugg,html,changed)=>{const v=box.querySelector("[data-lv]"),fr=box.querySelector("[data-lf]"),hit=box.querySelector("[data-lh]");if(!v||!fr||!hit)return;
+   if(!st.pts)st.pts={};if(!Array.isArray(st.labels))st.labels=[];
    const sc=()=>{const k=v.clientWidth/1122.5;if(k>0)fr.style.transform=`scale(${k})`};
    let h="";try{h=html()}catch(err){h=""}fr.srcdoc=h;sc();requestAnimationFrame(sc);fr.onload=sc;
-   box.querySelector("[data-lh]").onclick=e=>{if(!st.cur)return;const r=v.getBoundingClientRect();st.pts[st.cur]=[+((e.clientX-r.left)/r.width).toFixed(4),+((e.clientY-r.top)/r.height).toFixed(4)];st.cur=(st.labels||[]).find(t=>!st.pts[t])||st.cur;changed()}};
+   const at=e=>{const r=v.getBoundingClientRect();return[Math.min(1,Math.max(0,(e.clientX-r.left)/r.width)),Math.min(1,Math.max(0,(e.clientY-r.top)/r.height)),e.clientX-r.left,e.clientY-r.top,r]};
+   // какой тег под мышью: плашка тега на листе или его точка (до 14 точек экрана)
+   const which=(px,py,r)=>{const A=lbArr(st),k=r.width/1122.5;let doc=null;try{doc=fr.contentDocument}catch(_){}
+    const lbs=doc?[...doc.querySelectorAll(".lx .lb,.sp .lb")].filter(el=>el.getBoundingClientRect().width>0):[];
+    if(lbs.length===A.length)for(let i=0;i<lbs.length;i++){const b=lbs[i].getBoundingClientRect();if(px>=b.left*k-3&&px<=b.right*k+3&&py>=b.top*k-3&&py<=b.bottom*k+3)return A[i][0]}
+    let best="",bd=14;for(const [t,x,y] of A){const d=Math.hypot(x*r.width-px,y*r.height-py);if(d<bd){bd=d;best=t}}return best};
+   const save=(old,t,pt)=>{t=String(t||"").replace(/\s+/g," ").trim();const L=st.labels;
+    if(old&&old!==t){const p0=st.pts[old];delete st.pts[old];const i=L.indexOf(old);if(i>=0)L.splice(i,1);if(t&&!pt)pt=p0;
+     if(t&&i>=0&&!L.includes(t))L.splice(i,0,t)}
+    if(t&&pt){if(!st.pts[t]&&Object.keys(st.pts).length>=24)return;st.pts[t]=[+pt[0].toFixed(4),+pt[1].toFixed(4)];if(!L.includes(t))L.push(t)}
+    changed()};
+   const ask=(old,x,y,px,py,r)=>{v.querySelector(".ir-bk-lin")?.remove();
+    const w=document.createElement("div");w.className="ir-bk-lin";w.style.left=Math.min(Math.max(4,px-6),r.width-250)+"px";w.style.top=(py>r.height-46?py-40:py+8)+"px";
+    w.innerHTML=`<input type="text" list="ir-bk-lsug" maxlength="60" placeholder="Тег, например: Монтаж кровли"><button type="button" class="ok" title="Сохранить (Enter)">✓</button>${old?'<button type="button" class="del" title="Удалить тег">✕</button>':""}`;
+    const dot=document.createElement("i");dot.className="ir-bk-ldot";dot.style.left=px+"px";dot.style.top=py+"px";if(!old)v.append(dot);
+    v.append(w);const inp=w.querySelector("input");inp.value=old||"";let done=false;
+    const close=()=>{done=true;w.remove();dot.remove()};
+    const ok=()=>{if(done)return;const t=inp.value;close();if(old)save(old,t,null);else if(t.trim())save("",t,[x,y])};
+    inp.onkeydown=e=>{if(e.key==="Enter"){e.preventDefault();ok()}else if(e.key==="Escape"){e.preventDefault();e.stopPropagation();close()}};
+    w.querySelectorAll("button").forEach(b=>b.onmousedown=e=>e.preventDefault());
+    w.querySelector(".ok").onclick=ok;w.querySelector(".del")?.addEventListener("click",()=>{close();save(old,"",null)});
+    inp.onblur=()=>setTimeout(()=>{if(!done&&document.activeElement!==inp)ok()},120);
+    setTimeout(()=>{inp.focus();inp.select()},0)};
+   let dn=null;
+   hit.onpointerdown=e=>{if(e.button)return;const [x,y,px,py,r]=at(e);dn={t:which(px,py,r),px,py,drag:false};if(dn.t)try{hit.setPointerCapture(e.pointerId)}catch(_){}};
+   hit.onpointermove=e=>{if(!dn||!dn.t)return;const [,,px,py]=at(e);if(!dn.drag&&Math.hypot(px-dn.px,py-dn.py)>5){dn.drag=true;dn.dot=document.createElement("i");dn.dot.className="ir-bk-ldot";v.append(dn.dot)}
+    if(dn.drag){dn.dot.style.left=px+"px";dn.dot.style.top=py+"px"}};
+   hit.onpointerup=e=>{const s0=dn;dn=null;if(!s0)return;const [x,y,px,py,r]=at(e);
+    if(s0.drag){s0.dot.remove();st.pts[s0.t]=[+x.toFixed(4),+y.toFixed(4)];changed();return}
+    ask(s0.t,x,y,px,py,r)}};
   const worksOfX=x=>[...new Set((x.data.works||[]).map(w=>String(w.name||"").trim()).filter(Boolean))].slice(0,10);
   const jPage=(x,id)=>irBooklet.pageHtml({...x.data,files:x.files,layout:x.layout,gallery:x.gallery||0,lbl:lbArr(x.lb),pictures:x.files.slice(0,irBooklet.capOf(x)).map(f=>thumbs.get(f)||"")},Math.max(0,chosen.indexOf(id)));
   const photosHtml=id=>{const x=info.get(id);if(!x)return`<div class="ir-so-empty">Загружаем фото…</div>`;
@@ -593,7 +615,7 @@
    ${layTiles(x)}
    <div class="ir-bk-ph">${x.all.slice(0,SHOW).map((f,k)=>{const n=x.files.indexOf(f)+1,t=thumbs.get(f);return`<button type="button" class="ir-bk-t${n?" on":""}" data-k="${k}">${t?`<img src="${esc(t)}" alt="">`:'<span class="ir-hero-no">…</span>'}${n?`<b>${n}</b>`:""}</button>`}).join("")}</div>
    ${x.all.length>SHOW?`<div class="ir-acc-help">Показаны первые ${SHOW} фото из ${x.all.length}.</div>`:""}
-   ${lbHtml(x.lb,["Виды работ объекта"])}`};
+   ${lbHtml(x.lb,()=>worksOfX(x))}`};
   const drawObj=id=>{const box=list.querySelector(`[data-box="${id}"]`);if(!box)return;box.innerHTML=photosHtml(id);const x=info.get(id);if(!x)return;
    box.querySelectorAll("[data-lay]").forEach(b=>b.onclick=()=>{x.layout=Number(b.dataset.lay)||0;const cap=irBooklet.capOf(x);if(x.files.length>cap)x.files.length=cap;drawObj(id)});
    box.querySelectorAll("[data-gal]").forEach(b=>b.onclick=()=>{x.gallery=Number(b.dataset.gal)||0;drawObj(id)});
@@ -607,11 +629,11 @@
     if(i>=0)a.splice(i,1);else if(a.length<irBooklet.FOLD_PH)a.push(f);else return;x.fpicks=a;drawObj(id)});return}
    box.querySelectorAll("[data-k]").forEach(b=>b.onclick=()=>{const f=x.all[Number(b.dataset.k)],i=x.files.indexOf(f);
     if(i>=0)x.files.splice(i,1);else if(x.files.length<irBooklet.capOf(x))x.files.push(f);else return;drawObj(id)});
-   if(!x.locked)lbBind(box,x.lb,["Виды работ объекта",()=>worksOfX(x)],()=>jPage(x,id),()=>drawObj(id))};
+   if(!x.locked)lbBind(box,x.lb,()=>worksOfX(x),()=>jPage(x,id),()=>{saveBooklet(id,x.files,x.layout,undefined,x.gallery,{labels:x.lb.labels,pts:x.lb.pts}).catch(()=>{});drawObj(id)})};
   async function load(id){if(info.has(id))return drawObj(id);
    const o=objects.find(x=>Number(x.id)===id);let data;try{data=await siteObjectData(o,0)}catch(e){bad(e);return}
    const p=irBooklet.pickDefault(data),B=data.booklet||{};
-   const x0={data,...p,locked:B.locked||null};if(FOLD&&fpPend[id])x0.fpicks=fpPend[id].slice();x0.lb={labels:Array.isArray(B.labels)?B.labels:worksOfX(x0),pts:B.pts&&typeof B.pts==="object"?B.pts:{},cur:""};info.set(id,x0);drawObj(id);
+   const x0={data,...p,locked:B.locked||null};if(FOLD&&fpPend[id])x0.fpicks=fpPend[id].slice();x0.lb={labels:Array.isArray(B.labels)?B.labels:[],pts:B.pts&&typeof B.pts==="object"?B.pts:{},cur:""};info.set(id,x0);drawObj(id);
    for(const f of [...new Set([...(data.booklet?.locked?.files||[]),...p.all.slice(0,SHOW)])]){if(thumbs.has(f))continue;thumbs.set(f,await irBooklet.thumb(await irBooklet.read(f)));if(d.isConnected){drawObj(id);d._sp?.()}}}
   const draw=()=>{
    $("[data-tabs]").innerHTML=TABS.map(([k,t])=>{const n=k==="all"?objects.length:objects.filter(o=>STATUS_TAG(o.status||"")===k).length;
@@ -643,40 +665,24 @@
   const SPK="ir-booklet-spread";let sp={};try{sp=JSON.parse(localStorage.getItem(SPK)||"{}")||{}}catch(_){sp={}}if(!sp.pts)sp.pts={};if(!sp.pk||typeof sp.pk!=="object")sp.pk={};if(sp.inside===undefined)sp.inside=sp.off?1:0;
   const spSave=()=>{try{localStorage.setItem(SPK,JSON.stringify(sp))}catch(_){}};
   const DEF=window.irBooklet?irBooklet.SPREAD_LABELS():[];
-  // подписи вписывает инженер (24.11.2026 «Тэги дай вводить в ручную»): по одной в строке, по умолчанию — направления работ
+  // теги ставит инженер на листе (24.11.2026 «Тэги дай вводить в ручную», «Ткнул на место, поставил Тег, сохранил»)
   if(!Array.isArray(sp.labels))sp.labels=DEF.slice();let LBL=sp.labels;
-  const setLabels=txt=>{const old=LBL,nw=[...new Set(String(txt).split(/\n/).map(t=>t.replace(/\s+/g," ").trim()).filter(Boolean))].slice(0,16),pts={};
-   nw.forEach((t,i)=>{if(sp.pts[t])pts[t]=sp.pts[t];else if(old[i]&&!nw.includes(old[i])&&sp.pts[old[i]])pts[t]=sp.pts[old[i]]});
-   if(sp.cur&&!nw.includes(sp.cur)){const i=old.indexOf(sp.cur);sp.cur=nw[i]||""}
-   sp.labels=LBL=nw;sp.pts=pts;spSave();drawSp()};
   const spPhotos=()=>{const out=[];for(const id of chosen){const x=info.get(id);if(x)for(const f of x.all.slice(0,30))out.push([id,f])}return out};
   const drawSp=()=>{const box=$("[data-sp]");box.hidden=!fold();if(box.hidden)return;
-   const cur=sp.cur&&LBL.includes(sp.cur)?sp.cur:LBL.find(t=>!sp.pts[t])||LBL[0]||"";sp.cur=cur;const t=sp.file&&thumbs.get(sp.file),ph=spPhotos();
-   const IN=Number(sp.inside)||0;
-   if(IN){const st=spSt(IN);box.innerHTML=`<div class="ir-bk-lh">Макет разворота внутри <small>— фото каждого объекта выбираются ниже, в списке объектов</small></div><div class="ir-bk-lts">${irBooklet.FOLD_LAYOUTS.map((n,i)=>tile(`data-in="${i}"`,IN===i,irBooklet.foldSketch(i),n,"")).join("")}</div>${lbHtml(st,["Как на сайте"])}`;
-    box.querySelectorAll("[data-in]").forEach(b=>b.onclick=()=>{sp.inside=Number(b.dataset.in)||0;spSave();drawSp()});
-    lbBind(box,st,["Как на сайте",()=>DEF],()=>foldIn(IN,st),()=>{sp.labels=LBL=st.labels;sp.pk[IN]=st.pts;sp.cur=st.cur;spSave();drawSp()});return}
+   const IN=Number(sp.inside)||0,ph=spPhotos(),t=sp.file&&thumbs.get(sp.file),st=spSt(IN);
    box.innerHTML=`<div class="ir-bk-lh">Макет разворота внутри <small>— фото каждого объекта выбираются ниже, в списке объектов</small></div><div class="ir-bk-lts">${irBooklet.FOLD_LAYOUTS.map((n,i)=>tile(`data-in="${i}"`,IN===i,irBooklet.foldSketch(i),n,"")).join("")}</div>
-    ${IN!==0?"":`<div class="ir-bk-lh">Фото на весь разворот с подписями <small>— выберите фото, затем подпись и щёлкните на фото, куда она показывает</small></div>
-    <div class="ir-bk-tools"><span class="grow"></span><button type="button" class="ir-acc-btn small" data-spclr>Убрать все точки</button></div>`}
-    ${IN!==0?"":`<div class="ir-bk-spe"><label><span>Подписи на фото — по одной в строке, пишите свои</span><textarea data-spt rows="${Math.min(9,Math.max(3,LBL.length+1))}" placeholder="Например: Монтаж металлоконструкций">${esc(LBL.join("\n"))}</textarea></label><button type="button" class="ir-acc-btn small" data-spdef title="Вернуть подписи по направлениям работ">Как на сайте</button></div>
-    <div class="ir-bk-spl">${LBL.map(l=>`<button type="button" class="${l===cur?"on":""}${sp.pts[l]?" set":""}" data-spl="${esc(l)}">${esc(l)}${sp.pts[l]?`<i data-spx="${esc(l)}" title="Убрать точку">✕</i>`:""}</button>`).join("")}</div>
-    <div class="ir-bk-spv" data-spv${t?` style="background-image:url('${String(t).replace(/'/g,"%27")}')"`:""}><i class="f" style="left:${(97/297*100).toFixed(2)}%"></i><i class="f" style="left:${(197/297*100).toFixed(2)}%"></i>${t?"":`<div class="e">Выберите фото ниже</div>`}
-     ${Object.entries(sp.pts).filter(([l])=>LBL.includes(l)).map(([l,[x,y]])=>`<span class="d" style="left:${(x*100).toFixed(2)}%;top:${(y*100).toFixed(2)}%"><b>${esc(l)}</b></span>`).join("")}</div>
-    <div class="ir-bk-ph ir-bk-spp">${ph.length?ph.map(([id,f],k)=>{const th=thumbs.get(f);return`<button type="button" class="ir-bk-t${f===sp.file?" on":""}" data-spf="${k}">${th?`<img src="${esc(th)}" alt="">`:'<span class="ir-hero-no">…</span>'}</button>`}).join(""):`<div class="ir-so-empty">Отметьте объекты — здесь появятся их фото</div>`}</div>`}`;
+    ${IN===0&&!t?`<div class="ir-bk-lh">Фото на весь разворот <small>— выберите фото ниже, потом ставьте на нём теги</small></div>`:lbHtml(st,()=>DEF)}
+    ${IN!==0?"":`<div class="ir-bk-lh">Фото разворота</div><div class="ir-bk-ph ir-bk-spp">${ph.length?ph.map(([id,f],k)=>{const th=thumbs.get(f);return`<button type="button" class="ir-bk-t${f===sp.file?" on":""}" data-spf="${k}">${th?`<img src="${esc(th)}" alt="">`:'<span class="ir-hero-no">…</span>'}</button>`}).join(""):`<div class="ir-so-empty">Отметьте объекты — здесь появятся их фото</div>`}</div>`}`;
    box.querySelectorAll("[data-in]").forEach(b=>b.onclick=()=>{sp.inside=Number(b.dataset.in)||0;spSave();drawSp()});
-   box.querySelector("[data-spclr]")?.addEventListener("click",()=>{sp.pts={};spSave();drawSp()});
-   const ta=box.querySelector("[data-spt]");if(ta)ta.onchange=()=>setLabels(ta.value);
-   box.querySelector("[data-spdef]")?.addEventListener("click",()=>setLabels(DEF.join("\n")));
-   box.querySelectorAll("[data-spl]").forEach(b=>b.onclick=e=>{const x=e.target.closest("[data-spx]");if(x){delete sp.pts[x.dataset.spx]}else sp.cur=b.dataset.spl;spSave();drawSp()});
    box.querySelectorAll("[data-spf]").forEach(b=>b.onclick=()=>{const [id,f]=ph[Number(b.dataset.spf)];if(sp.file!==f)sp.pts={};sp.file=f;sp.obj=id;spSave();drawSp()});
-   const v=box.querySelector("[data-spv]");if(v)v.onclick=e=>{if(!sp.file||!sp.cur)return;const r=v.getBoundingClientRect();sp.pts[sp.cur]=[+((e.clientX-r.left)/r.width).toFixed(4),+((e.clientY-r.top)/r.height).toFixed(4)];sp.cur=LBL.find(t=>!sp.pts[t])||sp.cur;spSave();drawSp()}};
+   lbBind(box,st,()=>DEF,()=>foldIn(IN,st),()=>{sp.labels=LBL=st.labels;if(IN)sp.pk[IN]=st.pts;else sp.pts=st.pts;spSave();drawSp()})};
   // при других макетах разворота — свои точки у каждого макета, подписи общие
-  const spSt=IN=>({labels:LBL,pts:sp.pk[IN]||(sp.pk[IN]={}),cur:sp.cur});
+  const spSt=IN=>({labels:LBL,pts:IN?(sp.pk[IN]||(sp.pk[IN]={})):sp.pts});
   const foldObjs=()=>chosen.map((id,k)=>{const x=info.get(id);if(!x)return null;return{...x.data,...(x.locked?.data||{}),pictures:k<irBooklet.FOLD_OBJ?foldPics(x).map(f=>thumbs.get(f)||""):[]}}).filter(Boolean);
-  const foldIn=(IN,st)=>irBooklet.foldBuild(foldObjs(),{inside:IN,spread:{pts:lbArr(st)}}).replace("</style>","section.tf:first-of-type{display:none}body{margin:0;overflow:hidden}</style>");
-  const spreadOpt=()=>{const IN=Number(sp.inside)||0;if(fold()&&IN)return{labels:LBL.slice(),pts:lbArr(spSt(IN))};if(!fold()||!sp.file)return null;const o=info.get(sp.obj)?.data||{};
-   return{file:sp.file,labels:LBL.slice(),pts:LBL.filter(l=>sp.pts[l]).map(l=>[l,...sp.pts[l]]),cap:{name:o.name||"",place:String(o.address||"").trim()}}};
+  const foldIn=(IN,st)=>irBooklet.foldBuild(foldObjs(),{inside:IN,spread:{pts:lbArr(st),...(IN?{}:{...spCap(),src:thumbs.get(sp.file)||""})}}).replace("</style>","section.tf:first-of-type{display:none}body{margin:0;overflow:hidden}</style>");
+  const spreadOpt=()=>{const IN=Number(sp.inside)||0;if(fold()&&IN)return{labels:LBL.slice(),pts:lbArr(spSt(IN))};if(!fold()||!sp.file)return null;
+   return{file:sp.file,labels:LBL.slice(),pts:lbArr({labels:LBL,pts:sp.pts}),...spCap()}};
+  const spCap=()=>{const o=info.get(sp.obj)?.data||{};return{cap:{name:o.name||"",place:String(o.address||"").trim()}}};
   d._sp=drawSp;
   // варианты (инженер 24.11.2026 «а если например я хочу несколько буклетов сделать? 50 например», «типа сохранения и
   // создание другого»): набор под своим названием — отмеченные объекты, у буклета ещё фото объектов, макет разворота,
