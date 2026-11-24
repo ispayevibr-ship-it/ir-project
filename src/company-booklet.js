@@ -164,6 +164,8 @@
 .foot{position:absolute;left:0;right:0;bottom:0;height:25mm;background:#fff;display:grid;grid-template-columns:1fr 1fr;align-items:center;padding:0 10mm;gap:8mm;z-index:2}
 .foot small{display:block;font-size:6.5pt;font-weight:800;color:var(--ord);letter-spacing:.8px;margin-bottom:1mm}.foot b{font-size:9.5pt;font-weight:800}
 .foot div+div{border-left:1px solid var(--line);padding-left:8mm}
+.foot b,.lay3 .strip b{display:block;line-height:1.2;overflow-wrap:anywhere}.foot b.s1,.lay3 .strip b.s1{font-size:8pt}.foot b.s2,.lay3 .strip b.s2{font-size:7pt}
+.chain{position:absolute;inset:0;z-index:3;pointer-events:none}.chain .c{position:absolute;margin:0;width:32mm;height:32mm}
 .A1{position:absolute;left:0;top:0;bottom:0;width:86mm;background:linear-gradient(170deg,var(--or2),var(--or) 60%,var(--ord));padding:12mm 9mm;display:flex;flex-direction:column}
 .A1 .lg{background:#fff;border-radius:3mm;padding:4mm;text-align:center;margin-bottom:7mm;box-shadow:0 2mm 6mm rgba(0,0,0,.12)}
 .A1 .lg img{max-height:30mm;max-width:100%;object-fit:contain}.A1 .lg b{font-size:15pt;font-weight:900}
@@ -201,7 +203,7 @@
 .lay3 .tl i{font-style:normal;font-size:17pt;font-weight:900;line-height:1}.lay3 .tl s{text-decoration:none;font-size:8.5pt;font-weight:700;color:var(--ord);margin-left:1mm}
 .lay3 .tl b{font-size:7pt;font-weight:800;line-height:1.25}
 .lay3 .tr{flex:none;background:#fff;border-radius:2.5mm;padding:2.5mm;display:grid;place-items:center}.lay3 .tr .ring{width:25mm;height:25mm}.lay3 .tr .ring div{width:20mm;height:20mm}
-.lay3 .strip{position:absolute;left:0;right:0;bottom:0;height:17mm;background:linear-gradient(100deg,var(--or),var(--or2));display:grid;grid-template-columns:1fr 1fr auto;gap:8mm;align-items:center;padding:0 14mm}
+.lay3 .strip{position:absolute;left:0;right:0;bottom:0;height:17mm;background:linear-gradient(100deg,var(--or),var(--or2));display:grid;grid-template-columns:1.3fr 1fr auto;gap:8mm;align-items:center;padding:0 14mm}
 .lay3 .strip small{display:block;font-size:6.3pt;font-weight:800;letter-spacing:.8px;opacity:.7}.lay3 .strip b{font-size:9pt;font-weight:800}
 .lay3 .strip .doc em{background:#1d2228}
 .lay4 .M{position:absolute;left:7mm;top:7mm;bottom:29mm;width:180mm;display:grid;gap:3mm;background:#fff;padding:0}.lay4 .g{border-radius:2mm}
@@ -394,7 +396,8 @@
  const ringOf=p=>`<div class="ring" style="--p:${p}"><div><b>${p}%</b><span class="up">выполнено</span></div></div>`;
  const docOf=()=>`<div class="doc up"><em>${CHECK}</em>Полный пакет<br>исполнительной<br>документации</div>`;
  const logoOf=(co,logo,cls="")=>`<div class="logo${cls}">${logo?`<img src="${esc(logo)}" alt="">`:`<b>${esc(co.name)}</b>`}</div>`;
- const footOf=(o,cls="")=>`<div class="foot${cls}"><div><small class="up">Генеральный подрядчик</small><b>${esc(o.general_contractor||"—")}</b></div><div><small class="up">Заказчик</small><b>${esc(o.customer||"—")}</b></div></div>`;
+ const nmOf=v=>{const t=String(v||"—").trim()||"—";return`<b${t.length>34?' class="s2"':t.length>24?' class="s1"':""}>${esc(t)}</b>`};
+ const footOf=(o,cls="")=>`<div class="foot${cls}"><div><small class="up">Генеральный подрядчик</small>${nmOf(o.general_contractor)}</div><div><small class="up">Заказчик</small>${nmOf(o.customer)}</div></div>`;
  const yearOf=o=>{const y=String(o.years||"").trim();return y?`<div class="yr">${CAL}${esc(y)}</div>`:""};
  // сколько фото берёт каждый макет (инженер 24.11.2026 «сделай для каждого вида макета ограничение по количеству
  // фото»): на листе объекта у всех до 4 (главное и 3 малых), остальные — листом «Фото с объекта»; «Обложка» и «Тёмный» —
@@ -418,12 +421,15 @@
  const PH_MM={1:[197,185],2:[197,185],3:[297,210],5:[297,112],6:[168,124],9:[172,210],10:[297,210]};
  const softMain=(o,lay)=>{const d=o.mainPx,c=PH_MM[lay];if(!d||!c||!(d[0]>0&&d[1]>0))return false;return Math.min(d[0]/c[0],d[1]/c[1])<4};
  const phOf=(o,lay,main)=>softMain(o,lay)?`<div class="ph soft"${bg(main)}><b${bg(main)}></b><i${bg(main)}></i></div>`:`<div class="ph"${bg(main)}></div>`;
+ const CHAIN=6,onPage=(o,i)=>{const l=layoutOf(o,i);return l===1||l===2?1+CHAIN:4};
+ // центр круга — на косом крае полосы: край от 68,4 мм над низом у низкого конца до 87 мм у высокого, ширина фото 197 мм
+ function chainOf(rest,mir){return rest.length?`<div class="chain">${rest.slice(0,CHAIN).map((s,k)=>{const cx=18+31.4*k,y=68.4+18.6*cx/197;return`<div class="c" style="${mir?"right":"left"}:${(cx-16).toFixed(1)}mm;bottom:${(y-16).toFixed(1)}mm${s?`;background-image:url('${String(s).replace(/'/g,"%27")}')`:""}"></div>`}).join("")}</div>`:""}
  function circlesOf(rest){return rest.length?`<div class="circles">${rest.map((s,i)=>`<div class="c${rest.length===3&&i===1?" big":""}"${bg(s)}></div>`).join("")}</div>`:""}
  function objectPage(o,co,logo,i=0){const h=objectPage0(o,co,logo,i);return o.fit?h.replace('<section class="page','<section class="page fit'+o.fit):h}
  function objectPage0(o,co,logo,i=0){
-  const lay0=layoutOf(o,i),lay=lay0===7?1:lay0===8?4:lay0,pics=o.pictures||[],main=pics[0]||"",rest=pics.slice(1,4);
+  const lay0=layoutOf(o,i),lay=lay0===7?1:lay0===8?4:lay0,pics=o.pictures||[],main=pics[0]||"",rest=pics.slice(1,lay0===1||lay0===2?1+CHAIN:4);
   if(lay===2)return`<section class="page lay2"><div class="L"><div class="in">${textCol(o,12,co)}</div></div>
-  <div class="R">${phOf(o,2,main)}${logoOf(co,logo)}<div class="band"></div>${circlesOf(rest)}
+  <div class="R">${phOf(o,2,main)}${logoOf(co,logo)}<div class="band"></div>${chainOf(rest,true)}
   <div class="info">${placeOf(o,co)}</div>${footOf(o)}</div></section>`;
   if(lay===3){const name=String(o.name||"Объект"),ws=worksOf(o).slice(0,Math.min(4,o.wkMax||4)),p=doneOf(o),place=String(o.address||"").trim();
    return`<section class="page lay3">${phOf(o,3,main)}<div class="shade"></div>${logoOf(co,logo)}
@@ -432,7 +438,7 @@
    ${rest.length?`<div class="thumbs">${rest.slice(0,3).map(s=>`<div${bg(s)}></div>`).join("")}</div>`:""}
    <div class="tiles"><div class="tw">${ws.map(w=>`<div class="tl"><i>${esc(fmt(num(w.volume)))}<s>${esc(unitOf(w.unit))}</s></i>${planOf(w)}<b class="up">${esc(w.name)}</b></div>`).join("")}</div>
    <div class="tr">${ringOf(p)}</div></div>
-   <div class="strip"><div><small class="up">Генеральный подрядчик</small><b>${esc(o.general_contractor||"—")}</b></div><div><small class="up">Заказчик</small><b>${esc(o.customer||"—")}</b></div><div class="doc up"><em>${CHECK}</em>Полный пакет исполнительной документации</div></div></section>`}
+   <div class="strip"><div><small class="up">Генеральный подрядчик</small>${nmOf(o.general_contractor)}</div><div><small class="up">Заказчик</small>${nmOf(o.customer)}</div><div class="doc up"><em>${CHECK}</em>Полный пакет исполнительной документации</div></div></section>`}
   if(lay===5){const name=String(o.name||"Объект"),ws=worksOf(o).slice(0,12),p=doneOf(o);
    return`<section class="page lay5">${phOf(o,5,main)}${logoOf(co,logo)}${circlesOf(rest)}
    <div class="lo"><h1 class="ttl up${titleCls(name)}">${esc(name)}</h1>
@@ -464,7 +470,7 @@
    <div class="O"><div class="in">${textCol(o,12,co)}</div></div>${footOf(o," f4")}</section>`}
   return`<section class="page"><div class="L"><div class="in">${textCol(o,12,co)}</div></div>
   <div class="R">${phOf(o,1,main)}${logoOf(co,logo)}
-  <div class="band"></div>${circlesOf(rest)}
+  <div class="band"></div>${lay0===7?circlesOf(rest):chainOf(rest)}
   <div class="info">${placeOf(o,co)}</div>${footOf(o)}</div></section>`
  }
  // больше фото (инженер 20.11.2026 «сделай в буклетах больше фото, а то везде 2-3»): макет листа берёт первые 4,
@@ -531,8 +537,8 @@
  // «Плёнка»: полосы плёнки с перфорацией — 1 полоса до 3 фото, 2 до 8, иначе 3; кадры равные, пустые — тёмные
  function filmOf(ps,gn,W){const k=gn<=3?1:gn<=8?2:3,per=Math.ceil(gn/k),fw=(W-8-2.5*(per-1))/per,fh=Math.min(fw*.75,(176-6*(k-1))/k-13),sh=`flex:0 0 ${(fh+13).toFixed(1)}mm`;let h="";for(let r=0;r<k;r++){let f="";for(let q=0;q<per;q++){const n=r*per+q;f+=`<div class="fr"${n<gn?bg(ps[n]):""}>${n<gn?`<em>${String(n+1).padStart(2,"0")}</em>`:""}</div>`}h+=`<div class="fs" style="${sh}">${f}</div>`}return`<div class="gg film">${h}</div>`}
  function galleryPage(o,co,logo,i=0){const all=o.pictures||[],sm=o.summary&&o.sumMoved,wr=wkRest(o,i),side=sm||wr.length>0;
-  if(all.length<=4&&!side)return"";const ps=all.slice(4,MAX_PHOTOS);const gn=Math.min(ps.length,12);if(!ps.length&&!side)return"";
-  const gv=galleryOf(o),ra=k=>ratioOk((o.ratios||[])[4+k]),W0=side?187:285,
+  const st=onPage(o,i);if(all.length<=st&&!side)return"";const ps=all.slice(st,MAX_PHOTOS);const gn=Math.min(ps.length,12);if(!ps.length&&!side)return"";
+  const gv=galleryOf(o),ra=k=>ratioOk((o.ratios||[])[st+k]),W0=side?187:285,
    // «Крупное + мелкие» (инженер 24.11.2026 «вот такие фотографии подобрать тяжело»): крупное — в своей пропорции слева
    // сверху (до 0,6 ширины и 0,72 высоты), справа от него и под ним — остальные рядами в своих пропорциях
    big=gv===2&&gn>=3&&bigOf(ps.slice(0,gn).map((_,k)=>ra(k)),W0,176),
