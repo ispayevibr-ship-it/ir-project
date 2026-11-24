@@ -106,7 +106,7 @@
 .gal .gs small{font-size:7pt;font-weight:800;letter-spacing:1.4px;color:var(--ord);margin-bottom:3mm}.gal .gt{font-size:8.6pt;line-height:1.55;color:#2c333b;overflow:hidden;min-height:0}.gal.gsm .gt{font-size:7.2pt;line-height:1.45}
 .gal .gt p,.gal .gt h5,.gal .gt ul,.gal .gt ol{margin:0 0 1.6mm}.gal .gt ul,.gal .gt ol{padding-left:4mm}.gal .gt h5{font-size:1.05em;font-weight:800}
 .gal.gl1,.gal.gl2{background:#eef1f4}.gal.gl3{background:#0d1013}.gal.gl3 .gh{background:#15191d}.gal.gl3 .gh b{color:#fff}.gal.gl3 .gg{gap:1.2mm}.gal.gl3 .gg div{border-radius:0}
-.gal .gg.jr{display:flex;flex-direction:column}.gal .gg.jr .rw{display:flex;gap:3mm;min-height:0;background:none;border-radius:0}.gal .gg.jr .rw div{position:relative;min-width:0;border-radius:2mm;box-shadow:0 .8mm 2.5mm rgba(0,0,0,.35)}.gal .gg.jr .rw:first-child div:first-child{box-shadow:0 0 0 .9mm var(--or),0 1mm 4mm rgba(0,0,0,.4)}.gal .gg.jr .rw:first-child div:first-child:after{content:"";position:absolute;left:0;right:0;bottom:0;height:40%;border-radius:0 0 2mm 2mm;background:linear-gradient(transparent,rgba(0,0,0,.55))}.gal .gg.jr .cnt{position:absolute;left:4mm;bottom:3.5mm;z-index:1;color:#fff;font-size:7pt;font-weight:800;letter-spacing:1px;text-transform:uppercase}.gal .gg.jr .cnt b{display:block;font-size:20pt;font-weight:900;line-height:1;color:var(--or);letter-spacing:0}.gal.solo .gs{width:auto;right:6mm}.gal.solo .gt{column-count:2;column-gap:10mm}
+.gal .gg.jr{display:flex;flex-direction:column}.gal .gg.jb .top{display:flex;gap:3mm;min-height:0;background:none;border-radius:0;box-shadow:none}.gal .gg.jb .jc{display:flex;flex-direction:column;gap:3mm;min-width:0;background:none;border-radius:0;box-shadow:none}.gal .gg.jb .big{position:relative;border-radius:2mm;box-shadow:0 0 0 .9mm var(--or),0 1mm 4mm rgba(0,0,0,.4)}.gal .gg.jb .big:after{content:"";position:absolute;left:0;right:0;bottom:0;height:40%;border-radius:0 0 2mm 2mm;background:linear-gradient(transparent,rgba(0,0,0,.55))}.gal .gg.jb .big .cnt{position:absolute;left:4mm;bottom:3.5mm;z-index:1;color:#fff;font-size:7pt;font-weight:800;letter-spacing:1px;text-transform:uppercase}.gal .gg.jb .big .cnt b{display:block;font-size:20pt;font-weight:900;line-height:1;color:var(--or);letter-spacing:0}.gal .gg.jb .jc .rw:first-child div:first-child{box-shadow:0 .8mm 2.5mm rgba(0,0,0,.35)}.gal .gg.jb .jc .rw:first-child div:first-child:after{display:none}.gl3 .gg.jr,.gl3 .gg.jr .rw,.gl3 .gg.jb .jc{gap:1.2mm}.gl3 .gg.jr .rw div,.gl3 .gg.jb .big{border-radius:0}.gal .gg.jr .rw{display:flex;gap:3mm;min-height:0;background:none;border-radius:0}.gal .gg.jr .rw div{position:relative;min-width:0;border-radius:2mm;box-shadow:0 .8mm 2.5mm rgba(0,0,0,.35)}.gal .gg.jr .rw:first-child div:first-child{box-shadow:0 0 0 .9mm var(--or),0 1mm 4mm rgba(0,0,0,.4)}.gal .gg.jr .rw:first-child div:first-child:after{content:"";position:absolute;left:0;right:0;bottom:0;height:40%;border-radius:0 0 2mm 2mm;background:linear-gradient(transparent,rgba(0,0,0,.55))}.gal .gg.jr .cnt{position:absolute;left:4mm;bottom:3.5mm;z-index:1;color:#fff;font-size:7pt;font-weight:800;letter-spacing:1px;text-transform:uppercase}.gal .gg.jr .cnt b{display:block;font-size:20pt;font-weight:900;line-height:1;color:var(--or);letter-spacing:0}.gal.solo .gs{width:auto;right:6mm}.gal.solo .gt{column-count:2;column-gap:10mm}
 .gal .n4{grid-template:1fr 1fr/1fr 1fr}.gal .n5{grid-template:1fr 1fr/1.5fr 1fr 1fr}.gal .n5 div:first-child{grid-row:span 2}.gal .n6{grid-template:1fr 1fr/1fr 1fr 1fr}
 .svcp:before{content:"";position:absolute;left:0;top:0;width:70mm;height:52mm;background:linear-gradient(135deg,var(--or2),var(--or));clip-path:polygon(0 0,100% 0,0 100%)}
 .svcp .sh{position:absolute;left:16mm;top:20mm;width:190mm}.svcp .sh .kick{font-size:7.5pt;font-weight:800;letter-spacing:1.4px;color:var(--ink);margin-bottom:2mm}
@@ -423,12 +423,15 @@
  // «вот такие фотографии подобрать тяжело» — крупная квадратная и широкая ячейки требовали особых фото): ряды подбираются
  // так, чтобы при высоте ряда по его фото они вместе заняли лист, порядок фото тот, что выбран; обрезка — только от
  // подгонки высоты, в пределах нескольких процентов. a — ширина/высота каждого фото (без размера — 4:3)
- function rowsOf(a,W,H,g=3){const n=a.length;if(!n)return null;let best=null;
+ function rowsOf(a,W,H,g=3,maxR=4){const n=a.length;if(!n)return null;let best=null;
   for(let m=0;m<1<<(n-1);m++){const rows=[];let cur=[0];for(let i=1;i<n;i++){if(m>>(i-1)&1){rows.push(cur);cur=[i]}else cur.push(i)}rows.push(cur);
-   if(rows.length>4)continue;let tot=g*(rows.length-1),pen=0;const hs=rows.map(r=>{const sa=r.reduce((t,i)=>t+a[i],0),h=(W-g*(r.length-1))/sa;if(r.length===1&&n>2)pen+=.25;if(h<H*.18)pen+=1;return h});
+   if(rows.length>maxR)continue;let tot=g*(rows.length-1),pen=0;const hs=rows.map(r=>{const sa=r.reduce((t,i)=>t+a[i],0),h=(W-g*(r.length-1))/sa;if(r.length===1&&n>2)pen+=.25;if(h<H*.18)pen+=1;return h});
    tot+=hs.reduce((t,h)=>t+h,0);const sc=Math.abs(Math.log(tot/H))+pen+.02*Math.abs(rows[0].length-Math.min(...rows.map(r=>r.length)));
    if(!best||sc<best.sc)best={sc,rows,hs}}return best}
  const ratioOk=x=>Number(x)>0.3&&Number(x)<4?Number(x):4/3;
+ function bigOf(a,W,H,g=3){const a0=a[0],Hb=Math.min(H*.72,W*.6/a0),bw=Hb*a0,rest=a.slice(1);let best=null;
+  for(let k=0;k<=rest.length;k++){const R=k?rowsOf(rest.slice(0,k),W-bw-g,Hb,g,3):null,D=k<rest.length?rowsOf(rest.slice(k),W,H-Hb-g,g,2):null;
+   if(k&&!R||k<rest.length&&!D)continue;const sc=(R?R.sc:(W-bw-g>20?.6:0))+(D?D.sc:(H-Hb-g>20?.6:0));if(!best||sc<best.sc)best={sc,k,R,D,bw,Hb}}return best}
  function galGrid(gv,n,narrow){if(n<2)return null;const W=narrow?187:285,H=176;
   if(gv===2){const f=galFit(n-1,W*.5,H);return{st:`grid-template:repeat(${f.r},1fr)/${(f.c*1.25).toFixed(2)}fr repeat(${f.c},1fr)`,cell:i=>i===0?"grid-row:1/-1;grid-column:1":i<=f.e?"grid-row:auto;grid-column:span 2":"grid-row:auto;grid-column:auto"}}
   const f=galFit(n,W,H);return{st:`grid-template:repeat(${f.r},1fr)/repeat(${f.c},1fr)`,cell:i=>i<f.e?"grid-row:auto;grid-column:span 2":"grid-row:auto;grid-column:auto"}}
@@ -451,7 +454,7 @@
   const bgc=gv===0||gv===3?(gv===3?"#0d1013":SK.dk):"#eef1f4",g=gv===3?1:2,X=3,Y=9,W=54,H=31;let cells="";
   const grid=(x,y,w,h,cols,rows)=>{const cw=(w-(cols-1)*g)/cols,ch=(h-(rows-1)*g)/rows;let s="";for(let r=0;r<rows;r++)for(let q=0;q<cols;q++)s+=skR(x+q*(cw+g),y+r*(ch+g),cw,ch,SK.ph,gv===3?0:.8);return s};
   if(gv===0){const rs=[[1.33,.75,1.5],[1.5,1.78,.75,1.33],[1.33,.75,1.5,1.33]],hs=rs.map(r=>(W-g*(r.length-1))/r.reduce((t,a)=>t+a,0)),k=(H-g*2)/hs.reduce((t,h)=>t+h,0);let y=Y;rs.forEach((r,j)=>{const h=hs[j]*k,sa=r.reduce((t,a)=>t+a,0);let x=X;r.forEach(a=>{const w=(W-g*(r.length-1))*a/sa;cells+=skR(x,y,w,h,j||x>X?SK.ph:SK.or,.8);x+=w+g});y+=h+g})}
-  else if(gv===2){const bw=W*.55;cells=skR(X,Y,bw,H,SK.ph,.8)+grid(X+bw+g,Y,W-bw-g,H,2,2)}
+  else if(gv===2){const bw=W*.58,bh=H*.68;cells=skR(X,Y,bw,bh,SK.ph,.8)+grid(X+bw+g,Y,W-bw-g,bh,2,2)+grid(X,Y+bh+g,W,H-bh-g,3,1)}
   else cells=grid(X,Y,W,H,3,2);
   return skR(0,0,60,42,bgc)+head+cells}
  const skSvg=b=>`<svg viewBox="0 0 60 42" xmlns="http://www.w3.org/2000/svg" style="display:block;width:100%;height:auto">${b}</svg>`;
@@ -464,12 +467,18 @@
  // показывай с краткой информацией»)
  function galleryPage(o,co,logo){const all=o.pictures||[],sm=o.summary&&o.sumMoved;
   if(all.length<=4&&!sm)return"";const ps=all.slice(4,MAX_PHOTOS);const gn=Math.min(ps.length,12);if(!ps.length&&!sm)return"";
-  const gv=galleryOf(o),jr=!gv&&gn>=2&&rowsOf(ps.slice(0,gn).map((_,k)=>ratioOk((o.ratios||[])[4+k])),sm?187:285,176),gst=!jr&&galGrid(gv,gn,!!sm);
+  const gv=galleryOf(o),ra=k=>ratioOk((o.ratios||[])[4+k]),W0=sm?187:285,
+   // «Крупное + мелкие» (инженер 24.11.2026 «вот такие фотографии подобрать тяжело»): крупное — в своей пропорции слева
+   // сверху (до 0,6 ширины и 0,72 высоты), справа от него и под ним — остальные рядами в своих пропорциях
+   big=gv===2&&gn>=3&&bigOf(ps.slice(0,gn).map((_,k)=>ra(k)),W0,176),
+   jr=!big&&gv!==1&&gn>=2&&rowsOf(ps.slice(0,gn).map((_,k)=>ra(k)),W0,176),gst=!big&&!jr&&galGrid(gv,gn,!!sm);
   const cellImg=s=>s?`background-image:url('${String(s).replace(/'/g,"%27")}')`:"";
   return`<section class="page gal${gv?" gl"+gv:""}${sm?" wsum":""}${sm&&!ps.length?" solo":""}${o.galSmall?" gsm":""}"><div class="gh"><div class="t"><small class="up">Фото с объекта</small><b>${esc(o.name||"Объект")}</b></div>
   <div class="lg">${logo?`<img src="${esc(logo)}" alt="">`:`<b>${esc(co.name)}</b>`}</div></div>
   ${sm?`<div class="gs"><small class="up">Краткая характеристика</small><div class="gt">${sumHtml(o.summary)}</div></div>`:""}
-  ${jr?`<div class="gg jr">${jr.rows.map(r=>`<div class="rw" style="flex:${jr.hs[jr.rows.indexOf(r)].toFixed(2)} 1 0">${r.map(k=>`<div style="flex:${ratioOk((o.ratios||[])[4+k]).toFixed(3)} 1 0;${cellImg(ps[k])}">${k===0?`<span class="cnt"><b>${gn}</b> фото</span>`:""}</div>`).join("")}</div>`).join("")}</div>`:ps.length?`<div class="gg n${gn}${gst?.big?" bento":""}"${gst?` style="${gst.st}"`:""}>${ps.slice(0,12).map((s,k)=>gst?`<div style="${gst.cell(k)}${s?`;background-image:url('${String(s).replace(/'/g,"%27")}')`:""}">${gst.big&&k===0?`<span class="cnt"><b>${gn}</b> фото</span>`:""}</div>`:`<div${bg(s)}></div>`).join("")}</div>`:""}</section>`}
+  ${big||jr?(()=>{const cnt=`<span class="cnt"><b>${gn}</b> фото</span>`,rowsH=(J,off)=>J.rows.map((r,j)=>`<div class="rw" style="flex:${J.hs[j].toFixed(2)} 1 0">${r.map(q=>{const k=q+off;return`<div style="flex:${ra(k).toFixed(3)} 1 0;${cellImg(ps[k])}">${k===0?cnt:""}</div>`}).join("")}</div>`).join("");
+   if(!big)return`<div class="gg jr">${rowsH(jr,0)}</div>`;const H0=176;
+   return`<div class="gg jr jb"><div class="top" style="flex:${big.Hb.toFixed(1)} 1 0"><div class="big" style="flex:${big.bw.toFixed(1)} 1 0;${cellImg(ps[0])}">${cnt}</div>${big.R?`<div class="jc" style="flex:${(W0-big.bw-3).toFixed(1)} 1 0">${rowsH(big.R,1)}</div>`:""}</div>${big.D?`<div class="jc" style="flex:${(H0-big.Hb-3).toFixed(1)} 1 0">${rowsH(big.D,1+big.k)}</div>`:""}</div>`})():ps.length?`<div class="gg n${gn}${gst?.big?" bento":""}"${gst?` style="${gst.st}"`:""}>${ps.slice(0,12).map((s,k)=>gst?`<div style="${gst.cell(k)}${s?`;background-image:url('${String(s).replace(/'/g,"%27")}')`:""}">${gst.big&&k===0?`<span class="cnt"><b>${gn}</b> фото</span>`:""}</div>`:`<div${bg(s)}></div>`).join("")}</div>`:""}</section>`}
  // objects: [{name, customer, general_contractor, address, status, years, summary, works:[{name,unit,volume,plan}], pictures:[src…]}]
  function build(objects,{logo="",company={},services=true,map=true,screen=false}={}){
   const d=new Date(),co={date:String(d.getDate()).padStart(2,"0")+"."+String(d.getMonth()+1).padStart(2,"0")+"."+d.getFullYear(),...COMPANY,...company},list=(Array.isArray(objects)?objects:[]).map((o,i)=>{const m=LAYOUT_MAX[layoutOf(o,i)];return(o.pictures||[]).length>m?{...o,pictures:o.pictures.slice(0,m)}:o});
