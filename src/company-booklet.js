@@ -70,7 +70,10 @@
  function totals(objects){const n=objects.length,word=n%10===1&&n%100!==11?"объект выполнен":n%10>=2&&n%10<=4&&(n%100<10||n%100>=20)?"объекта выполнено":"объектов выполнено";
   return[["с 2023 года","на рынке строительства"],...kindRows(sumKinds(objects),10),[String(n),word]]}
  const objStats=o=>kindRows(sumKinds([o]),6);
- const statsOf=(o,co)=>{const st=objStats(o);return st.length?`<div class="osd up">Выполнено на ${esc(o.asOf||co.date)}</div><div class="ost">${st.map(([b,t])=>`<div><b>${esc(b)}</b><span>${esc(t)}</span></div>`).join("")}</div>`:""};
+ // на листе объекта итогов по типам нет — объёмы уже в списке видов работ, а сумма по типам путала: работа в тоннах без
+ // своего типа шла в «металлоконструкций» (инженер 24.11.2026 «почему тут указаны эти данные? которые не относят вроде
+ // как к объекту»)
+ const statsOf=(o,co)=>"",statsOld=(o,co)=>{const st=objStats(o);return st.length?`<div class="osd up">Выполнено на ${esc(o.asOf||co.date)}</div><div class="ost">${st.map(([b,t])=>`<div><b>${esc(b)}</b><span>${esc(t)}</span></div>`).join("")}</div>`:""};
  // краткая характеристика — разметка карточки объекта (summaryHtml в archive-objects.js): **жирный**, *курсив*,
  // списки «- », заголовки «#»; пункты, слитые в одну строку («…:***- **…**- **…**»), — каждый с новой строки
  // (инженер 20.11.2026 «текст криво показывает»)
