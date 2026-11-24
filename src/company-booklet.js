@@ -91,6 +91,9 @@
  const parties=objects=>{const seen=new Set(),out=[];for(const o of objects)for(const s of [o.general_contractor,o.customer]){const t=String(s||"").trim(),k=t.toLowerCase().replace(/[«»"“”'\s]/g,"");if(t&&!seen.has(k)){seen.add(k);out.push(t)}}return out};
 
  const CSS=`@page{size:297mm 210mm;margin:0}
+.lx{position:absolute;inset:0;z-index:40;pointer-events:none}.lx svg{position:absolute;inset:0;width:297mm;height:210mm}
+.lx polyline{fill:none;stroke:var(--or);stroke-width:.5;stroke-linejoin:round}.lx circle{fill:#fff;stroke:var(--or);stroke-width:.75}
+.lx .lb{position:absolute;box-sizing:border-box;display:flex;flex-direction:column;justify-content:center;background:rgba(29,34,40,.88);color:#fff;font:800 8pt/1.1 Montserrat,"Segoe UI",Arial,sans-serif;letter-spacing:.2px;padding:0 2.2mm;border-radius:1.2mm;border-bottom:.7mm solid var(--or);white-space:nowrap;box-shadow:0 .6mm 2mm rgba(0,0,0,.35)}.lx .lr{text-align:right}
 .gal{background:#15191d}.gal .gh{position:absolute;left:0;right:0;top:0;height:22mm;background:#fff;display:flex;align-items:center;padding:0 14mm 0 16mm;gap:6mm}
 .gal .gh:before{content:"";position:absolute;left:0;top:0;bottom:0;width:6mm;background:var(--or)}
 .gal .gh .t{min-width:0}.gal .gh small{display:block;font-size:7pt;font-weight:800;letter-spacing:1.4px;color:var(--ord)}.gal .gh b{display:block;font-size:13pt;font-weight:900;line-height:1.15;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
@@ -425,7 +428,10 @@
  // центр круга — на косом крае полосы: край от 68,4 мм над низом у низкого конца до 87 мм у высокого, ширина фото 197 мм
  function chainOf(rest,mir){return rest.length?`<div class="chain">${rest.slice(0,CHAIN).map((s,k)=>{const cx=18+31.4*k,y=68.4+18.6*cx/197;return`<div class="c" style="${mir?"right":"left"}:${(cx-16).toFixed(1)}mm;bottom:${(y-16).toFixed(1)}mm${s?`;background-image:url('${String(s).replace(/'/g,"%27")}')`:""}"></div>`}).join("")}</div>`:""}
  function circlesOf(rest){return rest.length?`<div class="circles">${rest.map((s,i)=>`<div class="c${rest.length===3&&i===1?" big":""}"${bg(s)}></div>`).join("")}</div>`:""}
- function objectPage(o,co,logo,i=0){const h=objectPage0(o,co,logo,i);return o.fit?h.replace('<section class="page','<section class="page fit'+o.fit):h}
+ function objectPage(o,co,logo,i=0){const h=withLabels(objectPage0(o,co,logo,i),o.lbl);return o.fit?h.replace('<section class="page','<section class="page fit'+o.fit):h}
+ // один лист объекта — для окна, где щелчком ставятся точки подписей (те же размеры, что в PDF)
+ function pageHtml(o,i=0,{logo="",company={}}={}){const co={...COMPANY,...company};
+  return`<!doctype html><html lang="ru"><head><meta charset="utf-8"><link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800;900&display=swap" rel="stylesheet"><style>${CSS}body{margin:0;overflow:hidden}</style></head><body>${objectPage(o,co,logo,i)}</body></html>`}
  function objectPage0(o,co,logo,i=0){
   const lay0=layoutOf(o,i),lay=lay0===7?1:lay0===8?4:lay0,pics=o.pictures||[],main=pics[0]||"",rest=pics.slice(1,lay0===1||lay0===2?1+CHAIN:4);
   if(lay===2)return`<section class="page lay2"><div class="L"><div class="in">${textCol(o,12,co)}</div></div>
@@ -630,21 +636,31 @@ ${(()=>{const pages=[["О компании",aboutPage(list,co,logo)],...(service
  // линия под подписью и наискось к точке. Без точек — подписи строкой внизу, без линий.
  const SPREAD_LABELS=()=>COMPANY.what.items.map(([t])=>t);
  const lbLines=t=>{t=String(t);if(t.length<=16)return[t];const ws=t.split(" ");let best=[t],bd=1e9;for(let i=1;i<ws.length;i++){const a=ws.slice(0,i).join(" "),b=ws.slice(i).join(" "),d=Math.max(a.length,b.length);if(d<bd){bd=d;best=[a,b]}}return best};
- function spreadHtml(sp){const f=v=>v.toFixed(1),pts=(sp.pts||[]).filter(p=>p&&p[0]&&p[1]>=0&&p[1]<=1&&p[2]>=0&&p[2]<=1);
-  const d=sp.px,soft=d&&d[0]>0&&Math.min(d[0]/297,d[1]/210)<4,src=sp.src;
-  const ph=soft?`<div class="ph soft"${bg(src)}><b${bg(src)}></b><i${bg(src)}></i></div>`:`<div class="ph"${bg(src)}></div>`;
-  let svg="",lbs="";
-  for(const [t,x,y] of pts){const P=[x*297,y*210],dir=P[0]<148.5?-1:1,ls=lbLines(t),w=Math.max(...ls.map(l=>l.length))*2.45+1,h=ls.length*4.3;
+ // подписи с линиями к точкам (pts: [[подпись, x, y]] в долях листа 297×210): на фото разворота — белым по фото,
+ // на остальных листах (инженер 24.11.2026 «везде дай подписи ставить», «и в журнале тоже», «на одном фото как я могу
+ // показать несколько видов работ») — тёмной плашкой с оранжевой чертой, чтобы читалась и на белом
+ const ptsOk=pts=>(Array.isArray(pts)?pts:[]).filter(p=>p&&p[0]&&p[1]>=0&&p[1]<=1&&p[2]>=0&&p[2]<=1);
+ function lbGeo(pts,pill){const f=v=>v.toFixed(1);let svg="",lbs="";
+  for(const [t,x,y] of ptsOk(pts)){const P=[x*297,y*210],dir=P[0]<148.5?-1:1,ls=lbLines(t),w=Math.max(...ls.map(l=>l.length))*(pill?2.2:2.45)+(pill?5:1),h=ls.length*(pill?3.9:4.3)+(pill?2.8:0);
    let ey=P[1]<34?P[1]+16+h:P[1]-14,ex=P[0]+dir*10;ey=Math.min(200,Math.max(8+h,ey));
    let x0=dir<0?ex-w:ex,x1=dir<0?ex:ex+w;if(x0<7){const k=7-x0;x0+=k;x1+=k}if(x1>290){const k=x1-290;x0-=k;x1-=k}
-   const near=dir<0?x1:x0;svg+=`<polyline points="${f(dir<0?x0:x1)},${f(ey+1)} ${f(near)},${f(ey+1)} ${f(P[0])},${f(P[1])}"/><circle cx="${f(P[0])}" cy="${f(P[1])}" r="1.1"/>`;
-   lbs+=`<div class="lb up${dir<0?" lr":""}" style="left:${f(x0)}mm;width:${f(x1-x0)}mm;top:${f(ey-h)}mm">${ls.map(esc).join("<br>")}</div>`}
+   const near=dir<0?x1:x0;
+   svg+=(pill?`<polyline points="${f(near)},${f(ey-h/2)} ${f(P[0])},${f(P[1])}"/>`:`<polyline points="${f(dir<0?x0:x1)},${f(ey+1)} ${f(near)},${f(ey+1)} ${f(P[0])},${f(P[1])}"/>`)+`<circle cx="${f(P[0])}" cy="${f(P[1])}" r="${pill?1.3:1.1}"/>`;
+   lbs+=pill?`<div class="lb${dir<0?" lr":""}" style="left:${f(x0)}mm;width:${f(x1-x0)}mm;top:${f(ey-h)}mm;height:${f(h)}mm">${ls.map(esc).join("<br>")}</div>`
+    :`<div class="lb up${dir<0?" lr":""}" style="left:${f(x0)}mm;width:${f(x1-x0)}mm;top:${f(ey-h)}mm">${ls.map(esc).join("<br>")}</div>`}
+  return{svg,lbs}}
+ const labelsLayer=pts=>{const g=lbGeo(pts,true);return g.svg?`<div class="lx"><svg viewBox="0 0 297 210">${g.svg}</svg>${g.lbs}</div>`:""};
+ const withLabels=(h,pts)=>{const L=labelsLayer(pts);if(!L)return h;const i=h.lastIndexOf("</section>");return i<0?h+L:h.slice(0,i)+L+h.slice(i)};
+ function spreadHtml(sp){const pts=ptsOk(sp.pts);
+  const d=sp.px,soft=d&&d[0]>0&&Math.min(d[0]/297,d[1]/210)<4,src=sp.src;
+  const ph=soft?`<div class="ph soft"${bg(src)}><b${bg(src)}></b><i${bg(src)}></i></div>`:`<div class="ph"${bg(src)}></div>`;
+  const {svg,lbs}=lbGeo(pts,false);
   const row=pts.length?"":`<div class="row">${(sp.labels||SPREAD_LABELS()).map(t=>`<div class="lb up">${esc(t)}</div>`).join("")}</div>`;
   const cap=sp.cap&&sp.cap.name?`<div class="cap"><small class="up">На фото</small><b>${esc(sp.cap.name)}</b>${sp.cap.place?`<span>${esc(sp.cap.place)}</span>`:""}</div>`:"";
   return`<section class="tf sp">${ph}<div class="sh"></div><svg class="ld" viewBox="0 0 297 210">${svg}</svg>${lbs}${row}${cap}`}
  function foldBuild(objects,{logo="",company={},screen=false,spread=null,inside}={}){
   let IN=inside===undefined?(spread&&spread.src?0:1):Number(inside)||0;if(IN===0&&!(spread&&spread.src))IN=1;
-  const spOn=IN!==1;
+  const spOn=IN!==1,inLb=IN?labelsLayer(spread?.pts):"";
   const co={...COMPANY,...company},list=Array.isArray(objects)?objects:[],lg=logo?`<img src="${esc(logo)}" alt="">`:`<b>${esc(co.name)}</b>`;
   const mk=xs=>xs.map(x=>`<i class="mk t" style="left:${x}mm"></i><i class="mk b" style="left:${x}mm"></i>`).join("");
   // обложка — фото с лучшим разрешением для полосы 100×210 мм; мало точек — целиком, вокруг размыто (как softMain)
@@ -658,13 +674,13 @@ ${(()=>{const pages=[["О компании",aboutPage(list,co,logo)],...(service
    <div class="kk up">Контакты</div><div class="ct">${co.phones.map(([t,v])=>`<div><small class="up">${esc(t)}</small><b>${esc(v)}</b></div>`).join("")}<div><small class="up">Почта</small><b>${esc(co.contactMail||co.mail)}</b></div><div><small class="up">Сайт</small><b>${esc(co.site)}</b></div></div>
    <div class="rq"><b>${esc(co.full)}</b><br>БИН ${esc(co.bin)}<br>${esc(co.address)}<br>${co.bank.map(esc).join("<br>")}<br>Директор — ${esc(co.head)}</div></div>
   <div class="pn cv">${cover}<div class="cut"></div><div class="lg">${lg}</div><div class="tt"><h1>${esc(co.title)}</h1>${(co.pledges||[])[0]?`<p class="up">${esc(co.pledges[0][1])}</p>`:""}</div></div>${mk([97,197])}</section>
-${IN===0?spreadHtml(spread)+mk([100,200])+"</section>":IN===2?foldThree(shown)+mk([99,198])+"</section>":IN===3?foldCollage(shown)+mk([100,200])+"</section>":`<section class="tf"><div class="pn nm"><div class="kk up">В цифрах</div><h2>Что мы уже сделали</h2><div class="tot">${tot.slice(0,8).map(([b,t])=>`<div><b>${esc(b)}</b><span>${esc(t)}</span></div>`).join("")}</div>
+${IN===0?spreadHtml(spread)+mk([100,200])+"</section>":IN===2?foldThree(shown)+mk([99,198])+inLb+"</section>":IN===3?foldCollage(shown)+mk([100,200])+inLb+"</section>":`<section class="tf"><div class="pn nm"><div class="kk up">В цифрах</div><h2>Что мы уже сделали</h2><div class="tot">${tot.slice(0,8).map(([b,t])=>`<div><b>${esc(b)}</b><span>${esc(t)}</span></div>`).join("")}</div>
    ${cl.length?`<div class="cl"><div class="kk up">Нам доверяют</div>${cl.slice(0,8).map(t=>`<div>${esc(t)}</div>`).join("")}${cl.length>8?`<div>и ещё ${cl.length-8}</div>`:""}</div>`:""}</div>
   <div class="pn sv"><div class="kk up">Услуги</div><h2>Что мы делаем</h2>${sv.map(([t,d],i)=>`<div class="it"><i>${String(i+1).padStart(2,"0")}</i><b>${esc(t)}</b><p>${esc(d)}</p></div>`).join("")}</div>
   <div class="pn ob"><div class="kk up">Объекты</div><h2>Наши объекты</h2>${shown.map(o=>{const ws=worksOf(o).slice(0,2),place=String(o.address||"").trim();
     const ps=(o.pictures||[]).slice(0,FOLD_PH),op=`<div class="op"${bg(ps[0])}>${o.years?`<span>${esc(o.years)}</span>`:""}</div>`;
     return`<div class="oc">${ps.length>1?`<div class="og n${ps.length}">${op}${ps.slice(1).map(p=>`<i${bg(p)}></i>`).join("")}</div>`:op}<b>${esc(o.name||"Объект")}</b>${place?`<small>${esc(place)}</small>`:""}<div class="ov">${ws.map(w=>`<em>${esc(fmt(num(w.volume)))}<s>${esc(unitOf(w.unit))}</s></em>`).join("")}</div></div>`}).join("")}
-   ${list.length>shown.length?`<div class="om">и ещё ${list.length-shown.length} ${objWord(list.length-shown.length)} — на сайте ${esc(co.site)}</div>`:""}</div>${mk([100,200])}</section>`}`;
+   ${list.length>shown.length?`<div class="om">и ещё ${list.length-shown.length} ${objWord(list.length-shown.length)} — на сайте ${esc(co.site)}</div>`:""}</div>${mk([100,200])}${inLb}</section>`}`;
   return`<!doctype html><html lang="ru"><head><meta charset="utf-8"><title>Буклет ${esc(co.name)}</title>
 <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800;900&display=swap" rel="stylesheet"><style>${CSS}${FOLD_CSS}${screen?SCREEN.replace(/\.page\{/g,".tf{")+".tf{margin:0 auto 10mm}":""}</style></head><body>
 ${screen?`<div class="pvn">Снаружи · клапан | задняя сторона | обложка</div>`:""}${screen?out.replace(/<\/section>(\s*)<section class="tf/,`</section><div class="pvn">Внутри · ${["фото на весь разворот с подписями","цифры | услуги | объекты","три объекта","фотоколлаж"][IN]}</div><section class="tf`):out}</body></html>`}
@@ -698,7 +714,7 @@ ${screen?`<div class="pvn">Снаружи · клапан | задняя сто�
  const pickDefault=o=>{const all=allFiles(o),saved=(o.booklet?.files||[]).filter(f=>all.includes(f));return{all,files:saved.length?saved:all.slice(0,7),layout:Number(o.booklet?.layout)||0,gallery:Number(o.booklet?.gallery)||0}};
  // data: объекты так, как их собирает окно «Сайт» (siteObjectData) — cover, cover_full, photos, hero; files — выбранные
  // фото (первое — главное), layout — номер макета (0 — авто)
- async function make(data,{onProgress,services=true,map=true,fold=false,spread=null,inside}={}){
+ async function make(data,{onProgress,services=true,map=true,fold=false,spread=null,inside,title=""}={}){
   const profile=await root.irProject.company.get().catch(()=>({}));
   const logo=await small(await read(profile?.logo||""),1200);
   const objects=[];
@@ -711,8 +727,9 @@ ${screen?`<div class="pvn">Снаружи · клапан | задняя сто�
   const opts={logo,company:profile?.name?{name:profile.name}:{},services,map,inside};
   if(fold&&spread?.file){const s=await read(spread.file);if(s){const src=await small(s,3500);opts.spread={...spread,src,px:await dims(s)}}}
   if(!fold)await dropTooLong(objects,opts);
+  if(fold&&spread&&!opts.spread)opts.spread=spread;
   const html=fold?foldBuild(objects,opts):build(objects,opts);
-  const name=(fold?"Буклет ":"Журнал ")+String(profile?.name||COMPANY.name).replace(/[«»"]/g,"")+" "+new Date().toLocaleDateString("ru-RU");
+  const name=(fold?"Буклет ":"Журнал ")+String(profile?.name||COMPANY.name).replace(/[«»"]/g,"")+(title?" — "+String(title).replace(/[\\/:*?"<>|«»]/g,"").trim():"")+" "+new Date().toLocaleDateString("ru-RU");
   return root.irProject.ai.invoke("ai-documents:exec-export",{format:"pdf",name,html})
  }
  // предпросмотр (инженер 20.11.2026 «сделать предпросмотр как каждая страница выглядеть будет»): те же листы, что уйдут
@@ -723,7 +740,7 @@ ${screen?`<div class="pvn">Снаружи · клапан | задняя сто�
   const objects=[];
   for(const [i,o] of data.entries()){const pictures=[];for(const f of (o.files||pickDefault(o).files).slice(0,fold?(i<FOLD_OBJ?FOLD_PH:0):capOf(o))){const s=(pic&&await pic(f))||await small(await read(f),900,.8);if(s)pictures.push(s)}const f0=(o.files||pickDefault(o).files)[0];objects.push({...o,pictures,ratios:await ratios(pictures),mainPx:await dims(await read(f0))})}
   const opts={logo,company:profile?.name?{name:profile.name}:{},services,map,inside};
-  if(fold){if(spread?.file){const s=await read(spread.file);if(s)opts.spread={...spread,src:await small(s,1400,.82),px:await dims(s)}}return foldBuild(objects,{...opts,screen:true})}
+  if(fold){if(spread?.file){const s=await read(spread.file);if(s)opts.spread={...spread,src:await small(s,1400,.82),px:await dims(s)}}if(spread&&!opts.spread)opts.spread=spread;return foldBuild(objects,{...opts,screen:true})}
   await dropTooLong(objects,opts);
   return build(objects,{...opts,screen:true})
  }
@@ -757,6 +774,6 @@ ${screen?`<div class="pvn">Снаружи · клапан | задняя сто�
    if(!changed)return;
   }
  }
- const api={FOLD_PH,FOLD_LAYOUTS,foldSketch,foldBuild,spreadHtml,SPREAD_LABELS,FOLD_OBJ,softMain,rowsOf,wkShown,wkRest,GALLERIES,galleryOf,layoutSketch,gallerySketch,MAX_PHOTOS,LAYOUT_MAX,capOf,clientList,mapPage,geoGroups,dropTooLong,build,make,preview,totals,doneOf,parties,COMPANY,LAYOUTS,layoutOf,thumb,read,pickDefault};
+ const api={labelsLayer,pageHtml,FOLD_PH,FOLD_LAYOUTS,foldSketch,foldBuild,spreadHtml,SPREAD_LABELS,FOLD_OBJ,softMain,rowsOf,wkShown,wkRest,GALLERIES,galleryOf,layoutSketch,gallerySketch,MAX_PHOTOS,LAYOUT_MAX,capOf,clientList,mapPage,geoGroups,dropTooLong,build,make,preview,totals,doneOf,parties,COMPANY,LAYOUTS,layoutOf,thumb,read,pickDefault};
  if(typeof module!=="undefined"&&module.exports)module.exports=api;else root.irBooklet=api;
 })(typeof window!=="undefined"?window:globalThis);
