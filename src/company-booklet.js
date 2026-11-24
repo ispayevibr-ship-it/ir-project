@@ -600,8 +600,28 @@ ${(()=>{const pages=[["О компании",aboutPage(list,co,logo)],...(service
 .tf.sp .lr{text-align:right}.tf.sp .row{position:absolute;left:12mm;right:12mm;bottom:12mm;display:flex;flex-wrap:wrap;gap:3mm 7mm;z-index:3}.tf.sp .row .lb{position:static;border-bottom:.45mm solid var(--or);padding-bottom:1mm}
 .tf.sp .cap{position:absolute;left:10mm;top:9mm;z-index:3;background:rgba(29,34,40,.82);color:#fff;border-left:1.4mm solid var(--or);border-radius:1.5mm;padding:2.4mm 4mm;max-width:120mm}
 .tf.sp .cap small{display:block;font-size:5.8pt;font-weight:800;letter-spacing:1.4px;color:var(--or2)}.tf.sp .cap b{display:block;font-size:8pt;font-weight:800;line-height:1.25;margin-top:.6mm}.tf.sp .cap span{display:block;font-size:6.4pt;color:#c9ced5;margin-top:.4mm}
+.tf .oc .og{flex:1 1 0;min-height:16mm;display:grid;grid-template-columns:2fr 1fr;grid-template-rows:1fr 1fr;gap:1.2mm}.tf .oc .og .op{min-height:0;grid-row:span 2}.tf .oc .og.n2 .op{grid-row:span 2}.tf .oc .og i{border-radius:1.5mm;background:#3a4047 center/cover no-repeat}.tf .oc .og.n2 i{grid-row:span 2}
+.tf .o3{width:99mm;padding:9mm 7mm 8mm;display:flex;flex-direction:column}.tf .o3.k0{left:0}.tf .o3.k1{left:99mm;background:#f6f3ec}.tf .o3.k2{left:198mm}.tf .o3 .no{font-size:24pt;font-weight:900;color:var(--or);line-height:1;margin-bottom:2mm}
+.tf .o3 .m{flex:1 1 0;min-height:30mm;border-radius:2mm;background:#3a4047 center/cover no-repeat;position:relative}.tf .o3 .m span{position:absolute;left:2mm;top:2mm;background:var(--or);color:var(--ink);font-size:6.4pt;font-weight:900;padding:.6mm 2mm;border-radius:1mm}
+.tf .o3 .s{display:grid;grid-template-columns:1fr 1fr;gap:1.6mm;height:30mm;margin-top:1.6mm}.tf .o3 .s i{border-radius:2mm;background:#3a4047 center/cover no-repeat}.tf .o3 .s.n1{grid-template-columns:1fr}
+.tf .o3 h3{margin:3.5mm 0 0;font-size:10pt;font-weight:900;line-height:1.2;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}.tf .o3 small{display:block;font-size:6.6pt;color:var(--mut);font-weight:600;margin-top:1mm}
+.tf .o3 .w{margin-top:2.5mm;display:flex;flex-direction:column;gap:1.2mm}.tf .o3 .w div{display:flex;justify-content:space-between;gap:3mm;font-size:6.8pt;border-bottom:1px solid var(--line);padding-bottom:1.1mm}.tf .o3 .w b{font-weight:900;color:var(--ord);white-space:nowrap}
+.tf.co{background:#1d2228}.tf.co .cg{position:absolute;inset:0;display:grid;gap:1.4mm;padding:1.4mm}.tf.co .cg i{position:relative;background:#3a4047 center/cover no-repeat;border-radius:1mm}.tf.co .cg i.big{grid-column:span 2;grid-row:span 2}
+.tf.co .cg i span{position:absolute;left:2mm;bottom:2mm;max-width:80%;background:rgba(29,34,40,.85);color:#fff;border-left:1mm solid var(--or);font-style:normal;font-size:6.4pt;font-weight:800;padding:1mm 2mm;border-radius:1mm;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .tf .nb{display:grid;grid-template-columns:1fr 1fr;gap:3mm;margin-bottom:4mm}.tf .nb div{border-top:1mm solid var(--or);padding-top:1.8mm}.tf .nb b{display:block;font-size:11.5pt;font-weight:900;line-height:1.05;white-space:nowrap}.tf .nb span{display:block;font-size:6pt;font-weight:700;color:var(--mut);line-height:1.25;margin-top:.8mm}`;
- const FOLD_OBJ=3;
+ const FOLD_OBJ=3,FOLD_PH=3;
+ // макеты разворота внутри евробуклета (инженер 24.11.2026 «в буклете выбор нескольких фото и макетов сделай»):
+ // 0 — одно фото на весь разворот с подписями, 1 — цифры, услуги, объекты, 2 — три объекта по полосе с фото,
+ // 3 — фотоколлаж из фото отмеченных объектов. У каждого из первых трёх объектов до 3 фото, первое — главное.
+ const FOLD_LAYOUTS=["Фото с подписями","Цифры, услуги, объекты","Три объекта","Фотоколлаж"];
+ // коллаж: число фото → [столбцов, рядов, крупное 2×2]
+ const COLLAGE={1:[1,1,0],2:[2,1,0],3:[3,1,0],4:[2,2,0],5:[4,2,1],6:[3,2,0],7:[5,2,1],8:[4,2,0],9:[4,3,1]};
+ function foldSketch(k){const r=(x,y,w,h,c="#cfd5db")=>`<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="1" fill="${c}"/>`,O="#f5a700",fm=`<line x1="20" y1="2" x2="20" y2="40" stroke="#fff" stroke-dasharray="2 2"/><line x1="40" y1="2" x2="40" y2="40" stroke="#fff" stroke-dasharray="2 2"/>`;
+  const b=[r(1,1,58,40,"#7d8790")+`<line x1="12" y1="14" x2="22" y2="20" stroke="${O}"/><line x1="44" y1="10" x2="36" y2="22" stroke="${O}"/>`+r(4,12,8,2,"#fff")+r(44,8,10,2,"#fff"),
+   r(1,1,19,40,"#fff")+r(4,6,13,3,O)+r(4,12,13,2)+r(4,16,13,2)+r(4,20,13,2)+r(20,1,20,40,O)+r(40,1,19,40,"#fff")+r(43,5,13,9)+r(43,17,13,9)+r(43,29,13,9),
+   r(1,1,19,40,"#fff")+r(3,4,15,20)+r(3,25,7,6)+r(11,25,7,6)+r(3,33,12,2,O)+r(20,1,20,40,"#f6f3ec")+r(22,4,16,20)+r(22,25,8,6)+r(31,25,7,6)+r(22,33,12,2,O)+r(40,1,19,40,"#fff")+r(42,4,15,20)+r(42,25,7,6)+r(50,25,7,6)+r(42,33,12,2,O),
+   r(1,1,58,40,"#1d2228")+r(2,2,28,25)+r(31,2,13,12)+r(45,2,13,12)+r(31,15,13,12)+r(45,15,13,12)+r(2,28,13,12)+r(16,28,14,12)+r(31,28,13,12)+r(45,28,13,12)];
+  return skSvg((b[Number(k)||0]||b[0])+fm)}
  function foldMap(objects){const all=geoGroups(objects),f=v=>v.toFixed(1),[ox,oy]=gxy(50.06,72.96);
   return`<svg viewBox="0 0 1000 546"><path class="kz" d="${KZ_PATH}"/>${all.map(g=>{const [x,y]=gxy(g.lat,g.lon),r=Math.min(30,16+g.list.length*2.5);return`<circle class="dt" cx="${f(x)}" cy="${f(y)}" r="${r}"/><text class="dn" x="${f(x)}" y="${f(y)}">${g.list.length}</text>`}).join("")}<circle class="of" cx="${f(ox)}" cy="${f(oy)}" r="9"/></svg>`}
  // разворот «фото с подписями» (инженер 24.11.2026 прислал образец — внутри одно фото на весь разворот, подписи с линиями
@@ -622,8 +642,9 @@ ${(()=>{const pages=[["О компании",aboutPage(list,co,logo)],...(service
   const row=pts.length?"":`<div class="row">${(sp.labels||SPREAD_LABELS()).map(t=>`<div class="lb up">${esc(t)}</div>`).join("")}</div>`;
   const cap=sp.cap&&sp.cap.name?`<div class="cap"><small class="up">На фото</small><b>${esc(sp.cap.name)}</b>${sp.cap.place?`<span>${esc(sp.cap.place)}</span>`:""}</div>`:"";
   return`<section class="tf sp">${ph}<div class="sh"></div><svg class="ld" viewBox="0 0 297 210">${svg}</svg>${lbs}${row}${cap}`}
- function foldBuild(objects,{logo="",company={},screen=false,spread=null}={}){
-  const spOn=!!(spread&&spread.src);
+ function foldBuild(objects,{logo="",company={},screen=false,spread=null,inside}={}){
+  let IN=inside===undefined?(spread&&spread.src?0:1):Number(inside)||0;if(IN===0&&!(spread&&spread.src))IN=1;
+  const spOn=IN!==1;
   const co={...COMPANY,...company},list=Array.isArray(objects)?objects:[],lg=logo?`<img src="${esc(logo)}" alt="">`:`<b>${esc(co.name)}</b>`;
   const mk=xs=>xs.map(x=>`<i class="mk t" style="left:${x}mm"></i><i class="mk b" style="left:${x}mm"></i>`).join("");
   // обложка — фото с лучшим разрешением для полосы 100×210 мм; мало точек — целиком, вокруг размыто (как softMain)
@@ -637,15 +658,22 @@ ${(()=>{const pages=[["О компании",aboutPage(list,co,logo)],...(service
    <div class="kk up">Контакты</div><div class="ct">${co.phones.map(([t,v])=>`<div><small class="up">${esc(t)}</small><b>${esc(v)}</b></div>`).join("")}<div><small class="up">Почта</small><b>${esc(co.contactMail||co.mail)}</b></div><div><small class="up">Сайт</small><b>${esc(co.site)}</b></div></div>
    <div class="rq"><b>${esc(co.full)}</b><br>БИН ${esc(co.bin)}<br>${esc(co.address)}<br>${co.bank.map(esc).join("<br>")}<br>Директор — ${esc(co.head)}</div></div>
   <div class="pn cv">${cover}<div class="cut"></div><div class="lg">${lg}</div><div class="tt"><h1>${esc(co.title)}</h1>${(co.pledges||[])[0]?`<p class="up">${esc(co.pledges[0][1])}</p>`:""}</div></div>${mk([97,197])}</section>
-${spOn?spreadHtml(spread)+mk([100,200])+"</section>":`<section class="tf"><div class="pn nm"><div class="kk up">В цифрах</div><h2>Что мы уже сделали</h2><div class="tot">${tot.slice(0,8).map(([b,t])=>`<div><b>${esc(b)}</b><span>${esc(t)}</span></div>`).join("")}</div>
+${IN===0?spreadHtml(spread)+mk([100,200])+"</section>":IN===2?foldThree(shown)+mk([99,198])+"</section>":IN===3?foldCollage(shown)+mk([100,200])+"</section>":`<section class="tf"><div class="pn nm"><div class="kk up">В цифрах</div><h2>Что мы уже сделали</h2><div class="tot">${tot.slice(0,8).map(([b,t])=>`<div><b>${esc(b)}</b><span>${esc(t)}</span></div>`).join("")}</div>
    ${cl.length?`<div class="cl"><div class="kk up">Нам доверяют</div>${cl.slice(0,8).map(t=>`<div>${esc(t)}</div>`).join("")}${cl.length>8?`<div>и ещё ${cl.length-8}</div>`:""}</div>`:""}</div>
   <div class="pn sv"><div class="kk up">Услуги</div><h2>Что мы делаем</h2>${sv.map(([t,d],i)=>`<div class="it"><i>${String(i+1).padStart(2,"0")}</i><b>${esc(t)}</b><p>${esc(d)}</p></div>`).join("")}</div>
   <div class="pn ob"><div class="kk up">Объекты</div><h2>Наши объекты</h2>${shown.map(o=>{const ws=worksOf(o).slice(0,2),place=String(o.address||"").trim();
-    return`<div class="oc"><div class="op"${bg((o.pictures||[])[0])}>${o.years?`<span>${esc(o.years)}</span>`:""}</div><b>${esc(o.name||"Объект")}</b>${place?`<small>${esc(place)}</small>`:""}<div class="ov">${ws.map(w=>`<em>${esc(fmt(num(w.volume)))}<s>${esc(unitOf(w.unit))}</s></em>`).join("")}</div></div>`}).join("")}
+    const ps=(o.pictures||[]).slice(0,FOLD_PH),op=`<div class="op"${bg(ps[0])}>${o.years?`<span>${esc(o.years)}</span>`:""}</div>`;
+    return`<div class="oc">${ps.length>1?`<div class="og n${ps.length}">${op}${ps.slice(1).map(p=>`<i${bg(p)}></i>`).join("")}</div>`:op}<b>${esc(o.name||"Объект")}</b>${place?`<small>${esc(place)}</small>`:""}<div class="ov">${ws.map(w=>`<em>${esc(fmt(num(w.volume)))}<s>${esc(unitOf(w.unit))}</s></em>`).join("")}</div></div>`}).join("")}
    ${list.length>shown.length?`<div class="om">и ещё ${list.length-shown.length} ${objWord(list.length-shown.length)} — на сайте ${esc(co.site)}</div>`:""}</div>${mk([100,200])}</section>`}`;
   return`<!doctype html><html lang="ru"><head><meta charset="utf-8"><title>Буклет ${esc(co.name)}</title>
 <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800;900&display=swap" rel="stylesheet"><style>${CSS}${FOLD_CSS}${screen?SCREEN.replace(/\.page\{/g,".tf{")+".tf{margin:0 auto 10mm}":""}</style></head><body>
-${screen?`<div class="pvn">Снаружи · клапан | задняя сторона | обложка</div>`:""}${screen?out.replace(/<\/section>(\s*)<section class="tf/,`</section><div class="pvn">Внутри · ${spOn?"фото на весь разворот с подписями":"цифры | услуги | объекты"}</div><section class="tf`):out}</body></html>`}
+${screen?`<div class="pvn">Снаружи · клапан | задняя сторона | обложка</div>`:""}${screen?out.replace(/<\/section>(\s*)<section class="tf/,`</section><div class="pvn">Внутри · ${["фото на весь разворот с подписями","цифры | услуги | объекты","три объекта","фотоколлаж"][IN]}</div><section class="tf`):out}</body></html>`}
+ function foldThree(list){return`<section class="tf">${list.slice(0,3).map((o,k)=>{const ps=(o.pictures||[]).slice(0,FOLD_PH),place=String(o.address||"").trim(),ws=worksOf(o).slice(0,4);
+   return`<div class="pn o3 k${k}"><div class="no">${String(k+1).padStart(2,"0")}</div><div class="m"${bg(ps[0])}>${o.years?`<span>${esc(o.years)}</span>`:""}</div>${ps.length>1?`<div class="s n${ps.length-1}">${ps.slice(1).map(p=>`<i${bg(p)}></i>`).join("")}</div>`:""}
+    <h3>${esc(o.name||"Объект")}</h3>${place?`<small>${esc(place)}</small>`:""}${o.customer?`<small>Заказчик — ${esc(o.customer)}</small>`:""}<div class="w">${ws.map(w=>`<div><span>${esc(w.name||"")}</span><b>${esc(fmt(num(w.volume)))} ${esc(unitOf(w.unit))}</b></div>`).join("")}</div></div>`}).join("")}`}
+ function foldCollage(list){const ps=[];list.slice(0,FOLD_OBJ).forEach(o=>(o.pictures||[]).slice(0,FOLD_PH).forEach((p,k)=>ps.push([p,k?"":o.name||""])));
+  const n=Math.min(9,ps.length);if(!n)return`<section class="tf co">`;const [c,r,big]=COLLAGE[n];
+  return`<section class="tf co"><div class="cg" style="grid-template-columns:repeat(${c},1fr);grid-template-rows:repeat(${r},1fr)">${ps.slice(0,n).map(([p,t],k)=>`<i class="${big&&!k?"big":""}"${bg(p)}>${t?`<span>${esc(t)}</span>`:""}</i>`).join("")}</div>`}
  // ---- в окне программы ----
  // Качество фото (инженер 20.11.2026 «почему такое плохое качество фото»): обложка объекта в программе хранится
  // вырезом 900×400 — на весь лист она расплывалась. Берётся её исходник (original_path, до 4000 точек — object-image-crop),
@@ -670,17 +698,17 @@ ${screen?`<div class="pvn">Снаружи · клапан | задняя сто�
  const pickDefault=o=>{const all=allFiles(o),saved=(o.booklet?.files||[]).filter(f=>all.includes(f));return{all,files:saved.length?saved:all.slice(0,7),layout:Number(o.booklet?.layout)||0,gallery:Number(o.booklet?.gallery)||0}};
  // data: объекты так, как их собирает окно «Сайт» (siteObjectData) — cover, cover_full, photos, hero; files — выбранные
  // фото (первое — главное), layout — номер макета (0 — авто)
- async function make(data,{onProgress,services=true,map=true,fold=false,spread=null}={}){
+ async function make(data,{onProgress,services=true,map=true,fold=false,spread=null,inside}={}){
   const profile=await root.irProject.company.get().catch(()=>({}));
   const logo=await small(await read(profile?.logo||""),1200);
   const objects=[];
   for(const [i,o] of data.entries()){
    onProgress?.(i,data.length,o.name);
-   const files=(o.files||pickDefault(o).files).slice(0,fold?(i<FOLD_OBJ?1:0):capOf(o)),pictures=[];
+   const files=(o.files||pickDefault(o).files).slice(0,fold?(i<FOLD_OBJ?FOLD_PH:0):capOf(o)),pictures=[];
    for(const f of files){const s=await read(f);if(s)pictures.push(await small(s,pictures.length?1400:2800))}
    objects.push({...o,pictures,ratios:await ratios(pictures),mainPx:await dims(pictures[0])})
   }
-  const opts={logo,company:profile?.name?{name:profile.name}:{},services,map};
+  const opts={logo,company:profile?.name?{name:profile.name}:{},services,map,inside};
   if(fold&&spread?.file){const s=await read(spread.file);if(s){const src=await small(s,3500);opts.spread={...spread,src,px:await dims(s)}}}
   if(!fold)await dropTooLong(objects,opts);
   const html=fold?foldBuild(objects,opts):build(objects,opts);
@@ -689,12 +717,12 @@ ${screen?`<div class="pvn">Снаружи · клапан | задняя сто�
  }
  // предпросмотр (инженер 20.11.2026 «сделать предпросмотр как каждая страница выглядеть будет»): те же листы, что уйдут
  // в PDF, с малыми фото (pic(f) — готовая маленькая картинка из окна), краткая характеристика — по той же проверке
- async function preview(data,{pic,services=true,map=true,fold=false,spread=null}={}){
+ async function preview(data,{pic,services=true,map=true,fold=false,spread=null,inside}={}){
   const profile=await root.irProject.company.get().catch(()=>({}));
   const logo=await small(await read(profile?.logo||""),600);
   const objects=[];
-  for(const [i,o] of data.entries()){const pictures=[];for(const f of (o.files||pickDefault(o).files).slice(0,fold?(i<FOLD_OBJ?1:0):capOf(o))){const s=(pic&&await pic(f))||await small(await read(f),900,.8);if(s)pictures.push(s)}const f0=(o.files||pickDefault(o).files)[0];objects.push({...o,pictures,ratios:await ratios(pictures),mainPx:await dims(await read(f0))})}
-  const opts={logo,company:profile?.name?{name:profile.name}:{},services,map};
+  for(const [i,o] of data.entries()){const pictures=[];for(const f of (o.files||pickDefault(o).files).slice(0,fold?(i<FOLD_OBJ?FOLD_PH:0):capOf(o))){const s=(pic&&await pic(f))||await small(await read(f),900,.8);if(s)pictures.push(s)}const f0=(o.files||pickDefault(o).files)[0];objects.push({...o,pictures,ratios:await ratios(pictures),mainPx:await dims(await read(f0))})}
+  const opts={logo,company:profile?.name?{name:profile.name}:{},services,map,inside};
   if(fold){if(spread?.file){const s=await read(spread.file);if(s)opts.spread={...spread,src:await small(s,1400,.82),px:await dims(s)}}return foldBuild(objects,{...opts,screen:true})}
   await dropTooLong(objects,opts);
   return build(objects,{...opts,screen:true})
@@ -729,6 +757,6 @@ ${screen?`<div class="pvn">Снаружи · клапан | задняя сто�
    if(!changed)return;
   }
  }
- const api={foldBuild,spreadHtml,SPREAD_LABELS,FOLD_OBJ,softMain,rowsOf,wkShown,wkRest,GALLERIES,galleryOf,layoutSketch,gallerySketch,MAX_PHOTOS,LAYOUT_MAX,capOf,clientList,mapPage,geoGroups,dropTooLong,build,make,preview,totals,doneOf,parties,COMPANY,LAYOUTS,layoutOf,thumb,read,pickDefault};
+ const api={FOLD_PH,FOLD_LAYOUTS,foldSketch,foldBuild,spreadHtml,SPREAD_LABELS,FOLD_OBJ,softMain,rowsOf,wkShown,wkRest,GALLERIES,galleryOf,layoutSketch,gallerySketch,MAX_PHOTOS,LAYOUT_MAX,capOf,clientList,mapPage,geoGroups,dropTooLong,build,make,preview,totals,doneOf,parties,COMPANY,LAYOUTS,layoutOf,thumb,read,pickDefault};
  if(typeof module!=="undefined"&&module.exports)module.exports=api;else root.irBooklet=api;
 })(typeof window!=="undefined"?window:globalThis);
