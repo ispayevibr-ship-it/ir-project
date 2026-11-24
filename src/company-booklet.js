@@ -106,7 +106,7 @@
 .gal .gs small{font-size:7pt;font-weight:800;letter-spacing:1.4px;color:var(--ord);margin-bottom:3mm}.gal .gt{font-size:8.6pt;line-height:1.55;color:#2c333b;overflow:hidden;min-height:0}.gal.gsm .gt{font-size:7.2pt;line-height:1.45}
 .gal .gt p,.gal .gt h5,.gal .gt ul,.gal .gt ol{margin:0 0 1.6mm}.gal .gt ul,.gal .gt ol{padding-left:4mm}.gal .gt h5{font-size:1.05em;font-weight:800}
 .gal.gl1,.gal.gl2{background:#eef1f4}.gal.gl3{background:#0d1013}.gal.gl3 .gh{background:#15191d}.gal.gl3 .gh b{color:#fff}.gal.gl3 .gg{gap:1.2mm}.gal.gl3 .gg div{border-radius:0}
-.gal.solo .gs{width:auto;right:6mm}.gal.solo .gt{column-count:2;column-gap:10mm}
+.gal .gg.bento div{position:relative;border-radius:2mm;box-shadow:0 .8mm 2.5mm rgba(0,0,0,.35)}.gal .gg.bento div:first-child{box-shadow:0 0 0 .9mm var(--or),0 1mm 4mm rgba(0,0,0,.4)}.gal .gg.bento div:first-child:after{content:"";position:absolute;left:0;right:0;bottom:0;height:40%;border-radius:0 0 2mm 2mm;background:linear-gradient(transparent,rgba(0,0,0,.55))}.gal .gg.bento .cnt{position:absolute;left:4mm;bottom:3.5mm;z-index:1;color:#fff;font-size:7pt;font-weight:800;letter-spacing:1px;text-transform:uppercase}.gal .gg.bento .cnt b{display:block;font-size:20pt;font-weight:900;line-height:1;color:var(--or);letter-spacing:0}.gal.solo .gs{width:auto;right:6mm}.gal.solo .gt{column-count:2;column-gap:10mm}
 .gal .n4{grid-template:1fr 1fr/1fr 1fr}.gal .n5{grid-template:1fr 1fr/1.5fr 1fr 1fr}.gal .n5 div:first-child{grid-row:span 2}.gal .n6{grid-template:1fr 1fr/1fr 1fr 1fr}
 .svcp:before{content:"";position:absolute;left:0;top:0;width:70mm;height:52mm;background:linear-gradient(135deg,var(--or2),var(--or));clip-path:polygon(0 0,100% 0,0 100%)}
 .svcp .sh{position:absolute;left:16mm;top:20mm;width:190mm}.svcp .sh .kick{font-size:7.5pt;font-weight:800;letter-spacing:1.4px;color:var(--ink);margin-bottom:2mm}
@@ -218,8 +218,8 @@
 .lay5 .ph{position:absolute;left:0;right:0;top:0;height:112mm;background:#3a4047 center 45%/cover no-repeat;clip-path:polygon(0 0,100% 0,100% 82%,0 100%)}
 .lay5 .ph:after{content:"";position:absolute;left:0;right:0;bottom:0;height:4mm;background:var(--or)}
 .lay5 .circles{left:auto;right:14mm;bottom:auto;top:78mm}.lay5 .c{width:28mm;height:28mm}.lay5 .c.big{width:34mm;height:34mm;margin-top:-6mm}
-.lay5 .lo{position:absolute;left:14mm;top:118mm;width:84mm;bottom:25mm;display:flex;flex-direction:column}.lay5 .lo .badges{margin-top:3mm;padding-top:0}.lay5 .lo .ring{width:22mm;height:22mm}.lay5 .lo .ring div{width:17.5mm;height:17.5mm}.lay5 .lo .doc{font-size:6pt}
-.lay5 .lo .ttl{font-size:18pt}.lay5 .lo .ttl.s{font-size:15pt}.lay5 .lo .ttl.xs{font-size:12.5pt}
+.lay5 .lo{position:absolute;left:14mm;top:118mm;width:84mm;bottom:25mm;display:flex;flex-direction:column}.lay5 .lo .badges{margin-top:2.5mm;padding-top:0;gap:4mm}.lay5 .lo .ring{width:19mm;height:19mm}.lay5 .lo .ring div{width:15mm;height:15mm}.lay5 .lo .ring b{font-size:11.5pt}.lay5 .lo .ring span{font-size:4.6pt;margin-top:.4mm}.lay5 .lo .doc em{width:9mm;height:9mm}.lay5 .lo .doc{font-size:6pt}
+.lay5 .lo .ttl{font-size:16pt}.lay5 .lo .ttl.s{font-size:13.5pt}.lay5 .lo .ttl.xs{font-size:11.5pt}.lay5 .lo .sub{margin-bottom:3mm}.lay5 .info .yr{margin-bottom:1.5mm}
 .lay5 .info{position:static;text-align:left;width:auto;margin-top:auto}.lay5 .info .yr{background:var(--or);margin-bottom:2mm}.lay5 .info p{font-size:8pt}.lay5 .contact{display:none}
 .lay5 .ro{position:absolute;left:108mm;right:14mm;top:118mm;bottom:23mm;display:flex}
 .lay5 .ro .wks{flex:1;display:block;column-count:2;column-gap:9mm;column-fill:balance}.lay5 .ro .wk{break-inside:avoid;page-break-inside:avoid}.lay5 .ro .wk{padding:2.4mm 0}.lay5 .ro .vol i{font-size:13pt}.lay5 .ro .wk b{font-size:7.4pt}
@@ -364,12 +364,12 @@
  // одним листом, без листа фото. Индекс 0 — «Авто»: выбирается только макет, в который входят все выбранные фото.
  // 7 «Альбом» — лист как «Классика» и до 8 фото листом фото, всего 12; 8 «Фотоотчёт» — лист как «Мозаика» и до 12 фото
  // листом фото, всего 16 (инженер 24.11.2026 «макеты добавь где есть хотя бы 12 фотографий»)
- const LAYOUT_MAX=[16,7,7,4,10,8,4,12,16];
+ const LAYOUT_MAX=[16,16,16,16,16,16,16,16,16];
  const capOf=o=>LAYOUT_MAX[Number(o?.layout)||0]||LAYOUT_MAX[0];
  const layoutOf=(o,i)=>{const n=Number(o.layout);if(n>=1&&n<=LAYOUTS.length)return n;const pics=(o.pictures||[]).length;if(!pics)return 1;
   const seq=(pics>=3?[1,3,5,2,4,6]:[1,3,5,2,6]).filter(l=>LAYOUT_MAX[l]>=pics);return seq.length?seq[i%seq.length]:pics<=12?7:8};
  function textCol(o,max,co){const name=String(o.name||"Объект"),ws=worksOf(o),p=doneOf(o);
-  return`<h1 class="ttl up${titleCls(name)}">${esc(name)}</h1>${o.customer?`<div class="sub up">${esc(o.customer)}</div>`:""}
+  return`<h1 class="ttl up${titleCls(name)}">${esc(name)}</h1>
   <div class="wks">${wkRows(ws.slice(0,Math.min(max,o.wkMax||max)))}</div>${o.summary&&!o.sumMoved?`<div class="sum">${sumHtml(o.summary)}</div>`:""}
   ${statsOf(o,co)}<div class="badges">${ringOf(p)}${docOf()}</div>`}
  function placeOf(o,co){const place=String(o.address||"").trim();
@@ -391,13 +391,13 @@
    <div class="strip"><div><small class="up">Генеральный подрядчик</small><b>${esc(o.general_contractor||"—")}</b></div><div><small class="up">Заказчик</small><b>${esc(o.customer||"—")}</b></div><div class="doc up"><em>${CHECK}</em>Полный пакет исполнительной документации</div></div></section>`}
   if(lay===5){const name=String(o.name||"Объект"),ws=worksOf(o).slice(0,12),p=doneOf(o);
    return`<section class="page lay5"><div class="ph"${bg(main)}></div>${logoOf(co,logo)}${circlesOf(rest)}
-   <div class="lo"><h1 class="ttl up${titleCls(name)}">${esc(name)}</h1>${o.customer?`<div class="sub up">${esc(o.customer)}</div>`:""}
+   <div class="lo"><h1 class="ttl up${titleCls(name)}">${esc(name)}</h1>
    <div class="info">${placeOf(o,co)}</div><div class="badges">${ringOf(p)}${docOf()}</div></div>
    <div class="ro"><div class="wks">${wkRows(ws.slice(0,o.wkMax||ws.length))}</div></div>${footOf(o," f5")}</section>`}
   if(lay===6){const name=String(o.name||"Объект"),p=doneOf(o);
    return`<section class="page lay6"><div class="fr${rest.length?"":" full"}"><div class="ph"${bg(main)}></div></div>
    ${rest.length?`<div class="row">${rest.slice(0,3).map(s=>`<div${bg(s)}></div>`).join("")}</div>`:""}
-   <div class="tx">${logoOf(co,logo," l6")}<h1 class="ttl up${titleCls(name)}">${esc(name)}</h1>${o.customer?`<div class="sub up">${esc(o.customer)}</div>`:""}
+   <div class="tx">${logoOf(co,logo," l6")}<h1 class="ttl up${titleCls(name)}">${esc(name)}</h1>
    <div class="wks">${wkRows(worksOf(o).slice(0,Math.min(8,o.wkMax||8)))}</div><div class="badges">${ringOf(p)}<div class="meta">${yearOf(o)}<p>${esc(o.address||"")}</p></div></div>
    <div class="gp"><small class="up">Генподрядчик</small>${esc(o.general_contractor||"—")}<small class="up">Заказчик</small>${esc(o.customer||"—")}</div></div></section>`}
   if(lay===4){const n=Math.min(4,pics.length);
@@ -419,7 +419,11 @@
  const galleryOf=o=>{const n=Number(o?.gallery);return n>=1&&n<=GALLERIES.length?n:0};
  // раскладка без пустых ячеек: число столбцов по форме ячейки ближе к 4:3, лишние ячейки — первые фото на два столбца
  function galFit(m,w,h){let best=null;for(let k=1;k<=m;k++){const r=Math.ceil(m/k),e=k*r-m;if(e>=r)continue;const s=e*.3+Math.abs(Math.log((w/k)/(h/r)/1.33));if(!best||s<best.s)best={c:k,r,e,s}}return best}
- function galGrid(gv,n,narrow){if(!gv||n<2)return null;const W=narrow?187:285,H=176;
+ // «Авто» — мозаика: первое фото крупно 2×2, следующие — широкие 2×1 и обычные, ячейки без пустых (инженер 24.11.2026
+ // «сделай тут фотографий 12», «красиво оформи, не просто тупо фото»)
+ function bento(n,narrow){if(n<3)return null;const c=narrow?4:6,r=Math.max(2,Math.ceil((n+3)/c));let w=c*r-n-3;if(w>n-1)return null;
+  return{st:`grid-template:repeat(${r},1fr)/repeat(${c},1fr);grid-auto-flow:dense`,big:true,cell:i=>i===0?"grid-column:span 2;grid-row:span 2":i<=w?"grid-column:span 2;grid-row:auto":"grid-column:auto;grid-row:auto"}}
+ function galGrid(gv,n,narrow){if(!gv)return bento(n,narrow);if(n<2)return null;const W=narrow?187:285,H=176;
   if(gv===2){const f=galFit(n-1,W*.5,H);return{st:`grid-template:repeat(${f.r},1fr)/${(f.c*1.25).toFixed(2)}fr repeat(${f.c},1fr)`,cell:i=>i===0?"grid-row:1/-1;grid-column:1":i<=f.e?"grid-row:auto;grid-column:span 2":"grid-row:auto;grid-column:auto"}}
   const f=galFit(n,W,H);return{st:`grid-template:repeat(${f.r},1fr)/repeat(${f.c},1fr)`,cell:i=>i<f.e?"grid-row:auto;grid-column:span 2":"grid-row:auto;grid-column:auto"}}
  // схемы макетов для окна «Буклет» (инженер 24.11.2026 «какое-нибудь превью или схему при выборе макета»): лист
@@ -458,7 +462,7 @@
   return`<section class="page gal${gv?" gl"+gv:""}${sm?" wsum":""}${sm&&!ps.length?" solo":""}${o.galSmall?" gsm":""}"><div class="gh"><div class="t"><small class="up">Фото с объекта</small><b>${esc(o.name||"Объект")}</b></div>
   <div class="lg">${logo?`<img src="${esc(logo)}" alt="">`:`<b>${esc(co.name)}</b>`}</div></div>
   ${sm?`<div class="gs"><small class="up">Краткая характеристика</small><div class="gt">${sumHtml(o.summary)}</div></div>`:""}
-  ${ps.length?`<div class="gg n${gn}"${gst?` style="${gst.st}"`:""}>${ps.slice(0,12).map((s,k)=>gst?`<div style="${gst.cell(k)}${s?`;background-image:url('${String(s).replace(/'/g,"%27")}')`:""}"></div>`:`<div${bg(s)}></div>`).join("")}</div>`:""}</section>`}
+  ${ps.length?`<div class="gg n${gn}${gst?.big?" bento":""}"${gst?` style="${gst.st}"`:""}>${ps.slice(0,12).map((s,k)=>gst?`<div style="${gst.cell(k)}${s?`;background-image:url('${String(s).replace(/'/g,"%27")}')`:""}">${gst.big&&k===0?`<span class="cnt"><b>${gn}</b> фото</span>`:""}</div>`:`<div${bg(s)}></div>`).join("")}</div>`:""}</section>`}
  // objects: [{name, customer, general_contractor, address, status, years, summary, works:[{name,unit,volume,plan}], pictures:[src…]}]
  function build(objects,{logo="",company={},services=true,map=true,screen=false}={}){
   const d=new Date(),co={date:String(d.getDate()).padStart(2,"0")+"."+String(d.getMonth()+1).padStart(2,"0")+"."+d.getFullYear(),...COMPANY,...company},list=(Array.isArray(objects)?objects:[]).map((o,i)=>{const m=LAYOUT_MAX[layoutOf(o,i)];return(o.pictures||[]).length>m?{...o,pictures:o.pictures.slice(0,m)}:o});
