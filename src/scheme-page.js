@@ -155,7 +155,7 @@ window.irSchemePage=async function(objectId,opts){
  // «Выбрать»), справа карточка выбранного, внизу виды и разделы КМ/АР — панель 3D. Инструмент нажимает кнопку режима
  // в карточке выбранного (как меню правой кнопки), без выбранного — недоступен.
  const editInfo3d=()=>{try{return window.irThreeSchemeView?.editInfo?.()||{n:0,undo:0,redo:0,at:0}}catch(e){return{n:0,undo:0,redo:0,at:0}}};
- const EDIT_TOOLS=[["select","Выбрать (Esc)","↖"],["add","Добавить элемент","＋"],["-"],["move","Двигать","✥",["[data-edit-move]","[data-trim-mode='whole']"]],["shift","Сдвинуть на мм (Ctrl+щелчок — добавить элемент к выбору)","⇲"],["copy","Копировать / массив (Ctrl+C, Ctrl+V)","⎘"],["pull","Тянуть край","⇥",["[data-edit-pull]"]],["line","Срезать по линии","✂",["[data-trim-line]","[data-panel-mode='line']"]],["rect","Вырез прямоугольником","▭",["[data-panel-mode='rect']"]],["mitre","Сделать угол","◿",["[data-trim-corner]"]],["over","Этот поверх","⧉",["[data-trim-over]"]],["-"],["back","Показать позади","⤓",["[data-order-step='-1']"]],["front","Показать поверх","⤒",["[data-order-step='1']"]],["-"],["hide","Убрать кусок","⌫",["[data-trim-hide]"]],["delete","Удалить элемент","🗑",["[data-scheme-delete]"]]];
+ const EDIT_TOOLS=[["select","Выбрать (Esc)","↖"],["add","Добавить элемент","＋"],["-"],["move","Двигать","✥",["[data-edit-move]","[data-trim-mode='whole']"]],["shift","Сдвинуть на мм (Ctrl+щелчок — добавить элемент к выбору)","⇲"],["copy","Копировать / массив (Ctrl+C, Ctrl+V)","⎘"],["turn","Повернуть / зеркало","⟲"],["pull","Тянуть край","⇥",["[data-edit-pull]"]],["line","Срезать по линии","✂",["[data-trim-line]","[data-panel-mode='line']"]],["rect","Вырез прямоугольником","▭",["[data-panel-mode='rect']"]],["mitre","Сделать угол","◿",["[data-trim-corner]"]],["over","Этот поверх","⧉",["[data-trim-over]"]],["-"],["back","Показать позади","⤓",["[data-order-step='-1']"]],["front","Показать поверх","⤒",["[data-order-step='1']"]],["-"],["hide","Убрать кусок","⌫",["[data-trim-hide]"]],["delete","Удалить элемент","🗑",["[data-scheme-delete]"]]];
  // Журнал правок схемы (инженер 20.11.2026 «сделай журнал и возможность возврата»): каждая правка мышью или в карточке —
  // когда, кто, что; «Вернуть» — эта правка, «Вернуть к этому» — все правки после неё. Возврат тоже идёт через режим
  // редактирования: пишется по «Сохранить», модель не перестраивается целиком
@@ -185,7 +185,7 @@ window.irSchemePage=async function(objectId,opts){
  let copyBuf=[];const COPY_MAX=60,NO_COPY=new Set(["floor","building"]);
  const COPY_X=["absolute_x_mm","absolute_x2_mm","absolute_mid_x_mm","offset_x_mm","end_offset_x_mm","mid_offset_x_mm"],COPY_Y=["absolute_y_mm","absolute_y2_mm","absolute_mid_y_mm","offset_y_mm","end_offset_y_mm","mid_offset_y_mm"],COPY_Z=["z0_mm","z1_mm","end_z_mm","mid_z_mm"];
  function movedOf(id){const m={dx:0,dy:0,dz:0};for(const r of trimFixRows()){const f=r.data;if(String(f.member_id||"")!==String(id)||f.action!=="move")continue;const c=storedSchemeElement(id);if((c?.fitting_type==="trim"||c?.fitting_type==="panel")&&!f.whole)continue;m.dx+=num(f.dx);m.dy+=num(f.dy);m.dz+=num(f.dz)}return m}
- function copyOne(r,dx,dy,dz,used){const d=clone(r.data||{}),mv=movedOf(r.id);
+ function copyOne(r,dx,dy,dz,used,raw){const d=clone(r.data||{}),mv=raw?{dx:0,dy:0,dz:0}:movedOf(r.id);
   const sh=(keys,v)=>{for(const k of keys)if(d[k]!==undefined&&d[k]!==null&&d[k]!==""&&Number.isFinite(Number(d[k])))d[k]=Math.round(Number(d[k])+v)};
   sh(COPY_X,dx+mv.dx);sh(COPY_Y,dy+mv.dy);sh(COPY_Z,dz+mv.dz);
   for(const k of ["start_anchor_member_id","end_anchor_member_id","mid_anchor_member_id","engineer_edited","legs_fixed"])delete d[k];
@@ -205,6 +205,45 @@ window.irSchemePage=async function(objectId,opts){
   document.body.appendChild(dlg);dlg.addEventListener("close",async()=>{const f=dlg.querySelector("form");const go=dlg.returnValue==="go"&&f;const v=go?[f.n.value,f.dx.value,f.dy.value,f.dz.value]:null;dlg.remove();restoreKeyboardAfterConfirm();
    if(v){const made=await copyMembers(ids,...v);if(!made&&!(num(v[1])||num(v[2])||num(v[3])))alert("Укажите шаг — копия на том же месте прошла бы сквозь элемент.")}});
   dlg.showModal();dlg.querySelector("input[name=dx]")?.select()}
+ // Повернуть и зеркало (инженер 24.11.2026, инструменты редактора: «зеркало / поворот»): выбранные элементы — поворот
+ // на угол в плане вокруг вертикали через середину выбора или зеркало по X / по Y через неё; на месте — правка точек
+ // каждой записи (перенос правкой «Сдвинуть» остаётся переносом: p' = T(p+сдвиг) − сдвиг), копией — новые записи, как
+ // «Копировать»; полки фасонных и поворот колонны — с элементом; одна правка — ↶ возвращает всё; до «Сохранить» ничего
+ // не пишется; схема не строится заново — элементы строятся на месте (changedOnly / addLocal)
+ const TURN_PTS=[["absolute_x_mm","absolute_y_mm","offset_x_mm","offset_y_mm"],["absolute_x2_mm","absolute_y2_mm","end_offset_x_mm","end_offset_y_mm"],["absolute_mid_x_mm","absolute_mid_y_mm","mid_offset_x_mm","mid_offset_y_mm"]];
+ const finiteOf=v=>v!==undefined&&v!==null&&v!==""&&Number.isFinite(Number(v));
+ function turnCentre(src){let x0=Infinity,x1=-Infinity,y0=Infinity,y1=-Infinity;for(const r of src){const d=r.data||{},mv=movedOf(r.id);
+   for(const[kx,ky]of TURN_PTS)if(finiteOf(d[kx])&&finiteOf(d[ky])){const x=Number(d[kx])+mv.dx,y=Number(d[ky])+mv.dy;x0=Math.min(x0,x);x1=Math.max(x1,x);y0=Math.min(y0,y);y1=Math.max(y1,y)}}
+  return Number.isFinite(x0)?{x:(x0+x1)/2,y:(y0+y1)/2}:null}
+ function turnMap(kind,deg,cen){const a=num(deg)*Math.PI/180,c=Math.cos(a),s=Math.sin(a);
+  if(kind==="mx")return{p:(x,y)=>[2*cen.x-x,y],v:(x,y)=>[-x,y],r:r=>-r};if(kind==="my")return{p:(x,y)=>[x,2*cen.y-y],v:(x,y)=>[x,-y],r:r=>-r};
+  return{p:(x,y)=>[cen.x+(x-cen.x)*c-(y-cen.y)*s,cen.y+(x-cen.x)*s+(y-cen.y)*c],v:(x,y)=>[x*c-y*s,x*s+y*c],r:r=>r+num(deg)}}
+ function turnData(r,T,copy){const d=clone(r.data||{}),mv=movedOf(r.id),k4=v=>Math.round(v*1e4)/1e4;
+  for(const[kx,ky,ox,oy]of TURN_PTS){if(!finiteOf(d[kx])||!finiteOf(d[ky]))continue;const x=Number(d[kx]),y=Number(d[ky]),q=T.p(x+mv.dx,y+mv.dy),nx=Math.round(q[0]-(copy?0:mv.dx)),ny=Math.round(q[1]-(copy?0:mv.dy));
+   if(finiteOf(d[ox]))d[ox]=Math.round(Number(d[ox])+nx-x);if(finiteOf(d[oy]))d[oy]=Math.round(Number(d[oy])+ny-y);d[kx]=nx;d[ky]=ny}
+  if(copy&&mv.dz)for(const k of COPY_Z)if(finiteOf(d[k]))d[k]=Math.round(Number(d[k])+mv.dz);
+  if(d.layout&&typeof d.layout==="object"&&Array.isArray(d.layout.legs)){d.layout={...d.layout};d.layout.legs=d.layout.legs.map(l=>Array.isArray(l)&&l.length>=4?(q=>[k4(q[0]),k4(q[1]),...l.slice(2)])(T.v(num(l[0]),num(l[1]))):l)}
+  if(finiteOf(d.rotation_deg)||(d.geometry_type==="column"&&!d.fitting_type)){const n=((T.r(num(d.rotation_deg))%360)+540)%360-180;d.rotation_deg=Math.round(n*100)/100}
+  delete d.engineer_confirmed;d.engineer_edited=true;return d}
+ async function turnMembers(ids,kind,deg,copy){if(!editStage||!canEdit())return 0;if(kind==="rot"&&!(num(deg)%360))return 0;
+  const src=ids.map(id=>arr(rows).find(r=>sameId(r.id,id))).filter(r=>r&&(r.record_type==="scheme_column"||r.data?.entity_type==="column")&&!NO_COPY.has(String(r.data?.fitting_type||"")));
+  if(!src.length)return 0;if(src.length>COPY_MAX){alert("За один раз — не больше "+COPY_MAX+" элементов: выбрано "+src.length+".");return 0}
+  // (обрезка, вырез, конец, протянутый мышью, стоят на своём месте схемы: элемент с ними на месте не поворачивается — копией
+  // можно, копия без них)
+  if(!copy){const cut=src.filter(r=>trimFixRows().some(f=>String(f.data.member_id||"")===String(r.id)&&!["move","hide","confirmed"].includes(String(f.data.action||""))));
+   if(cut.length){alert("У "+cut.length+" из "+src.length+" выбранных элементов есть обрезка или вырез — на месте они не поворачиваются. Поставьте галочку «копией» или уберите обрезку через «🕘 Журнал правок».");return 0}}
+  const cen=turnCentre(src);if(!cen)return 0;const T=turnMap(kind,deg,cen),g="turn"+Date.now(),at0=editStage.ops.length,made=[];
+  const used=new Set(allRecords().map(r=>String(r.position||r.title||"")));
+  for(const r of src){if(copy){const c=copyOne({id:r.id,data:turnData(r,T,true)},0,0,0,used,true);
+    const rec=await schemeApi.create(c);made.push(rec.id);journalAuto(rec.id,"placed",{copied_from:String(r.id)})}
+   else{await schemeApi.update(r.id,{record_type:r.record_type||"scheme_column",parent_id:r.parent_id,title:r.title,data:turnData(r,T,false)});made.push(r.id)}}
+  editStage.ops.slice(at0).forEach(o=>{o.g=g});rows=clone(editStage.rows);if(made.length)selectedId=String(made.at(-1));paintEditState();if(selectedId)renderDetails();refreshAfterMemberChange();return made.length}
+ function openTurn(){const V=window.irThreeSchemeView;document.getElementById("schemeTurn")?.remove();const ids=V?.selection?.()||[];
+  const dlg=document.createElement("dialog");dlg.id="schemeTurn";dlg.className="scheme-shift";
+  dlg.innerHTML=`<form method="dialog"><header><b>Повернуть / зеркало</b><button value="close" aria-label="Закрыть">✕</button></header>${ids.length?`<p>Элементов: ${ids.length}. Вокруг середины выбранного, в плане.</p><div class="scheme-shift-row"><label>Поворот, ° <input type="number" step="1" name="deg" value="90"></label></div><div class="scheme-shift-row"><label><input type="checkbox" name="copy"> копией, исходные на месте</label></div><footer><button type="submit" value="rot" class="ok">⟲ Повернуть</button><button type="submit" value="mx" title="Отразить слева направо">⇆ Зеркало по X</button><button type="submit" value="my" title="Отразить спереди назад">⇅ Зеркало по Y</button></footer>`:`<p>Сначала выберите элемент щелчком, ещё — Ctrl+щелчок.</p>`}</form>`;
+  document.body.appendChild(dlg);dlg.addEventListener("close",async()=>{const f=dlg.querySelector("form"),k=dlg.returnValue;const v=f&&["rot","mx","my"].includes(k)?[k,f.deg.value,f.copy.checked]:null;dlg.remove();restoreKeyboardAfterConfirm();
+   if(v)await turnMembers(ids,...v)});
+  dlg.showModal();dlg.querySelector("input[name=deg]")?.select()}
  function editTopHtml(){return`<div class="scheme-edit-top" role="toolbar" aria-label="Режим редактирования"><b>✎ Редактирование</b><small id="schemeEditWord">Правок нет</small><button type="button" id="schemeEditUndo" title="Отменить последнюю правку (Ctrl+Z)" disabled>↶ Отменить</button><button type="button" id="schemeEditRedo" title="Повторить (Ctrl+Y)" disabled>↷ Повторить</button><button type="button" id="schemeEditLog" title="Все правки схемы: когда, кто, что — и возврат">🕘 Журнал правок</button><span class="scheme-edit-gap"></span><button type="button" class="ok" id="schemeEditSave" disabled>Сохранить</button><button type="button" id="schemeEditCancel">Выйти без сохранения</button></div>`}
  function editToolsHtml(){return`<nav class="scheme-edit-tools" aria-label="Инструменты">${EDIT_TOOLS.map(t=>t[0]==="-"?"<hr>":`<button type="button" data-edit-tool="${t[0]}" title="${esc(t[1])}" aria-label="${esc(t[1])}">${t[2]}</button>`).join("")}</nav>`}
  const toolBtn=t=>{const box=document.getElementById("schemeDetails");if(!box||!t[3])return null;for(const q of t[3]){const b=box.querySelector(q);if(b&&!b.disabled)return b}return null};
@@ -214,7 +253,7 @@ window.irSchemePage=async function(objectId,opts){
  function editTool(id){const V=window.irThreeSchemeView,t=EDIT_TOOLS.find(x=>x[0]===id);if(!t)return;
   if(id==="select"){try{V?.editStart?.("select")}catch(e){}paintTools();return}
   if(id==="add"){if(V?.startPlacement)V.startPlacement();else openEditor();return}
-  if(id==="shift"){openShift();return}if(id==="copy"){openCopy(false);return}
+  if(id==="shift"){openShift();return}if(id==="copy"){openCopy(false);return}if(id==="turn"){openTurn();return}
   toolBtn(t)?.click();setTimeout(paintTools,60)}
  // (↶ — последняя правка: мышью в 3D — шагом 3D, на месте; добавление, удаление, правка в окне — список схемы назад)
  const applyOp=(rs,o)=>o.op==="create"?[{...clone(o.p),id:o.id},...rs]:o.op==="update"?rs.map(r=>sameId(r.id,o.id)?{...r,...clone(o.p),id:r.id}:r):rs.filter(r=>!sameId(r.id,o.id));

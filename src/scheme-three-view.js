@@ -16425,7 +16425,7 @@ X.all.forEach(function(f){var u=f.o.userData||{},c=dataById.get(f.id);if(f.o===o
   // stands; the whole scheme is built again only by a placement from the drawings or a pack of schemes — the engineer
   // 20.11.2026 «сделай на все виды изменений добавлений», «как меня это задолбало»)
   function changedOnly(old,now){if(!old||!Array.isArray(now)||now.length!==old.size)return null;looseN=[];var out=[];
-   for(var i=0;i<now.length;i++){var n=now[i],w=n&&n.id!=null&&old.get(String(n.id));if(!w)return null;if(sameLoose(w,n))continue;if(isPorchPart(n))return null;out.push(n);if(out.length>30)return null}
+   for(var i=0;i<now.length;i++){var n=now[i],w=n&&n.id!=null&&old.get(String(n.id));if(!w)return null;if(sameLoose(w,n))continue;if(isPorchPart(n))return null;out.push(n);if(out.length>60)return null}
    return out.length?{out:out,loose:looseN.slice()}:null}
   function restyle(list){list.forEach(function(n){var id=String(n.id),c=dataById.get(id);if(!c)return;var nc=Object.assign({},c);LOOSE.forEach(function(k){if(n[k]===undefined)delete nc[k];else nc[k]=n[k]});dataById.set(id,nc);
     (meshesById.get(id)||[]).forEach(function(m){var u=m.userData||{};if(!m.isMesh||u.fixed||u.edges||u.seam)return;m.material=u.roof?roofMaterial(nc):u.shell?shellMaterial(nc):baseMaterial(nc)})})}
