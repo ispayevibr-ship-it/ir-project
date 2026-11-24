@@ -106,6 +106,7 @@
 .gal .gs small{font-size:7pt;font-weight:800;letter-spacing:1.4px;color:var(--ord);margin-bottom:3mm}.gal .gt{font-size:8.6pt;line-height:1.55;color:#2c333b;overflow:hidden;min-height:0}.gal.gsm .gt{font-size:7.2pt;line-height:1.45}
 .gal .gt p,.gal .gt h5,.gal .gt ul,.gal .gt ol{margin:0 0 1.6mm}.gal .gt ul,.gal .gt ol{padding-left:4mm}.gal .gt h5{font-size:1.05em;font-weight:800}
 .gal.gl1,.gal.gl2{background:#eef1f4}.gal.gl3{background:#0d1013}.gal.gl3 .gh{background:#15191d}.gal.gl3 .gh b{color:#fff}.gal.gl3 .gg{gap:1.2mm}.gal.gl3 .gg div{border-radius:0}
+.gal.solo .gs{width:auto;right:6mm}.gal.solo .gt{column-count:2;column-gap:10mm}
 .gal .n4{grid-template:1fr 1fr/1fr 1fr}.gal .n5{grid-template:1fr 1fr/1.5fr 1fr 1fr}.gal .n5 div:first-child{grid-row:span 2}.gal .n6{grid-template:1fr 1fr/1fr 1fr 1fr}
 .svcp:before{content:"";position:absolute;left:0;top:0;width:70mm;height:52mm;background:linear-gradient(135deg,var(--or2),var(--or));clip-path:polygon(0 0,100% 0,0 100%)}
 .svcp .sh{position:absolute;left:16mm;top:20mm;width:190mm}.svcp .sh .kick{font-size:7.5pt;font-weight:800;letter-spacing:1.4px;color:var(--ink);margin-bottom:2mm}
@@ -448,13 +449,13 @@
  function layoutSketch(k){k=Number(k)||0;if(!k)return"";const base=k===7?1:k===8?4:k;
   return k>=7?`<svg viewBox="0 0 124 42" xmlns="http://www.w3.org/2000/svg" style="display:block;width:100%;height:auto"><g>${skPage(base)}</g><g transform="translate(64 0)">${skGal(1)}</g></svg>`:skSvg(skPage(base))}
  const gallerySketch=gv=>skSvg(skGal(Number(gv)||0));
- // лист «Фото с объекта» — все фото, кроме главного, если их больше четырёх или краткая характеристика не вместилась на
+ // лист «Фото с объекта» — фото с пятого (1–4 уже на листе объекта, без повторов — инженер 24.11.2026 «одни и те же фото почему используется на разных листах»), если их больше четырёх или краткая характеристика не вместилась на
  // лист объекта: тогда она здесь, слева тёмной колонкой (инженер 20.11.2026 «если на страницу переносишь, то больше фото
  // показывай с краткой информацией»)
  function galleryPage(o,co,logo){const all=o.pictures||[],sm=o.summary&&o.sumMoved;
-  if(all.length<=4&&!sm)return"";const ps=all.length>=8?all.slice(4,MAX_PHOTOS):all.slice(all.length>1?1:0,MAX_PHOTOS);const gn=Math.min(ps.length,12);if(!ps.length&&!sm)return"";
+  if(all.length<=4&&!sm)return"";const ps=all.slice(4,MAX_PHOTOS);const gn=Math.min(ps.length,12);if(!ps.length&&!sm)return"";
   const gv=galleryOf(o),gst=galGrid(gv,gn,!!sm);
-  return`<section class="page gal${gv?" gl"+gv:""}${sm?" wsum":""}${o.galSmall?" gsm":""}"><div class="gh"><div class="t"><small class="up">Фото с объекта</small><b>${esc(o.name||"Объект")}</b></div>
+  return`<section class="page gal${gv?" gl"+gv:""}${sm?" wsum":""}${sm&&!ps.length?" solo":""}${o.galSmall?" gsm":""}"><div class="gh"><div class="t"><small class="up">Фото с объекта</small><b>${esc(o.name||"Объект")}</b></div>
   <div class="lg">${logo?`<img src="${esc(logo)}" alt="">`:`<b>${esc(co.name)}</b>`}</div></div>
   ${sm?`<div class="gs"><small class="up">Краткая характеристика</small><div class="gt">${sumHtml(o.summary)}</div></div>`:""}
   ${ps.length?`<div class="gg n${gn}"${gst?` style="${gst.st}"`:""}>${ps.slice(0,12).map((s,k)=>gst?`<div style="${gst.cell(k)}${s?`;background-image:url('${String(s).replace(/'/g,"%27")}')`:""}"></div>`:`<div${bg(s)}></div>`).join("")}</div>`:""}</section>`}
