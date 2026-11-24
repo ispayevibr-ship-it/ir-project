@@ -174,7 +174,7 @@
 .nums.many{gap:2.5mm 3mm;margin:2mm 0 4mm}.nums.many b{font-size:12.5pt}.nums.many span{font-size:6.2pt}.nums.many div{padding-top:1.5mm}
 .nums b{display:block;font-size:16pt;font-weight:900;line-height:1.1}.nums span{font-size:6.8pt;color:var(--mut);font-weight:600}
 .adv{display:grid;grid-template-columns:1fr 1fr;gap:3mm}.adv div{background:#faf6ee;border-radius:2mm;padding:3mm;font-size:7.4pt;line-height:1.35}.adv b{display:block;font-size:8pt;margin-bottom:.6mm}
-.slogan{margin-top:auto;font-size:13pt;font-weight:900;line-height:1.2}.slogan i{font-style:normal;color:var(--or)}
+.slogan{margin-top:auto;padding-top:6mm;font-size:13pt;font-weight:900;line-height:1.2}.slogan i{font-style:normal;color:var(--or)}
 .A3{position:absolute;left:199mm;right:0;top:0;bottom:0;background:#1d2228;color:#fff;padding:13mm 9mm 12mm}.A3 .kick{color:var(--or)}
 .A3 h2{font-size:15pt;font-weight:900;margin:1mm 0 5mm;line-height:1.15}.cust{list-style:none;margin:0;padding:0;max-height:138mm;overflow:hidden}.cust.many li{font-size:7.2pt;padding:1.2mm 0}.cust li.more{color:#c9ced5;font-weight:500}.cust li.more:before{background:none}
 .lic{margin-top:4mm;padding:3mm;border-radius:2mm;background:rgba(255,255,255,.35);font-size:7.6pt;line-height:1.4;font-weight:700}.lic small{display:block;font-weight:900;font-size:6.6pt;letter-spacing:.8px;opacity:.75}
