@@ -260,20 +260,7 @@
 .lay10 .in{position:absolute;left:186mm;right:10mm;top:14mm;bottom:10mm;display:flex;flex-direction:column;z-index:2}
 .lay10 .ttl{font-size:17pt}.lay10 .ttl.s{font-size:14pt}.lay10 .ttl.xs{font-size:12pt}.lay10 .wk{padding:2.3mm 0;border-bottom-color:rgba(0,0,0,.12)}.lay10 .wk b{font-size:7.2pt}.lay10 .vol i{font-size:13pt}.lay10 .vol s{color:#1d2228}
 .lay10 .sum{border-left-color:#1d2228;color:#2a2410}.lay10 .ring{width:23mm;height:23mm;background:conic-gradient(#1d2228 calc(var(--p)*1%),rgba(255,255,255,.45) 0)}.lay10 .ring div{width:18mm;height:18mm}.lay10 .ring b{font-size:12.5pt}.lay10 .doc em{background:#1d2228}
-.lay11{background-color:#1d2228;background-image:linear-gradient(rgba(255,255,255,.045) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.045) 1px,transparent 1px);background-size:10mm 10mm}
-.lay11 .pol{position:absolute;background:#fff;box-shadow:0 3mm 9mm rgba(0,0,0,.5);border-radius:.6mm}.lay11 .pol .ph{position:absolute;inset:auto;left:3mm;right:3mm;top:3mm;bottom:11mm;border-radius:0}
-.lay11 .pol:before{content:"";position:absolute;top:-4mm;left:50%;width:26mm;height:8mm;margin-left:-13mm;background:rgba(245,167,0,.82);transform:rotate(-4deg);z-index:2}
-.lay11 .pol span{position:absolute;left:5mm;right:5mm;bottom:3.2mm;font-size:7.4pt;font-weight:800;letter-spacing:.6px;color:#2c333b;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.lay11 .p0{left:16mm;top:16mm;width:118mm;height:100mm;transform:rotate(-3deg)}.lay11 .p0.solo{left:22mm;top:18mm;width:160mm;height:170mm;transform:rotate(-2deg)}
-.lay11 .q1{left:22mm;top:126mm;width:72mm;height:64mm;transform:rotate(2.5deg)}.lay11 .q2{left:104mm;top:120mm;width:78mm;height:68mm;transform:rotate(-3.5deg)}.lay11 .q3{left:140mm;top:22mm;width:50mm;height:48mm;transform:rotate(4deg)}
-.lay11 .pol.q3 .ph{bottom:8mm}.lay11 .pol.q3:before{width:18mm;margin-left:-9mm}
-.lay11 .tx{left:200mm}
-.gal.gl4{background-color:#1d2228;background-image:linear-gradient(rgba(255,255,255,.045) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.045) 1px,transparent 1px);background-size:10mm 10mm}
-.gal .gg.pol{gap:6mm 7mm;left:10mm;right:10mm;top:31mm;bottom:9mm}.gal.wsum .gg.pol{left:108mm}
-.gal .gg.pol .pc{background:#fff;padding:2.2mm 2.2mm 7mm;border-radius:.6mm;box-shadow:0 2mm 6mm rgba(0,0,0,.5);transform:rotate(var(--r));position:relative;min-height:0;min-width:0}
-.gal .gg.pol .pc i{display:block;width:100%;height:100%;background:#3a4047 center/cover no-repeat}
-.gal .gg.pol .pc:nth-child(3n+1):before{content:"";position:absolute;top:-3mm;left:50%;width:18mm;height:6mm;margin-left:-9mm;background:rgba(245,167,0,.82);transform:rotate(-5deg)}
-.gal.gl5{background:#ece7dc}.gal .gg.film{display:flex;flex-direction:column;justify-content:center;gap:6mm;left:9mm;right:9mm}.gal.wsum .gg.film{left:106mm}
+.gal.gl4{background:#ece7dc}.gal .gg.film{display:flex;flex-direction:column;justify-content:center;gap:6mm;left:9mm;right:9mm}.gal.wsum .gg.film{left:106mm}
 .gal .gg.film .fs{flex:1 1 0;min-height:0;background:#111417;padding:6.5mm 4mm;display:flex;gap:2.5mm;position:relative;border-radius:1mm;box-shadow:0 2mm 5mm rgba(0,0,0,.25)}
 .gal .gg.film .fs:before,.gal .gg.film .fs:after{content:"";position:absolute;left:3mm;right:3mm;height:2.2mm;background:repeating-linear-gradient(90deg,#ece7dc 0 2.6mm,transparent 2.6mm 5.6mm)}
 .gal .gg.film .fs:before{top:2.1mm}.gal .gg.film .fs:after{bottom:2.1mm}
@@ -390,8 +377,8 @@
  // оранжевой колонке; 5 «Панорама» — фото полосой сверху, виды работ в две колонки; 6 «Тёмный» — тёмный лист, фото в
  // рамке и малые под ним. Макет выбирается у каждого объекта (инженер «выбор для каждого объекта макета своего, сделай
  // 5-6 разных макетов»); Авто — по очереди, по числу фото.
- // 9 «Журнал», 10 «Диагональ», 11 «Полароид» (инженер 24.11.2026 «еще есть макеты?», «поинтереснее»)
- const LAYOUTS=["Классика","Зеркало","Обложка","Мозаика","Панорама","Тёмный","Альбом","Фотоотчёт","Журнал","Диагональ","Полароид"];
+ // 9 «Журнал», 10 «Диагональ» (инженер 24.11.2026 «еще есть макеты?», «поинтереснее»; «Полароид» — «фигня, удали»)
+ const LAYOUTS=["Классика","Зеркало","Обложка","Мозаика","Панорама","Тёмный","Альбом","Фотоотчёт","Журнал","Диагональ"];
  const titleCls=name=>{const len=name.length,word=Math.max(...name.split(/\s+/).map(w=>w.length));return len>70||word>15?" xs":len>45||word>12?" s":""};
  const worksOf=o=>(o.works||[]).filter(w=>num(w.volume)>0||num(w.plan)>0);
  // объём — смонтировано по программе на день выгрузки буклета, план — «из N», пока не выполнено (инженер 20.11.2026
@@ -400,7 +387,7 @@
  // сколько видов работ на листе объекта: у макета свой предел (Обложка 4, Тёмный 8, остальные 12) и wkMax после подгонки;
  // остальные — на листе «Фото с объекта» колонкой «Виды работ (продолжение)» (инженер 24.11.2026 «если часть верхняя
  // работы не вмещаются, можно их перенести на вторую страницу?»)
- const WK_CAP={3:4,6:8,9:9,10:8,11:8};
+ const WK_CAP={3:4,6:8,9:9,10:8};
  const wkShown=(o,i)=>{const l0=layoutOf(o,i),l=l0===7?1:l0===8?4:l0,cap=WK_CAP[l]||12;return Math.min(cap,o.wkMax||cap)};
  const wkRest=(o,i)=>worksOf(o).slice(wkShown(o,i));
  const wkRows=ws=>ws.map(w=>`<div class="wk"><b class="up">${esc(w.name)}</b><div class="vol"><i>${esc(fmt(num(w.volume)))}</i><s>${esc(unitOf(w.unit))}</s>${planOf(w)}</div></div>`).join("");
@@ -414,7 +401,7 @@
  // одним листом, без листа фото. Индекс 0 — «Авто»: выбирается только макет, в который входят все выбранные фото.
  // 7 «Альбом» — лист как «Классика» и до 8 фото листом фото, всего 12; 8 «Фотоотчёт» — лист как «Мозаика» и до 12 фото
  // листом фото, всего 16 (инженер 24.11.2026 «макеты добавь где есть хотя бы 12 фотографий»)
- const LAYOUT_MAX=[16,16,16,16,16,16,16,16,16,16,16,16];
+ const LAYOUT_MAX=[16,16,16,16,16,16,16,16,16,16,16];
  const capOf=o=>LAYOUT_MAX[Number(o?.layout)||0]||LAYOUT_MAX[0];
  const layoutOf=(o,i)=>{const n=Number(o.layout);if(n>=1&&n<=LAYOUTS.length)return n;const pics=(o.pictures||[]).length;if(!pics)return 1;
   const seq=(pics>=3?[1,3,5,2,4,6]:[1,3,5,2,6]).filter(l=>LAYOUT_MAX[l]>=pics);return seq.length?seq[i%seq.length]:pics<=12?7:8};
@@ -428,7 +415,7 @@
  // меньше не делается»): фото на всю ячейку обрезается и растягивается; если для этого у него мало точек (меньше
  // 4 на мм — ~100 точек на дюйм, например обложка 900×405 на ячейку 197×185 мм — 2,2) — оно целиком в своих
  // пропорциях, без увеличения сверх нужного, а поле вокруг — то же фото размыто и затемнено
- const PH_MM={1:[197,185],2:[197,185],3:[297,210],5:[297,112],6:[168,124],9:[172,210],10:[297,210],11:[112,86]};
+ const PH_MM={1:[197,185],2:[197,185],3:[297,210],5:[297,112],6:[168,124],9:[172,210],10:[297,210]};
  const softMain=(o,lay)=>{const d=o.mainPx,c=PH_MM[lay];if(!d||!c||!(d[0]>0&&d[1]>0))return false;return Math.min(d[0]/c[0],d[1]/c[1])<4};
  const phOf=(o,lay,main)=>softMain(o,lay)?`<div class="ph soft"${bg(main)}><b${bg(main)}></b><i${bg(main)}></i></div>`:`<div class="ph"${bg(main)}></div>`;
  function circlesOf(rest){return rest.length?`<div class="circles">${rest.map((s,i)=>`<div class="c${rest.length===3&&i===1?" big":""}"${bg(s)}></div>`).join("")}</div>`:""}
@@ -471,13 +458,6 @@
    ${rest.length?`<div class="dc">${rest.map((s,k)=>`<div class="c d${k}"${bg(s)}></div>`).join("")}</div>`:""}
    <div class="card">${placeOf(o,co)}<div class="gp"><div><small class="up">Генподрядчик</small>${esc(o.general_contractor||"—")}</div><div><small class="up">Заказчик</small>${esc(o.customer||"—")}</div></div></div>
    <div class="in">${textCol(o,8,co)}</div></section>`;
-  // «Полароид» — фото карточками с белой рамкой, чуть повёрнутые, с оранжевой лентой, на тёмном листе в клетку
-  if(lay===11){const name=String(o.name||"Объект"),p=doneOf(o),place=String(o.address||"").trim(),cap=[o.years?String(o.years):"",place].filter(Boolean).join(" · ");
-   return`<section class="page lay6 lay11"><div class="pol p0${rest.length?"":" solo"}">${phOf(o,11,main)}${cap?`<span>${esc(cap)}</span>`:""}</div>
-   ${rest.map((s,k)=>`<div class="pol q${[2,3,1][k]}"><div class="ph"${bg(s)}></div></div>`).join("")}
-   <div class="tx">${logoOf(co,logo," l6")}<h1 class="ttl up${titleCls(name)}">${esc(name)}</h1>
-   <div class="wks">${wkRows(worksOf(o).slice(0,Math.min(8,o.wkMax||8)))}</div>${o.summary&&!o.sumMoved?`<div class="sum">${sumHtml(o.summary)}</div>`:""}<div class="badges">${ringOf(p)}${docOf()}</div>
-   <div class="gp"><small class="up">Генподрядчик</small>${esc(o.general_contractor||"—")}<small class="up">Заказчик</small>${esc(o.customer||"—")}</div></div></section>`}
   if(lay===4){const n=Math.min(4,pics.length);
    return`<section class="page lay4"><div class="M m${n}">${pics.slice(0,4).map((s,k)=>`<div class="g g${k}"${bg(s)}></div>`).join("")}${logoOf(co,logo)}
    <div class="info">${placeOf(o,co)}</div></div>
@@ -493,8 +473,8 @@
  // макет листа «Фото с объекта» (инженер 24.11.2026 «как выбирать макет второго листа?», выбор «Да, 4 варианта»):
  // 0 «Авто» — сетка по числу фото на тёмном фоне, 1 «Сетка» — равные ячейки на светлом, 2 «Крупное + мелкие» — первое
  // фото крупно слева, остальные сеткой справа, 3 «Тёмный» — тёмный лист и шапка, фото встык
- // 4 «Полароид» — карточки с белой рамкой, повёрнутые, 5 «Плёнка» — фото кадрами фотоплёнки (инженер 24.11.2026 «поинтереснее»)
- const GALLERIES=["Сетка","Крупное + мелкие","Тёмный","Полароид","Плёнка"];
+ // 4 «Плёнка» — фото кадрами фотоплёнки (инженер 24.11.2026 «поинтереснее»)
+ const GALLERIES=["Сетка","Крупное + мелкие","Тёмный","Плёнка"];
  const galleryOf=o=>{const n=Number(o?.gallery);return n>=1&&n<=GALLERIES.length?n:0};
  // раскладка без пустых ячеек: число столбцов по форме ячейки ближе к 4:3, лишние ячейки — первые фото на два столбца
  function galFit(m,w,h){let best=null;for(let k=1;k<=m;k++){const r=Math.ceil(m/k),e=k*r-m;if(e>=r)continue;const s=e*.3+Math.abs(Math.log((w/k)/(h/r)/1.33));if(!best||s<best.s)best={c:k,r,e,s}}return best}
@@ -529,13 +509,10 @@
   case 5:return skR(0,0,60,20,SK.ph)+skR(0,20,60,18,SK.lt)+skC(40,19,3)+skC(46,19,3.6)+skC(52,19,3)+skR(3,23,16,2.2,SK.dk)+skT(22,23,15,4)+skT(40,23,13,4)+skFoot();
   case 9:return skR(0,0,60,42,SK.lt)+skR(0,0,34.7,42,SK.ph)+skR(34.7,0,.8,42,SK.or)+[0,1,2].map(k=>skR(2+k*8.2,34,7.4,5.6,"#c9d1d8",.3)).join("")+skR(38,3,17,2.4,SK.dk)+skR(38,8,13,5,SK.or)+skT(38,15.5,19,6)+skC(41.5,37.5,3,SK.or);
   case 10:return skR(0,0,60,42,SK.ph)+`<polygon points="34,0 35.5,0 29,42 27.3,42" fill="${SK.dk}"/><polygon points="36.2,0 60,0 60,42 29.7,42" fill="${SK.or}"/>`+skC(33,10,3.2)+skC(31.3,21,3.2)+skC(29.7,32,3.2)+skR(2,33,19,6.5,SK.lt,.8)+skR(39,3,16,2.4,SK.dk)+skT(39,8,17,8,SK.dk);
-  case 11:{const pol=(x,y,w,h,r)=>`<g transform="rotate(${r} ${x+w/2} ${y+h/2})">${skR(x,y,w,h,SK.lt)+skR(x+.8,y+.8,w-1.6,h-3,SK.ph)}</g>`;
-   return skR(0,0,60,42,SK.dk)+pol(3,3,24,20,-3)+pol(28,4.5,10,10,4)+pol(4.5,25.5,14.5,13,2.5)+pol(21,24,16,14,-3.5)+skR(41,4,15,2.4,SK.lt)+skT(41,9,16,8,"#aab4be")+skC(44,36,3,SK.or)}
   case 6:return skR(0,0,60,42,SK.dk)+skR(3,3,34,22,SK.ph)+[0,1,2].map(k=>skR(3+k*11.6,27,10.6,8,SK.ph)).join("")+skR(41,3,15,2.4,SK.lt)+skT(41,8,16,8,"#aab4be")+skC(44,35,3,SK.or);
  }return""}
  function skGal(gv){
-  if(gv===4){const head4=skR(0,0,60,7,SK.lt)+skR(0,0,2,7,SK.or)+skR(4,2.4,18,2,SK.dk);let c="";[0,1,2,3,4,5].forEach(k=>{const x=4+(k%3)*18,y=10+Math.floor(k/3)*15.5,r=POL_R[k];c+=`<g transform="rotate(${r} ${x+7.5} ${y+6.5})">${skR(x,y,15,13,SK.lt)+skR(x+.8,y+.8,13.4,10,SK.ph)}</g>`});return skR(0,0,60,42,SK.dk)+head4+c}
-  if(gv===5){const head5=skR(0,0,60,7,SK.lt)+skR(0,0,2,7,SK.or)+skR(4,2.4,18,2,SK.dk);let c="";[0,1].forEach(r=>{const y=10+r*15.5;c+=skR(3,y,54,13.5,"#111417",.5);for(let q=0;q<4;q++)c+=skR(4.5+q*13.1,y+2.6,12,8.3,SK.ph,.3);for(let q=0;q<18;q++){c+=skR(4+q*3,y+.7,1.5,1,"#ece7dc")+skR(4+q*3,y+11.8,1.5,1,"#ece7dc")}});return skR(0,0,60,42,"#ece7dc")+head5+c}
+  if(gv===4){const head5=skR(0,0,60,7,SK.lt)+skR(0,0,2,7,SK.or)+skR(4,2.4,18,2,SK.dk);let c="";[0,1].forEach(r=>{const y=10+r*15.5;c+=skR(3,y,54,13.5,"#111417",.5);for(let q=0;q<4;q++)c+=skR(4.5+q*13.1,y+2.6,12,8.3,SK.ph,.3);for(let q=0;q<18;q++){c+=skR(4+q*3,y+.7,1.5,1,"#ece7dc")+skR(4+q*3,y+11.8,1.5,1,"#ece7dc")}});return skR(0,0,60,42,"#ece7dc")+head5+c}
   const head=gv===3?skR(0,0,60,7,SK.dk)+skR(0,0,2,7,SK.or)+skR(4,2.4,18,2,SK.lt):skR(0,0,60,7,SK.lt)+skR(0,0,2,7,SK.or)+skR(4,2.4,18,2,SK.dk);
   const bgc=gv===0||gv===3?(gv===3?"#0d1013":SK.dk):"#eef1f4",g=gv===3?1:2,X=3,Y=9,W=54,H=31;let cells="";
   const grid=(x,y,w,h,cols,rows)=>{const cw=(w-(cols-1)*g)/cols,ch=(h-(rows-1)*g)/rows;let s="";for(let r=0;r<rows;r++)for(let q=0;q<cols;q++)s+=skR(x+q*(cw+g),y+r*(ch+g),cw,ch,SK.ph,gv===3?0:.8);return s};
@@ -553,8 +530,6 @@
  // показывай с краткой информацией»)
  // «Плёнка»: полосы плёнки с перфорацией — 1 полоса до 3 фото, 2 до 8, иначе 3; кадры равные, пустые — тёмные
  function filmOf(ps,gn,W){const k=gn<=3?1:gn<=8?2:3,per=Math.ceil(gn/k),fw=(W-8-2.5*(per-1))/per,fh=Math.min(fw*.75,(176-6*(k-1))/k-13),sh=`flex:0 0 ${(fh+13).toFixed(1)}mm`;let h="";for(let r=0;r<k;r++){let f="";for(let q=0;q<per;q++){const n=r*per+q;f+=`<div class="fr"${n<gn?bg(ps[n]):""}>${n<gn?`<em>${String(n+1).padStart(2,"0")}</em>`:""}</div>`}h+=`<div class="fs" style="${sh}">${f}</div>`}return`<div class="gg film">${h}</div>`}
- const POL_R=[-2.5,1.8,-1.2,2.6,-1.8,1.2];
- function polOf(ps,gn,g){return`<div class="gg pol" style="${g.st}">${ps.slice(0,gn).map((s,k)=>`<div class="pc" style="${g.cell(k)};--r:${POL_R[k%6]}deg"><i${bg(s)}></i></div>`).join("")}</div>`}
  function galleryPage(o,co,logo,i=0){const all=o.pictures||[],sm=o.summary&&o.sumMoved,wr=wkRest(o,i),side=sm||wr.length>0;
   if(all.length<=4&&!side)return"";const ps=all.slice(4,MAX_PHOTOS);const gn=Math.min(ps.length,12);if(!ps.length&&!side)return"";
   const gv=galleryOf(o),ra=k=>ratioOk((o.ratios||[])[4+k]),W0=side?187:285,
@@ -566,7 +541,7 @@
   return`<section class="page gal${gv?" gl"+gv:""}${side?" wsum":""}${side&&!ps.length?" solo":""}${o.galSmall?" gsm":""}"><div class="gh"><div class="t"><small class="up">${ps.length?"Фото с объекта":"Виды работ"}</small><b>${esc(o.name||"Объект")}</b></div>
   <div class="lg">${logo?`<img src="${esc(logo)}" alt="">`:`<b>${esc(co.name)}</b>`}</div></div>
   ${side?`<div class="gs">${wr.length?`<small class="up">Виды работ (продолжение)</small><div class="gw">${wkRows(wr)}</div>`:""}${sm?`<small class="up${wr.length?" s2":""}">Краткая характеристика</small><div class="gt">${sumHtml(o.summary)}</div>`:""}</div>`:""}
-  ${gv===5&&ps.length?filmOf(ps,gn,side?182:279):gv===4&&ps.length?polOf(ps,gn,gst||{st:"grid-template:1fr/1fr",cell:()=>""}):big||jr?(()=>{const cnt=`<span class="cnt"><b>${gn}</b> фото</span>`,rowsH=(J,off)=>J.rows.map((r,j)=>`<div class="rw" style="flex:${J.hs[j].toFixed(2)} 1 0">${r.map(q=>{const k=q+off;return`<div style="flex:${ra(k).toFixed(3)} 1 0;${cellImg(ps[k])}">${k===0?cnt:""}</div>`}).join("")}</div>`).join("");
+  ${gv===4&&ps.length?filmOf(ps,gn,side?182:279):big||jr?(()=>{const cnt=`<span class="cnt"><b>${gn}</b> фото</span>`,rowsH=(J,off)=>J.rows.map((r,j)=>`<div class="rw" style="flex:${J.hs[j].toFixed(2)} 1 0">${r.map(q=>{const k=q+off;return`<div style="flex:${ra(k).toFixed(3)} 1 0;${cellImg(ps[k])}">${k===0?cnt:""}</div>`}).join("")}</div>`).join("");
    if(!big)return`<div class="gg jr">${rowsH(jr,0)}</div>`;const H0=176;
    return`<div class="gg jr jb"><div class="top" style="flex:${big.Hb.toFixed(1)} 1 0"><div class="big" style="flex:${big.bw.toFixed(1)} 1 0;${cellImg(ps[0])}">${cnt}</div>${big.R?`<div class="jc" style="flex:${(W0-big.bw-3).toFixed(1)} 1 0">${rowsH(big.R,1)}</div>`:""}</div>${big.D?`<div class="jc" style="flex:${(H0-big.Hb-3).toFixed(1)} 1 0">${rowsH(big.D,1+big.k)}</div>`:""}</div>`})():ps.length?`<div class="gg n${gn}${gst?.big?" bento":""}"${gst?` style="${gst.st}"`:""}>${ps.slice(0,12).map((s,k)=>gst?`<div style="${gst.cell(k)}${s?`;background-image:url('${String(s).replace(/'/g,"%27")}')`:""}">${gst.big&&k===0?`<span class="cnt"><b>${gn}</b> фото</span>`:""}</div>`:`<div${bg(s)}></div>`).join("")}</div>`:""}</section>`}
  // objects: [{name, customer, general_contractor, address, status, years, summary, works:[{name,unit,volume,plan}], pictures:[src…]}]
