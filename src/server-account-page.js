@@ -151,6 +151,11 @@
 .ir-bk-tools{display:flex;align-items:center;gap:10px;font-size:12.5px;color:#4d6a80;margin:2px 0 8px}.ir-bk-tools label{display:flex;align-items:center;gap:6px;margin:0;font-weight:600;white-space:nowrap}.ir-bk-tools select{font:inherit;padding:4px 8px;border:1px solid #d9e4ee;border-radius:8px;margin-left:6px}
 .ir-bk-ph{display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:8px}
 .ir-bk-lk{background:#eef7ef;border:1px solid #bfe0c4;border-radius:10px;padding:8px 12px;color:#245c2e}.ir-bk-closed .ir-bk-t{display:block;cursor:default}.ir-bk-closed{grid-template-columns:repeat(auto-fill,minmax(90px,110px))}
+.ir-bk-lh{font-size:12px;font-weight:700;color:#35546d;margin:6px 0 5px}.ir-bk-lh small{font-weight:400;color:#6d8496}
+.ir-bk-lts{display:grid;grid-template-columns:repeat(auto-fill,minmax(104px,1fr));gap:8px;margin-bottom:8px}.ir-bk-lts.g{grid-template-columns:repeat(auto-fill,minmax(104px,130px))}
+.ir-bk-lt{display:flex;flex-direction:column;align-items:stretch;gap:3px;padding:5px;border:2px solid #d9e4ee;border-radius:9px;background:#fff;cursor:pointer;font:inherit;text-align:left}
+.ir-bk-lt:hover{border-color:#a9c6df}.ir-bk-lt.on{border-color:#d9a520;box-shadow:0 0 0 3px #f6e2a6}.ir-bk-lt svg{border-radius:3px;box-shadow:0 0 0 1px #dfe6ec}
+.ir-bk-lt b{font-size:12px;color:#1f3447}.ir-bk-lt small{font-size:11px;color:#6d8496}.ir-bk-lt .auto{display:grid;place-items:center;aspect-ratio:60/42;border-radius:3px;background:#f1f4f7;color:#8aa0b3;font-size:20px;font-weight:800}
 .ir-bk-t{position:relative;padding:0;border:2px solid #d9e4ee;border-radius:10px;overflow:hidden;background:#eef2f5;cursor:pointer;aspect-ratio:4/3}
 .ir-bk-t img{width:100%;height:100%;object-fit:cover;display:block}.ir-bk-t:hover{border-color:#a9c6df}.ir-bk-t.on{border-color:#d9a520;box-shadow:0 0 0 3px #f6e2a6}
 .ir-bk-opt{display:flex;align-items:center;gap:6px;font-size:12.5px;font-weight:600;color:#33485a;margin:0;white-space:nowrap}
@@ -501,10 +506,10 @@
  // locked — сохранённый лист объекта {at, date, files, layout, data}: объёмы, текст, фото и макет на день сохранения, лист
  // больше не меняется, пока не нажать «Редактировать» (инженер 20.11.2026 «если страница устраивает, то нажимаю сохранить
  // и она больше не меняется … пока не нажму редактировать»); undefined — оставить как было, null — снять
- async function saveBooklet(id,files,layout,locked){
+ async function saveBooklet(id,files,layout,locked,gallery=0){
   const api=irProject.data.forObject(id).section("object-meta"),rows=await api.list().catch(()=>[]),r=rows.find(x=>x.record_type===BOOKLET);
   const was=r?.data?.locked||null,lk=locked===undefined?was:locked;
-  const body={record_type:BOOKLET,title:"Фото для буклета",data:{entity_type:BOOKLET,files:lk?lk.files:files,layout:lk?lk.layout:layout,...(lk?{locked:lk}:{})}};
+  const body={record_type:BOOKLET,title:"Фото для буклета",data:{entity_type:BOOKLET,files:lk?lk.files:files,layout:lk?lk.layout:layout,gallery:Number(lk?lk.gallery:gallery)||0,...(lk?{locked:lk}:{})}};
   if(!r)await api.create(body);else await api.update(r.id,body)
  }
  async function bookletWindow(parent){
@@ -528,23 +533,30 @@
   const drawN=()=>{$("[data-n]").textContent=chosen.length?"Объектов в буклете: "+chosen.length:"Отметьте объекты";go.disabled=pv.disabled=!chosen.length||!window.irBooklet};
   const today=()=>{const t=new Date();return String(t.getDate()).padStart(2,"0")+"."+String(t.getMonth()+1).padStart(2,"0")+"."+t.getFullYear()};
   const LOCK_KEYS=["name","customer","general_contractor","address","status","years","summary","works"];
+  // выбор макета плитками со схемой листа (инженер 24.11.2026 «какое-нибудь превью или схему при выборе макета, чтобы
+  // понятно было»): макет листа объекта и макет листа «Фото с объекта»
+  const tile=(attr,on,sk,t,s)=>`<button type="button" class="ir-bk-lt${on?" on":""}" ${attr}>${sk||'<span class="auto">А</span>'}<b>${esc(t)}</b>${s?`<small>${esc(s)}</small>`:""}</button>`;
+  const layTiles=x=>`<div class="ir-bk-lh">Макет листа объекта</div><div class="ir-bk-lts">${["Авто",...irBooklet.LAYOUTS].map((t,i)=>tile(`data-lay="${i}"`,x.layout===i,i?irBooklet.layoutSketch(i):"",t,i?"до "+irBooklet.LAYOUT_MAX[i]+" фото":"подберёт сам")).join("")}</div>
+   <div class="ir-bk-lh">Макет листа «Фото с объекта» <small>— лист с фото сверх основного листа и с характеристикой, если она не вместилась</small></div><div class="ir-bk-lts g">${["Авто",...irBooklet.GALLERIES].map((t,i)=>tile(`data-gal="${i}"`,(x.gallery||0)===i,irBooklet.gallerySketch(i),t,"")).join("")}</div>`;
   const photosHtml=id=>{const x=info.get(id);if(!x)return`<div class="ir-so-empty">Загружаем фото…</div>`;
    if(x.locked){const L=x.locked,lay=["Авто",...irBooklet.LAYOUTS][Number(L.layout)||0]||"Авто";
     return`<div class="ir-bk-tools ir-bk-lk"><span>🔒 <b>Лист сохранён ${esc(L.date||"")}</b> — объёмы, текст, фото (${(L.files||[]).length}) и макет «${esc(lay)}» больше не меняются</span><span class="grow"></span><button type="button" class="ir-acc-btn small" data-edit>Редактировать</button></div>
     <div class="ir-bk-ph ir-bk-closed">${(L.files||[]).map((f,k)=>{const t=thumbs.get(f);return`<span class="ir-bk-t on">${t?`<img src="${esc(t)}" alt="">`:'<span class="ir-hero-no">…</span>'}<b>${k+1}</b></span>`}).join("")}</div>`}
    if(!x.all.length)return`<div class="ir-so-empty">У объекта нет фото</div><div class="ir-bk-tools"><span class="grow"></span><button type="button" class="ir-acc-btn small main" data-lock>Сохранить лист</button></div>`;
    const cap=irBooklet.capOf(x);
-   return`<div class="ir-bk-tools"><span>Щёлкайте фото по порядку: <b>1</b> — главное, <b>2–4</b> — на листе объекта${cap>4?`, <b>5–${cap}</b> — отдельным листом «Фото с объекта»`:""}. Выбрано: ${x.files.length} из ${cap} (предел макета)</span><span class="grow"></span><label>Макет <select data-lay>${["Авто",...irBooklet.LAYOUTS].map((t,i)=>`<option value="${i}"${x.layout===i?" selected":""}>${esc(t)} — до ${irBooklet.LAYOUT_MAX[i]} фото</option>`).join("")}</select></label><button type="button" class="ir-acc-btn small main" data-lock title="Лист объекта больше не меняется — объёмы, текст, фото и макет на сегодня, пока не нажать «Редактировать»">Сохранить лист</button></div>
+   return`<div class="ir-bk-tools"><span>Щёлкайте фото по порядку: <b>1</b> — главное, <b>2–4</b> — на листе объекта${cap>4?`, <b>5–${cap}</b> — отдельным листом «Фото с объекта»`:""}. Выбрано: ${x.files.length} из ${cap} (предел макета)</span><span class="grow"></span><button type="button" class="ir-acc-btn small main" data-lock title="Лист объекта больше не меняется — объёмы, текст, фото и макет на сегодня, пока не нажать «Редактировать»">Сохранить лист</button></div>
+   ${layTiles(x)}
    <div class="ir-bk-ph">${x.all.slice(0,SHOW).map((f,k)=>{const n=x.files.indexOf(f)+1,t=thumbs.get(f);return`<button type="button" class="ir-bk-t${n?" on":""}" data-k="${k}">${t?`<img src="${esc(t)}" alt="">`:'<span class="ir-hero-no">…</span>'}${n?`<b>${n}</b>`:""}</button>`}).join("")}</div>
    ${x.all.length>SHOW?`<div class="ir-acc-help">Показаны первые ${SHOW} фото из ${x.all.length}.</div>`:""}`};
   const drawObj=id=>{const box=list.querySelector(`[data-box="${id}"]`);if(!box)return;box.innerHTML=photosHtml(id);const x=info.get(id);if(!x)return;
-   box.querySelector("[data-lay]")?.addEventListener("change",e=>{x.layout=Number(e.target.value)||0;const cap=irBooklet.capOf(x);if(x.files.length>cap)x.files.length=cap;drawObj(id)});
+   box.querySelectorAll("[data-lay]").forEach(b=>b.onclick=()=>{x.layout=Number(b.dataset.lay)||0;const cap=irBooklet.capOf(x);if(x.files.length>cap)x.files.length=cap;drawObj(id)});
+   box.querySelectorAll("[data-gal]").forEach(b=>b.onclick=()=>{x.gallery=Number(b.dataset.gal)||0;drawObj(id)});
    const busy=b=>{b.disabled=true;b.textContent="Сохраняем…"};
    box.querySelector("[data-lock]")?.addEventListener("click",async e=>{busy(e.target);
-    const L={at:new Date().toISOString(),date:today(),files:[...x.files],layout:x.layout,data:Object.fromEntries(LOCK_KEYS.map(k=>[k,x.data[k]]))};
+    const L={at:new Date().toISOString(),date:today(),files:[...x.files],layout:x.layout,gallery:x.gallery||0,data:Object.fromEntries(LOCK_KEYS.map(k=>[k,x.data[k]]))};
     try{await saveBooklet(id,L.files,L.layout,L);x.locked=L}catch(err){bad(err)}drawObj(id)});
    box.querySelector("[data-edit]")?.addEventListener("click",async e=>{busy(e.target);
-    try{await saveBooklet(id,x.locked.files,x.locked.layout,null);x.files=[...x.locked.files];x.layout=Number(x.locked.layout)||0;x.locked=null}catch(err){bad(err)}drawObj(id)});
+    try{await saveBooklet(id,x.locked.files,x.locked.layout,null,x.locked.gallery);x.files=[...x.locked.files];x.layout=Number(x.locked.layout)||0;x.gallery=Number(x.locked.gallery)||0;x.locked=null}catch(err){bad(err)}drawObj(id)});
    box.querySelectorAll("[data-k]").forEach(b=>b.onclick=()=>{const f=x.all[Number(b.dataset.k)],i=x.files.indexOf(f);
     if(i>=0)x.files.splice(i,1);else if(x.files.length<irBooklet.capOf(x))x.files.push(f);else return;drawObj(id)})};
   async function load(id){if(info.has(id))return drawObj(id);
@@ -570,8 +582,8 @@
   const services=()=>$("[data-svc]").checked,withMap=()=>$("[data-map]").checked;
   async function collect(save){const data=[];for(const [i,id] of chosen.entries()){const o=objects.find(x=>Number(x.id)===id);setProg(i/chosen.length*20,"Собираем объекты…",(i+1)+" из "+chosen.length+" — "+(o?.name||""));
     if(!info.has(id))await load(id);const x=info.get(id);if(!x)continue;
-    if(x.locked){const L=x.locked;data.push({...x.data,...L.data,asOf:L.date,files:L.files||[],layout:Number(L.layout)||0});continue}
-    if(save)await saveBooklet(id,x.files,x.layout).catch(()=>{});data.push({...x.data,files:x.files,layout:x.layout})}return data}
+    if(x.locked){const L=x.locked;data.push({...x.data,...L.data,asOf:L.date,files:L.files||[],layout:Number(L.layout)||0,gallery:Number(L.gallery)||0});continue}
+    if(save)await saveBooklet(id,x.files,x.layout,undefined,x.gallery).catch(()=>{});data.push({...x.data,files:x.files,layout:x.layout,gallery:x.gallery||0})}return data}
   // предпросмотр — те же листы, что уйдут в PDF, уменьшенными, с малыми фото (инженер 20.11.2026 «сделать
   // предомостр как каждая страница выглядеть будет»)
   pv.onclick=async()=>{pv.disabled=go.disabled=true;st.textContent="";

@@ -105,6 +105,7 @@
 .gal.wsum .gg{left:104mm}.gal .gs{position:absolute;left:6mm;top:28mm;bottom:6mm;width:94mm;background:#fff;border-radius:1.5mm;border-top:1.4mm solid var(--or);padding:6mm 6mm 5mm;overflow:hidden;display:flex;flex-direction:column}
 .gal .gs small{font-size:7pt;font-weight:800;letter-spacing:1.4px;color:var(--ord);margin-bottom:3mm}.gal .gt{font-size:8.6pt;line-height:1.55;color:#2c333b;overflow:hidden;min-height:0}.gal.gsm .gt{font-size:7.2pt;line-height:1.45}
 .gal .gt p,.gal .gt h5,.gal .gt ul,.gal .gt ol{margin:0 0 1.6mm}.gal .gt ul,.gal .gt ol{padding-left:4mm}.gal .gt h5{font-size:1.05em;font-weight:800}
+.gal.gl1,.gal.gl2{background:#eef1f4}.gal.gl3{background:#0d1013}.gal.gl3 .gh{background:#15191d}.gal.gl3 .gh b{color:#fff}.gal.gl3 .gg{gap:1.2mm}.gal.gl3 .gg div{border-radius:0}
 .gal .n4{grid-template:1fr 1fr/1fr 1fr}.gal .n5{grid-template:1fr 1fr/1.5fr 1fr 1fr}.gal .n5 div:first-child{grid-row:span 2}.gal .n6{grid-template:1fr 1fr/1fr 1fr 1fr}
 .svcp:before{content:"";position:absolute;left:0;top:0;width:70mm;height:52mm;background:linear-gradient(135deg,var(--or2),var(--or));clip-path:polygon(0 0,100% 0,0 100%)}
 .svcp .sh{position:absolute;left:16mm;top:20mm;width:190mm}.svcp .sh .kick{font-size:7.5pt;font-weight:800;letter-spacing:1.4px;color:var(--ink);margin-bottom:2mm}
@@ -410,15 +411,53 @@
  // больше фото (инженер 20.11.2026 «сделай в буклетах больше фото, а то везде 2-3»): макет листа берёт первые 4,
  // остальные выбранные (до 6) — следующим листом «Фото с объекта» сеткой по их числу
  const MAX_PHOTOS=16;
+ // макет листа «Фото с объекта» (инженер 24.11.2026 «как выбирать макет второго листа?», выбор «Да, 4 варианта»):
+ // 0 «Авто» — сетка по числу фото на тёмном фоне, 1 «Сетка» — равные ячейки на светлом, 2 «Крупное + мелкие» — первое
+ // фото крупно слева, остальные сеткой справа, 3 «Тёмный» — тёмный лист и шапка, фото встык
+ const GALLERIES=["Сетка","Крупное + мелкие","Тёмный"];
+ const galleryOf=o=>{const n=Number(o?.gallery);return n>=1&&n<=GALLERIES.length?n:0};
+ // раскладка без пустых ячеек: число столбцов по форме ячейки ближе к 4:3, лишние ячейки — первые фото на два столбца
+ function galFit(m,w,h){let best=null;for(let k=1;k<=m;k++){const r=Math.ceil(m/k),e=k*r-m;if(e>=r)continue;const s=e*.3+Math.abs(Math.log((w/k)/(h/r)/1.33));if(!best||s<best.s)best={c:k,r,e,s}}return best}
+ function galGrid(gv,n,narrow){if(!gv||n<2)return null;const W=narrow?187:285,H=176;
+  if(gv===2){const f=galFit(n-1,W*.5,H);return{st:`grid-template:repeat(${f.r},1fr)/${(f.c*1.25).toFixed(2)}fr repeat(${f.c},1fr)`,cell:i=>i===0?"grid-row:1/-1;grid-column:1":i<=f.e?"grid-row:auto;grid-column:span 2":"grid-row:auto;grid-column:auto"}}
+  const f=galFit(n,W,H);return{st:`grid-template:repeat(${f.r},1fr)/repeat(${f.c},1fr)`,cell:i=>i<f.e?"grid-row:auto;grid-column:span 2":"grid-row:auto;grid-column:auto"}}
+ // схемы макетов для окна «Буклет» (инженер 24.11.2026 «какое-нибудь превью или схему при выборе макета»): лист
+ // условно — фото серым, текст линиями, оранжевое — оранжевым, тёмное — тёмным
+ const SK={ph:"#9aa7b3",or:"#f5a700",dk:"#1f252b",ln:"#55606b",lt:"#fff"};
+ const skR=(x,y,w,h,f,r=0)=>`<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="${r}" fill="${f}"/>`;
+ const skT=(x,y,w,n,f=SK.ln,s=3.2)=>Array.from({length:n},(_,k)=>skR(x,y+k*s,k%3===2?w*.7:w,1.3,f,.6)).join("");
+ const skC=(x,y,r,f=SK.ph)=>`<circle cx="${x}" cy="${y}" r="${r}" fill="${f}" stroke="#fff" stroke-width=".8"/>`;
+ const skFoot=f=>skR(0,38,60,4,f||"#e9edf1");
+ function skPage(k){switch(k){
+  case 1:return skR(0,0,20,38,SK.lt)+skR(2,3,13,2.4,SK.dk)+skT(2,8,15,8)+skR(20,0,40,38,SK.ph)+skR(20,28,40,10,SK.or)+skC(28,29,3.4)+skC(35,29,4)+skC(42,29,3.4)+skFoot();
+  case 2:return skR(0,0,40,38,SK.ph)+skR(0,28,40,10,SK.or)+skC(18,29,3.4)+skC(25,29,4)+skC(32,29,3.4)+skR(40,0,20,38,SK.lt)+skR(43,3,13,2.4,SK.dk)+skT(43,8,15,8)+skFoot();
+  case 3:return skR(0,0,60,38,SK.ph)+skR(3,3,26,2.6,SK.lt)+skR(3,7,20,2.6,SK.lt)+[0,1,2].map(k=>skR(50,4+k*8,8,6.5,"#c9d1d8",.8)).join("")+[0,1,2,3].map(k=>skR(3+k*10.5,29,9.5,6,SK.lt,.8)).join("")+skFoot(SK.dk);
+  case 4:return skR(0,0,26,38,SK.ph)+skR(2,30,12,5,SK.lt,.8)+[0,1,2].map(k=>skR(27,k*12.8,12,12,SK.ph)).join("")+skR(40,0,20,38,SK.or)+skR(42,3,14,2.4,SK.dk)+skT(42,8,15,8,SK.dk)+skFoot();
+  case 5:return skR(0,0,60,20,SK.ph)+skR(0,20,60,18,SK.lt)+skC(40,19,3)+skC(46,19,3.6)+skC(52,19,3)+skR(3,23,16,2.2,SK.dk)+skT(22,23,15,4)+skT(40,23,13,4)+skFoot();
+  case 6:return skR(0,0,60,42,SK.dk)+skR(3,3,34,22,SK.ph)+[0,1,2].map(k=>skR(3+k*11.6,27,10.6,8,SK.ph)).join("")+skR(41,3,15,2.4,SK.lt)+skT(41,8,16,8,"#aab4be")+skC(44,35,3,SK.or);
+ }return""}
+ function skGal(gv){const head=gv===3?skR(0,0,60,7,SK.dk)+skR(0,0,2,7,SK.or)+skR(4,2.4,18,2,SK.lt):skR(0,0,60,7,SK.lt)+skR(0,0,2,7,SK.or)+skR(4,2.4,18,2,SK.dk);
+  const bgc=gv===0||gv===3?(gv===3?"#0d1013":SK.dk):"#eef1f4",g=gv===3?1:2,X=3,Y=9,W=54,H=31;let cells="";
+  const grid=(x,y,w,h,cols,rows)=>{const cw=(w-(cols-1)*g)/cols,ch=(h-(rows-1)*g)/rows;let s="";for(let r=0;r<rows;r++)for(let q=0;q<cols;q++)s+=skR(x+q*(cw+g),y+r*(ch+g),cw,ch,SK.ph,gv===3?0:.8);return s};
+  if(gv===0)cells=skR(X,Y,(W-2*g)/4*2+g,H,SK.ph,.8)+grid(X+(W-2*g)/4*2+2*g,Y,(W-2*g)/4*2+g,H,2,2);
+  else if(gv===2){const bw=W*.55;cells=skR(X,Y,bw,H,SK.ph,.8)+grid(X+bw+g,Y,W-bw-g,H,2,2)}
+  else cells=grid(X,Y,W,H,3,2);
+  return skR(0,0,60,42,bgc)+head+cells}
+ const skSvg=b=>`<svg viewBox="0 0 60 42" xmlns="http://www.w3.org/2000/svg" style="display:block;width:100%;height:auto">${b}</svg>`;
+ // k — номер макета (1…8; 7 «Альбом» как «Классика», 8 «Фотоотчёт» как «Мозаика», с листом фото рядом)
+ function layoutSketch(k){k=Number(k)||0;if(!k)return"";const base=k===7?1:k===8?4:k;
+  return k>=7?`<svg viewBox="0 0 124 42" xmlns="http://www.w3.org/2000/svg" style="display:block;width:100%;height:auto"><g>${skPage(base)}</g><g transform="translate(64 0)">${skGal(1)}</g></svg>`:skSvg(skPage(base))}
+ const gallerySketch=gv=>skSvg(skGal(Number(gv)||0));
  // лист «Фото с объекта» — все фото, кроме главного, если их больше четырёх или краткая характеристика не вместилась на
  // лист объекта: тогда она здесь, слева тёмной колонкой (инженер 20.11.2026 «если на страницу переносишь, то больше фото
  // показывай с краткой информацией»)
  function galleryPage(o,co,logo){const all=o.pictures||[],sm=o.summary&&o.sumMoved;
   if(all.length<=4&&!sm)return"";const ps=all.length>=8?all.slice(4,MAX_PHOTOS):all.slice(all.length>1?1:0,MAX_PHOTOS);const gn=Math.min(ps.length,12);if(!ps.length&&!sm)return"";
-  return`<section class="page gal${sm?" wsum":""}${o.galSmall?" gsm":""}"><div class="gh"><div class="t"><small class="up">Фото с объекта</small><b>${esc(o.name||"Объект")}</b></div>
+  const gv=galleryOf(o),gst=galGrid(gv,gn,!!sm);
+  return`<section class="page gal${gv?" gl"+gv:""}${sm?" wsum":""}${o.galSmall?" gsm":""}"><div class="gh"><div class="t"><small class="up">Фото с объекта</small><b>${esc(o.name||"Объект")}</b></div>
   <div class="lg">${logo?`<img src="${esc(logo)}" alt="">`:`<b>${esc(co.name)}</b>`}</div></div>
   ${sm?`<div class="gs"><small class="up">Краткая характеристика</small><div class="gt">${sumHtml(o.summary)}</div></div>`:""}
-  ${ps.length?`<div class="gg n${gn}">${ps.map(s=>`<div${bg(s)}></div>`).join("")}</div>`:""}</section>`}
+  ${ps.length?`<div class="gg n${gn}"${gst?` style="${gst.st}"`:""}>${ps.slice(0,12).map((s,k)=>gst?`<div style="${gst.cell(k)}${s?`;background-image:url('${String(s).replace(/'/g,"%27")}')`:""}"></div>`:`<div${bg(s)}></div>`).join("")}</div>`:""}</section>`}
  // objects: [{name, customer, general_contractor, address, status, years, summary, works:[{name,unit,volume,plan}], pictures:[src…]}]
  function build(objects,{logo="",company={},services=true,map=true,screen=false}={}){
   const d=new Date(),co={date:String(d.getDate()).padStart(2,"0")+"."+String(d.getMonth()+1).padStart(2,"0")+"."+d.getFullYear(),...COMPANY,...company},list=(Array.isArray(objects)?objects:[]).map((o,i)=>{const m=LAYOUT_MAX[layoutOf(o,i)];return(o.pictures||[]).length>m?{...o,pictures:o.pictures.slice(0,m)}:o});
@@ -446,7 +485,7 @@ ${(()=>{const pages=[["О компании",aboutPage(list,co,logo)],...(service
  // баннер (полоса 1920×180) в буклет не годится
  const allFiles=o=>[...new Set([o.cover_full||o.cover,...(o.hero||[]),...(o.photos||[])].filter(f=>f&&f!==o.banner&&!(o.cover_full&&f===o.cover)))];
  // что отмечено по умолчанию: сохранённый выбор (object-meta «booklet_photos»), иначе первые 4
- const pickDefault=o=>{const all=allFiles(o),saved=(o.booklet?.files||[]).filter(f=>all.includes(f));return{all,files:saved.length?saved:all.slice(0,7),layout:Number(o.booklet?.layout)||0}};
+ const pickDefault=o=>{const all=allFiles(o),saved=(o.booklet?.files||[]).filter(f=>all.includes(f));return{all,files:saved.length?saved:all.slice(0,7),layout:Number(o.booklet?.layout)||0,gallery:Number(o.booklet?.gallery)||0}};
  // data: объекты так, как их собирает окно «Сайт» (siteObjectData) — cover, cover_full, photos, hero; files — выбранные
  // фото (первое — главное), layout — номер макета (0 — авто)
  async function make(data,{onProgress,services=true,map=true}={}){
@@ -506,6 +545,6 @@ ${(()=>{const pages=[["О компании",aboutPage(list,co,logo)],...(service
    if(!changed)return;
   }
  }
- const api={MAX_PHOTOS,LAYOUT_MAX,capOf,clientList,mapPage,geoGroups,dropTooLong,build,make,preview,totals,doneOf,parties,COMPANY,LAYOUTS,layoutOf,thumb,read,pickDefault};
+ const api={GALLERIES,galleryOf,layoutSketch,gallerySketch,MAX_PHOTOS,LAYOUT_MAX,capOf,clientList,mapPage,geoGroups,dropTooLong,build,make,preview,totals,doneOf,parties,COMPANY,LAYOUTS,layoutOf,thumb,read,pickDefault};
  if(typeof module!=="undefined"&&module.exports)module.exports=api;else root.irBooklet=api;
 })(typeof window!=="undefined"?window:globalThis);
