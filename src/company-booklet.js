@@ -106,7 +106,7 @@
 .gal .gs small{font-size:7pt;font-weight:800;letter-spacing:1.4px;color:var(--ord);margin-bottom:3mm}.gal .gt{font-size:8.6pt;line-height:1.55;color:#2c333b;overflow:hidden;min-height:0}.gal.gsm .gt{font-size:7.2pt;line-height:1.45}
 .gal .gt p,.gal .gt h5,.gal .gt ul,.gal .gt ol{margin:0 0 1.6mm}.gal .gt ul,.gal .gt ol{padding-left:4mm}.gal .gt h5{font-size:1.05em;font-weight:800}
 .gal.gl1,.gal.gl2{background:#eef1f4}.gal.gl3{background:#0d1013}.gal.gl3 .gh{background:#15191d}.gal.gl3 .gh b{color:#fff}.gal.gl3 .gg{gap:1.2mm}.gal.gl3 .gg div{border-radius:0}
-.gal .gg.bento div{position:relative;border-radius:2mm;box-shadow:0 .8mm 2.5mm rgba(0,0,0,.35)}.gal .gg.bento div:first-child{box-shadow:0 0 0 .9mm var(--or),0 1mm 4mm rgba(0,0,0,.4)}.gal .gg.bento div:first-child:after{content:"";position:absolute;left:0;right:0;bottom:0;height:40%;border-radius:0 0 2mm 2mm;background:linear-gradient(transparent,rgba(0,0,0,.55))}.gal .gg.bento .cnt{position:absolute;left:4mm;bottom:3.5mm;z-index:1;color:#fff;font-size:7pt;font-weight:800;letter-spacing:1px;text-transform:uppercase}.gal .gg.bento .cnt b{display:block;font-size:20pt;font-weight:900;line-height:1;color:var(--or);letter-spacing:0}.gal.solo .gs{width:auto;right:6mm}.gal.solo .gt{column-count:2;column-gap:10mm}
+.gal .gg.jr{display:flex;flex-direction:column}.gal .gg.jr .rw{display:flex;gap:3mm;min-height:0;background:none;border-radius:0}.gal .gg.jr .rw div{position:relative;min-width:0;border-radius:2mm;box-shadow:0 .8mm 2.5mm rgba(0,0,0,.35)}.gal .gg.jr .rw:first-child div:first-child{box-shadow:0 0 0 .9mm var(--or),0 1mm 4mm rgba(0,0,0,.4)}.gal .gg.jr .rw:first-child div:first-child:after{content:"";position:absolute;left:0;right:0;bottom:0;height:40%;border-radius:0 0 2mm 2mm;background:linear-gradient(transparent,rgba(0,0,0,.55))}.gal .gg.jr .cnt{position:absolute;left:4mm;bottom:3.5mm;z-index:1;color:#fff;font-size:7pt;font-weight:800;letter-spacing:1px;text-transform:uppercase}.gal .gg.jr .cnt b{display:block;font-size:20pt;font-weight:900;line-height:1;color:var(--or);letter-spacing:0}.gal.solo .gs{width:auto;right:6mm}.gal.solo .gt{column-count:2;column-gap:10mm}
 .gal .n4{grid-template:1fr 1fr/1fr 1fr}.gal .n5{grid-template:1fr 1fr/1.5fr 1fr 1fr}.gal .n5 div:first-child{grid-row:span 2}.gal .n6{grid-template:1fr 1fr/1fr 1fr 1fr}
 .svcp:before{content:"";position:absolute;left:0;top:0;width:70mm;height:52mm;background:linear-gradient(135deg,var(--or2),var(--or));clip-path:polygon(0 0,100% 0,0 100%)}
 .svcp .sh{position:absolute;left:16mm;top:20mm;width:190mm}.svcp .sh .kick{font-size:7.5pt;font-weight:800;letter-spacing:1.4px;color:var(--ink);margin-bottom:2mm}
@@ -419,11 +419,17 @@
  const galleryOf=o=>{const n=Number(o?.gallery);return n>=1&&n<=GALLERIES.length?n:0};
  // раскладка без пустых ячеек: число столбцов по форме ячейки ближе к 4:3, лишние ячейки — первые фото на два столбца
  function galFit(m,w,h){let best=null;for(let k=1;k<=m;k++){const r=Math.ceil(m/k),e=k*r-m;if(e>=r)continue;const s=e*.3+Math.abs(Math.log((w/k)/(h/r)/1.33));if(!best||s<best.s)best={c:k,r,e,s}}return best}
- // «Авто» — мозаика: первое фото крупно 2×2, следующие — широкие 2×1 и обычные, ячейки без пустых (инженер 24.11.2026
- // «сделай тут фотографий 12», «красиво оформи, не просто тупо фото»)
- function bento(n,narrow){if(n<3)return null;const c=narrow?4:6,r=Math.max(2,Math.ceil((n+3)/c));let w=c*r-n-3;if(w>n-1)return null;
-  return{st:`grid-template:repeat(${r},1fr)/repeat(${c},1fr);grid-auto-flow:dense`,big:true,cell:i=>i===0?"grid-column:span 2;grid-row:span 2":i<=w?"grid-column:span 2;grid-row:auto":"grid-column:auto;grid-row:auto"}}
- function galGrid(gv,n,narrow){if(!gv)return bento(n,narrow);if(n<2)return null;const W=narrow?187:285,H=176;
+ // «Авто» — фото рядами, каждое в своих пропорциях (инженер 24.11.2026 «сделай тут фотографий 12», «красиво оформи»,
+ // «вот такие фотографии подобрать тяжело» — крупная квадратная и широкая ячейки требовали особых фото): ряды подбираются
+ // так, чтобы при высоте ряда по его фото они вместе заняли лист, порядок фото тот, что выбран; обрезка — только от
+ // подгонки высоты, в пределах нескольких процентов. a — ширина/высота каждого фото (без размера — 4:3)
+ function rowsOf(a,W,H,g=3){const n=a.length;if(!n)return null;let best=null;
+  for(let m=0;m<1<<(n-1);m++){const rows=[];let cur=[0];for(let i=1;i<n;i++){if(m>>(i-1)&1){rows.push(cur);cur=[i]}else cur.push(i)}rows.push(cur);
+   if(rows.length>4)continue;let tot=g*(rows.length-1),pen=0;const hs=rows.map(r=>{const sa=r.reduce((t,i)=>t+a[i],0),h=(W-g*(r.length-1))/sa;if(r.length===1&&n>2)pen+=.25;if(h<H*.18)pen+=1;return h});
+   tot+=hs.reduce((t,h)=>t+h,0);const sc=Math.abs(Math.log(tot/H))+pen+.02*Math.abs(rows[0].length-Math.min(...rows.map(r=>r.length)));
+   if(!best||sc<best.sc)best={sc,rows,hs}}return best}
+ const ratioOk=x=>Number(x)>0.3&&Number(x)<4?Number(x):4/3;
+ function galGrid(gv,n,narrow){if(n<2)return null;const W=narrow?187:285,H=176;
   if(gv===2){const f=galFit(n-1,W*.5,H);return{st:`grid-template:repeat(${f.r},1fr)/${(f.c*1.25).toFixed(2)}fr repeat(${f.c},1fr)`,cell:i=>i===0?"grid-row:1/-1;grid-column:1":i<=f.e?"grid-row:auto;grid-column:span 2":"grid-row:auto;grid-column:auto"}}
   const f=galFit(n,W,H);return{st:`grid-template:repeat(${f.r},1fr)/repeat(${f.c},1fr)`,cell:i=>i<f.e?"grid-row:auto;grid-column:span 2":"grid-row:auto;grid-column:auto"}}
  // схемы макетов для окна «Буклет» (инженер 24.11.2026 «какое-нибудь превью или схему при выборе макета»): лист
@@ -444,7 +450,7 @@
  function skGal(gv){const head=gv===3?skR(0,0,60,7,SK.dk)+skR(0,0,2,7,SK.or)+skR(4,2.4,18,2,SK.lt):skR(0,0,60,7,SK.lt)+skR(0,0,2,7,SK.or)+skR(4,2.4,18,2,SK.dk);
   const bgc=gv===0||gv===3?(gv===3?"#0d1013":SK.dk):"#eef1f4",g=gv===3?1:2,X=3,Y=9,W=54,H=31;let cells="";
   const grid=(x,y,w,h,cols,rows)=>{const cw=(w-(cols-1)*g)/cols,ch=(h-(rows-1)*g)/rows;let s="";for(let r=0;r<rows;r++)for(let q=0;q<cols;q++)s+=skR(x+q*(cw+g),y+r*(ch+g),cw,ch,SK.ph,gv===3?0:.8);return s};
-  if(gv===0)cells=skR(X,Y,(W-2*g)/4*2+g,H,SK.ph,.8)+grid(X+(W-2*g)/4*2+2*g,Y,(W-2*g)/4*2+g,H,2,2);
+  if(gv===0){const rs=[[1.33,.75,1.5],[1.5,1.78,.75,1.33],[1.33,.75,1.5,1.33]],hs=rs.map(r=>(W-g*(r.length-1))/r.reduce((t,a)=>t+a,0)),k=(H-g*2)/hs.reduce((t,h)=>t+h,0);let y=Y;rs.forEach((r,j)=>{const h=hs[j]*k,sa=r.reduce((t,a)=>t+a,0);let x=X;r.forEach(a=>{const w=(W-g*(r.length-1))*a/sa;cells+=skR(x,y,w,h,j||x>X?SK.ph:SK.or,.8);x+=w+g});y+=h+g})}
   else if(gv===2){const bw=W*.55;cells=skR(X,Y,bw,H,SK.ph,.8)+grid(X+bw+g,Y,W-bw-g,H,2,2)}
   else cells=grid(X,Y,W,H,3,2);
   return skR(0,0,60,42,bgc)+head+cells}
@@ -458,11 +464,12 @@
  // показывай с краткой информацией»)
  function galleryPage(o,co,logo){const all=o.pictures||[],sm=o.summary&&o.sumMoved;
   if(all.length<=4&&!sm)return"";const ps=all.slice(4,MAX_PHOTOS);const gn=Math.min(ps.length,12);if(!ps.length&&!sm)return"";
-  const gv=galleryOf(o),gst=galGrid(gv,gn,!!sm);
+  const gv=galleryOf(o),jr=!gv&&gn>=2&&rowsOf(ps.slice(0,gn).map((_,k)=>ratioOk((o.ratios||[])[4+k])),sm?187:285,176),gst=!jr&&galGrid(gv,gn,!!sm);
+  const cellImg=s=>s?`background-image:url('${String(s).replace(/'/g,"%27")}')`:"";
   return`<section class="page gal${gv?" gl"+gv:""}${sm?" wsum":""}${sm&&!ps.length?" solo":""}${o.galSmall?" gsm":""}"><div class="gh"><div class="t"><small class="up">Фото с объекта</small><b>${esc(o.name||"Объект")}</b></div>
   <div class="lg">${logo?`<img src="${esc(logo)}" alt="">`:`<b>${esc(co.name)}</b>`}</div></div>
   ${sm?`<div class="gs"><small class="up">Краткая характеристика</small><div class="gt">${sumHtml(o.summary)}</div></div>`:""}
-  ${ps.length?`<div class="gg n${gn}${gst?.big?" bento":""}"${gst?` style="${gst.st}"`:""}>${ps.slice(0,12).map((s,k)=>gst?`<div style="${gst.cell(k)}${s?`;background-image:url('${String(s).replace(/'/g,"%27")}')`:""}">${gst.big&&k===0?`<span class="cnt"><b>${gn}</b> фото</span>`:""}</div>`:`<div${bg(s)}></div>`).join("")}</div>`:""}</section>`}
+  ${jr?`<div class="gg jr">${jr.rows.map(r=>`<div class="rw" style="flex:${jr.hs[jr.rows.indexOf(r)].toFixed(2)} 1 0">${r.map(k=>`<div style="flex:${ratioOk((o.ratios||[])[4+k]).toFixed(3)} 1 0;${cellImg(ps[k])}">${k===0?`<span class="cnt"><b>${gn}</b> фото</span>`:""}</div>`).join("")}</div>`).join("")}</div>`:ps.length?`<div class="gg n${gn}${gst?.big?" bento":""}"${gst?` style="${gst.st}"`:""}>${ps.slice(0,12).map((s,k)=>gst?`<div style="${gst.cell(k)}${s?`;background-image:url('${String(s).replace(/'/g,"%27")}')`:""}">${gst.big&&k===0?`<span class="cnt"><b>${gn}</b> фото</span>`:""}</div>`:`<div${bg(s)}></div>`).join("")}</div>`:""}</section>`}
  // objects: [{name, customer, general_contractor, address, status, years, summary, works:[{name,unit,volume,plan}], pictures:[src…]}]
  function build(objects,{logo="",company={},services=true,map=true,screen=false}={}){
   const d=new Date(),co={date:String(d.getDate()).padStart(2,"0")+"."+String(d.getMonth()+1).padStart(2,"0")+"."+d.getFullYear(),...COMPANY,...company},list=(Array.isArray(objects)?objects:[]).map((o,i)=>{const m=LAYOUT_MAX[layoutOf(o,i)];return(o.pictures||[]).length>m?{...o,pictures:o.pictures.slice(0,m)}:o});
@@ -483,6 +490,8 @@ ${(()=>{const pages=[["О компании",aboutPage(list,co,logo)],...(service
    const c=document.createElement("canvas");c.width=Math.max(1,Math.round(img.naturalWidth*k));c.height=Math.max(1,Math.round(img.naturalHeight*k));
    const g=c.getContext("2d");g.imageSmoothingQuality="high";g.drawImage(img,0,0,c.width,c.height);return c.toDataURL("image/jpeg",q)}catch{return src}
  }
+ // пропорции фото для листа «Фото с объекта» (ряды без обрезки)
+ const ratios=ps=>Promise.all(ps.map(src=>new Promise(ok=>{if(!src||typeof Image==="undefined")return ok(0);const i=new Image();i.onload=()=>ok(i.naturalWidth/Math.max(1,i.naturalHeight));i.onerror=()=>ok(0);i.src=src})));
  // маленькая картинка для окна выбора фото
  const thumb=src=>small(src,360,.8);
  const read=async f=>{if(!f)return"";if(/^data:/.test(f))return f;try{return await root.irProject.images.read(f)||""}catch{return""}};
@@ -501,7 +510,7 @@ ${(()=>{const pages=[["О компании",aboutPage(list,co,logo)],...(service
    onProgress?.(i,data.length,o.name);
    const files=(o.files||pickDefault(o).files).slice(0,capOf(o)),pictures=[];
    for(const f of files){const s=await read(f);if(s)pictures.push(await small(s,pictures.length?1400:2800))}
-   objects.push({...o,pictures})
+   objects.push({...o,pictures,ratios:await ratios(pictures)})
   }
   const opts={logo,company:profile?.name?{name:profile.name}:{},services,map};
   await dropTooLong(objects,opts);
@@ -515,7 +524,7 @@ ${(()=>{const pages=[["О компании",aboutPage(list,co,logo)],...(service
   const profile=await root.irProject.company.get().catch(()=>({}));
   const logo=await small(await read(profile?.logo||""),600);
   const objects=[];
-  for(const o of data){const pictures=[];for(const f of (o.files||pickDefault(o).files).slice(0,capOf(o))){const s=(pic&&await pic(f))||await small(await read(f),900,.8);if(s)pictures.push(s)}objects.push({...o,pictures})}
+  for(const o of data){const pictures=[];for(const f of (o.files||pickDefault(o).files).slice(0,capOf(o))){const s=(pic&&await pic(f))||await small(await read(f),900,.8);if(s)pictures.push(s)}objects.push({...o,pictures,ratios:await ratios(pictures)})}
   const opts={logo,company:profile?.name?{name:profile.name}:{},services,map};
   await dropTooLong(objects,opts);
   return build(objects,{...opts,screen:true})
@@ -550,6 +559,6 @@ ${(()=>{const pages=[["О компании",aboutPage(list,co,logo)],...(service
    if(!changed)return;
   }
  }
- const api={GALLERIES,galleryOf,layoutSketch,gallerySketch,MAX_PHOTOS,LAYOUT_MAX,capOf,clientList,mapPage,geoGroups,dropTooLong,build,make,preview,totals,doneOf,parties,COMPANY,LAYOUTS,layoutOf,thumb,read,pickDefault};
+ const api={rowsOf,GALLERIES,galleryOf,layoutSketch,gallerySketch,MAX_PHOTOS,LAYOUT_MAX,capOf,clientList,mapPage,geoGroups,dropTooLong,build,make,preview,totals,doneOf,parties,COMPANY,LAYOUTS,layoutOf,thumb,read,pickDefault};
  if(typeof module!=="undefined"&&module.exports)module.exports=api;else root.irBooklet=api;
 })(typeof window!=="undefined"?window:globalThis);
