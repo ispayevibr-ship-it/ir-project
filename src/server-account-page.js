@@ -533,11 +533,12 @@
     return`<div class="ir-bk-tools ir-bk-lk"><span>🔒 <b>Лист сохранён ${esc(L.date||"")}</b> — объёмы, текст, фото (${(L.files||[]).length}) и макет «${esc(lay)}» больше не меняются</span><span class="grow"></span><button type="button" class="ir-acc-btn small" data-edit>Редактировать</button></div>
     <div class="ir-bk-ph ir-bk-closed">${(L.files||[]).map((f,k)=>{const t=thumbs.get(f);return`<span class="ir-bk-t on">${t?`<img src="${esc(t)}" alt="">`:'<span class="ir-hero-no">…</span>'}<b>${k+1}</b></span>`}).join("")}</div>`}
    if(!x.all.length)return`<div class="ir-so-empty">У объекта нет фото</div><div class="ir-bk-tools"><span class="grow"></span><button type="button" class="ir-acc-btn small main" data-lock>Сохранить лист</button></div>`;
-   return`<div class="ir-bk-tools"><span>Щёлкайте фото по порядку: <b>1</b> — главное, <b>2–4</b> — на листе объекта, <b>5–${irBooklet.MAX_PHOTOS}</b> — отдельным листом «Фото с объекта». Выбрано: ${x.files.length} из ${irBooklet.MAX_PHOTOS}</span><span class="grow"></span><label>Макет <select data-lay>${["Авто",...irBooklet.LAYOUTS].map((t,i)=>`<option value="${i}"${x.layout===i?" selected":""}>${esc(t)}</option>`).join("")}</select></label><button type="button" class="ir-acc-btn small main" data-lock title="Лист объекта больше не меняется — объёмы, текст, фото и макет на сегодня, пока не нажать «Редактировать»">Сохранить лист</button></div>
+   const cap=irBooklet.capOf(x);
+   return`<div class="ir-bk-tools"><span>Щёлкайте фото по порядку: <b>1</b> — главное, <b>2–4</b> — на листе объекта${cap>4?`, <b>5–${cap}</b> — отдельным листом «Фото с объекта»`:""}. Выбрано: ${x.files.length} из ${cap} (предел макета)</span><span class="grow"></span><label>Макет <select data-lay>${["Авто",...irBooklet.LAYOUTS].map((t,i)=>`<option value="${i}"${x.layout===i?" selected":""}>${esc(t)} — до ${irBooklet.LAYOUT_MAX[i]} фото</option>`).join("")}</select></label><button type="button" class="ir-acc-btn small main" data-lock title="Лист объекта больше не меняется — объёмы, текст, фото и макет на сегодня, пока не нажать «Редактировать»">Сохранить лист</button></div>
    <div class="ir-bk-ph">${x.all.slice(0,SHOW).map((f,k)=>{const n=x.files.indexOf(f)+1,t=thumbs.get(f);return`<button type="button" class="ir-bk-t${n?" on":""}" data-k="${k}">${t?`<img src="${esc(t)}" alt="">`:'<span class="ir-hero-no">…</span>'}${n?`<b>${n}</b>`:""}</button>`}).join("")}</div>
    ${x.all.length>SHOW?`<div class="ir-acc-help">Показаны первые ${SHOW} фото из ${x.all.length}.</div>`:""}`};
   const drawObj=id=>{const box=list.querySelector(`[data-box="${id}"]`);if(!box)return;box.innerHTML=photosHtml(id);const x=info.get(id);if(!x)return;
-   box.querySelector("[data-lay]")?.addEventListener("change",e=>{x.layout=Number(e.target.value)||0});
+   box.querySelector("[data-lay]")?.addEventListener("change",e=>{x.layout=Number(e.target.value)||0;const cap=irBooklet.capOf(x);if(x.files.length>cap)x.files.length=cap;drawObj(id)});
    const busy=b=>{b.disabled=true;b.textContent="Сохраняем…"};
    box.querySelector("[data-lock]")?.addEventListener("click",async e=>{busy(e.target);
     const L={at:new Date().toISOString(),date:today(),files:[...x.files],layout:x.layout,data:Object.fromEntries(LOCK_KEYS.map(k=>[k,x.data[k]]))};
@@ -545,7 +546,7 @@
    box.querySelector("[data-edit]")?.addEventListener("click",async e=>{busy(e.target);
     try{await saveBooklet(id,x.locked.files,x.locked.layout,null);x.files=[...x.locked.files];x.layout=Number(x.locked.layout)||0;x.locked=null}catch(err){bad(err)}drawObj(id)});
    box.querySelectorAll("[data-k]").forEach(b=>b.onclick=()=>{const f=x.all[Number(b.dataset.k)],i=x.files.indexOf(f);
-    if(i>=0)x.files.splice(i,1);else if(x.files.length<irBooklet.MAX_PHOTOS)x.files.push(f);else return;drawObj(id)})};
+    if(i>=0)x.files.splice(i,1);else if(x.files.length<irBooklet.capOf(x))x.files.push(f);else return;drawObj(id)})};
   async function load(id){if(info.has(id))return drawObj(id);
    const o=objects.find(x=>Number(x.id)===id);let data;try{data=await siteObjectData(o,0)}catch(e){bad(e);return}
    const p=irBooklet.pickDefault(data);info.set(id,{data,...p,locked:data.booklet?.locked||null});drawObj(id);
