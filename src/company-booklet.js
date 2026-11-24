@@ -24,6 +24,7 @@
   // преимущества, заказчики, принципы — из буклета фирмы в Canva (инженер 24.11.2026 «текста с канвы еще возьми,
   // добавь, а то пустовато первая и вторая страница»)
   adv:[["Собственный штат","Инженеры, прорабы, сварщики, монтажники, рабочие"],["Своя строительная техника","Работаем оперативно, без зависимости от подрядчиков"],["Комплексный подход","От проекта и смет до сдачи объекта «под ключ»"],["Сроки и качество","Строгое соответствие нормам и требованиям заказчика"]],
+  pledges:[["Гарантия","На все виды выполненных работ"],["Весь Казахстан","Объекты по всей стране, офис в Темиртау"]],
   license:"Государственная лицензия на строительно-монтажные работы II категории",
   clients:["ТОО «Темиртауский Казмеханомонтаж №2»","ТОО «СМУ-5»","ТОО «KVINTEC Construction»","ТОО «КазМетКокс»","ТОО «Құрылыс ТС»","ТОО «Eurasia Copper Operating»","ТОО «QAZCLINKER»","ТОО «ВЕЛЕТ»","ТОО «AAEngineering Group»","ТОО «Fonet Er-Tai AK Mining»","ТОО «KYZYL ARAY COPPER»","ТОО «Завод Техно-Караганда»","ТОО «Средазэнергомонтаж Павлодар»"],
   principles:{lead:"Мы стремимся к постоянному развитию, внедряем современные строительные технологии и применяем передовые материалы. Это позволяет повышать эффективность работ и обеспечивать высокое качество на всех этапах строительства.",
@@ -162,11 +163,11 @@
 .foot{position:absolute;left:0;right:0;bottom:0;height:25mm;background:#fff;display:grid;grid-template-columns:1fr 1fr;align-items:center;padding:0 10mm;gap:8mm;z-index:2}
 .foot small{display:block;font-size:6.5pt;font-weight:800;color:var(--ord);letter-spacing:.8px;margin-bottom:1mm}.foot b{font-size:9.5pt;font-weight:800}
 .foot div+div{border-left:1px solid var(--line);padding-left:8mm}
-.A1{position:absolute;left:0;top:0;bottom:0;width:86mm;background:linear-gradient(170deg,var(--or2),var(--or) 60%,var(--ord));padding:12mm 9mm}
+.A1{position:absolute;left:0;top:0;bottom:0;width:86mm;background:linear-gradient(170deg,var(--or2),var(--or) 60%,var(--ord));padding:12mm 9mm;display:flex;flex-direction:column}
 .A1 .lg{background:#fff;border-radius:3mm;padding:4mm;text-align:center;margin-bottom:7mm;box-shadow:0 2mm 6mm rgba(0,0,0,.12)}
 .A1 .lg img{max-height:30mm;max-width:100%;object-fit:contain}.A1 .lg b{font-size:15pt;font-weight:900}
 .A1 h3{font-size:10pt;font-weight:900;margin:0 0 1mm;line-height:1.25}.A1 .bin{font-size:8pt;font-weight:700;margin-bottom:5mm}
-.kv{font-size:7.6pt;line-height:1.45;margin-bottom:3.2mm}.kv small{display:block;font-weight:900;font-size:6.6pt;letter-spacing:.8px;opacity:.75}
+.kv{font-size:7.6pt;line-height:1.45;margin-bottom:2.6mm}.kv small{display:block;font-weight:900;font-size:6.6pt;letter-spacing:.8px;opacity:.75}
 .A2{position:absolute;left:86mm;top:0;bottom:0;width:113mm;padding:13mm 10mm 12mm 11mm;display:flex;flex-direction:column}
 .kick{font-size:7.5pt;font-weight:800;color:var(--ord);letter-spacing:2px}
 .A2 h2{font-size:19pt;font-weight:900;margin:1mm 0 4mm;line-height:1.05}.A2 p{font-size:8.6pt;line-height:1.55;margin:0 0 3mm;color:#333a42}
@@ -175,12 +176,14 @@
 .nums b{display:block;font-size:16pt;font-weight:900;line-height:1.1}.nums span{font-size:6.8pt;color:var(--mut);font-weight:600}
 .adv{display:grid;grid-template-columns:1fr 1fr;gap:3mm}.adv div{background:#faf6ee;border-radius:2mm;padding:3mm;font-size:7.4pt;line-height:1.35}.adv b{display:block;font-size:8pt;margin-bottom:.6mm}
 .slogan{margin-top:auto;padding-top:6mm;font-size:13pt;font-weight:900;line-height:1.2}.slogan i{font-style:normal;color:var(--or)}
-.A3{position:absolute;left:199mm;right:0;top:0;bottom:0;background:#1d2228;color:#fff;padding:13mm 9mm 12mm}.A3 .kick{color:var(--or)}
+.A3{position:absolute;left:199mm;right:0;top:0;bottom:0;background:#1d2228;color:#fff;padding:13mm 9mm 12mm;display:flex;flex-direction:column}.A3 .kick{color:var(--or)}
 .A3 h2{font-size:15pt;font-weight:900;margin:1mm 0 5mm;line-height:1.15}.cust{list-style:none;margin:0;padding:0;max-height:138mm;overflow:hidden}.cust.many li{font-size:7.2pt;padding:1.2mm 0}.cust li.more{color:#c9ced5;font-weight:500}.cust li.more:before{background:none}
-.lic{margin-top:4mm;padding:3mm;border-radius:2mm;background:rgba(255,255,255,.35);font-size:7.6pt;line-height:1.4;font-weight:700}.lic small{display:block;font-weight:900;font-size:6.6pt;letter-spacing:.8px;opacity:.75}
+.gar{margin-top:auto;padding-top:3mm;display:grid;grid-template-columns:1fr 1fr;gap:2.4mm}.gar div{background:#1d2228;color:#fff;border-radius:2mm;padding:2.4mm 2.6mm;font-size:6.8pt;line-height:1.35;color:#d6d9dd}.gar b{display:block;color:var(--or);font-size:8.4pt;font-weight:800;margin-bottom:.5mm}
+.lic{margin-top:1.5mm;padding:3mm;border-radius:2mm;background:rgba(255,255,255,.35);font-size:7.6pt;line-height:1.4;font-weight:700}.lic small{display:block;font-weight:900;font-size:6.6pt;letter-spacing:.8px;opacity:.75}
 .cust li{font-size:8pt;font-weight:600;padding:1.9mm 0;border-bottom:1px solid rgba(255,255,255,.1);display:flex;gap:2.5mm;align-items:center}
 .cust li:before{content:"";flex:none;width:1.6mm;height:1.6mm;background:var(--or);transform:rotate(45deg)}
-.A3 .q{position:absolute;left:9mm;right:9mm;bottom:12mm;font-size:8pt;line-height:1.5;color:#c9ced5}.A3 .q b{color:#fff}
+.A3 .q{margin-top:5mm;font-size:8pt;line-height:1.5;color:#c9ced5}
+.A3 .rep{margin-top:auto;padding:5mm 0 0 5mm;border-left:1.4mm solid var(--or);font-size:11pt;font-weight:800;line-height:1.35}.A3 .rep:before{content:"«";display:block;font-size:30pt;line-height:.6;color:var(--or);margin-bottom:2mm}.A3 .q b{color:#fff}
 .lay2 .L{left:auto;right:0}.lay2 .L:before{left:auto;right:0;clip-path:polygon(0 0,100% 0,100% 100%)}.lay2 .L .in{left:10mm;right:11mm}
 .lay2 .R{left:0;right:100mm}.lay2 .band{clip-path:polygon(0 0,100% 30%,100% 100%,0 100%);background:linear-gradient(260deg,var(--or),var(--or2))}
 .lay2 .logo{right:auto;left:10mm}.lay2 .circles{left:auto;right:10mm;flex-direction:row-reverse}.lay2 .c{margin-right:0;margin-left:-5mm}
@@ -328,13 +331,14 @@
   <div class="kv"><small class="up">Почта и сайт</small>${esc(co.mail)}<br>${esc(co.site)}</div>
   <div class="kv"><small class="up">Директор</small>${esc(co.head)}</div>
   <div class="kv"><small class="up">Банковские реквизиты</small>${co.bank.map(esc).join("<br>")}</div>
-  ${co.license?`<div class="lic"><small class="up">Лицензия</small>${esc(co.license)}</div>`:""}</div>
+  ${co.license?`<div class="lic"><small class="up">Лицензия</small>${esc(co.license)}</div>`:""}
+  <div class="gar">${(co.pledges||COMPANY.pledges).map(([b,t])=>`<div><b>${esc(b)}</b>${esc(t)}</div>`).join("")}</div></div>
   <div class="A2"><div class="kick up">О компании</div><h2>${esc(co.title)}</h2>${co.about.map(p=>`<p>${esc(p)}</p>`).join("")}
   <div class="nums${totals(objects).length>6?" many":""}">${totals(objects).map(([b,s])=>`<div><b>${esc(b)}</b><span>${esc(s)}</span></div>`).join("")}</div>
   <div class="adv">${co.adv.map(([b,s])=>`<div><b>${esc(b)}</b>${esc(s)}</div>`).join("")}</div>
   <div class="slogan">${esc(co.slogan[0])}<br><i>${esc(co.slogan[1])}</i></div></div>
   <div class="A3"><div class="kick up">Нам доверяют</div><h2>Заказчики и генподрядчики</h2>
-  <ul class="cust${many?" many":""}">${cut.map(p=>`<li>${esc(p)}</li>`).join("")}${cut.length<ps.length?`<li class="more">и ещё ${ps.length-cut.length}</li>`:""}</ul><div class="q">${co.trust}</div></div></section>`
+  <ul class="cust${many?" many":""}">${cut.map(p=>`<li>${esc(p)}</li>`).join("")}${cut.length<ps.length?`<li class="more">и ещё ${ps.length-cut.length}</li>`:""}</ul>${(co.principles||COMPANY.principles).note?`<div class="rep">${esc((co.principles||COMPANY.principles).note)}</div>`:""}<div class="q">${co.trust}</div></div></section>`
  }
  // лист объекта — четыре макета, чтобы листы не были одинаковыми (инженер 20.11.2026 «чтобы не все страницы были
  // одинаковые, макет разный»): 1 «Классика» — текст слева, фото справа с полосой и кругами; 2 «Зеркало» — фото слева,
