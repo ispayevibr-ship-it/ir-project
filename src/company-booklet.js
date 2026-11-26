@@ -109,7 +109,7 @@
 .gal .gs small{font-size:7pt;font-weight:800;letter-spacing:1.4px;color:var(--ord);margin-bottom:3mm}.gal .gt{font-size:8.6pt;line-height:1.55;color:#2c333b;overflow:hidden;min-height:0}.gal.gsm .gt{font-size:7.2pt;line-height:1.45}
 .gal .gt p,.gal .gt h5,.gal .gt ul,.gal .gt ol{margin:0 0 1.6mm}.gal .gt ul,.gal .gt ol{padding-left:4mm}.gal .gt h5{font-size:1.05em;font-weight:800}
 .gal.gl1,.gal.gl2{background:#eef1f4}.gal.gl3{background:#0d1013}.gal.gl3 .gh{background:#15191d}.gal.gl3 .gh b{color:#fff}.gal.gl3 .gg{gap:1.2mm}.gal.gl3 .gg div{border-radius:0}
-.gal .gg.jr{display:flex;flex-direction:column}.gal .gg.jb .top{display:flex;gap:3mm;min-height:0;background:none;border-radius:0;box-shadow:none}.gal .gg.jb .jc{display:flex;flex-direction:column;gap:3mm;min-width:0;background:none;border-radius:0;box-shadow:none}.gal .gg.jb .big{position:relative;border-radius:2mm;box-shadow:0 0 0 .9mm var(--or),0 1mm 4mm rgba(0,0,0,.4)}.gal .gg.jb .big:after{content:"";position:absolute;left:0;right:0;bottom:0;height:40%;border-radius:0 0 2mm 2mm;background:linear-gradient(transparent,rgba(0,0,0,.55))}.gal .gg.jb .big .cnt{position:absolute;left:4mm;bottom:3.5mm;z-index:1;color:#fff;font-size:7pt;font-weight:800;letter-spacing:1px;text-transform:uppercase}.gal .gg.jb .big .cnt b{display:block;font-size:20pt;font-weight:900;line-height:1;color:var(--or);letter-spacing:0}.gal .gg.jb .jc .rw:first-child div:first-child{box-shadow:0 .8mm 2.5mm rgba(0,0,0,.35)}.gal .gg.jb .jc .rw:first-child div:first-child:after{display:none}.gl3 .gg.jr,.gl3 .gg.jr .rw,.gl3 .gg.jb .jc{gap:1.2mm}.gl3 .gg.jr .rw div,.gl3 .gg.jb .big{border-radius:0}.gal .gg.jr .rw{display:flex;gap:3mm;min-height:0;background:none;border-radius:0}.gal .gg.jr .rw div{position:relative;min-width:0;border-radius:2mm;box-shadow:0 .8mm 2.5mm rgba(0,0,0,.35)}.gal .gg.jr .rw:first-child div:first-child{box-shadow:0 0 0 .9mm var(--or),0 1mm 4mm rgba(0,0,0,.4)}.gal .gg.jr .rw:first-child div:first-child:after{content:"";position:absolute;left:0;right:0;bottom:0;height:40%;border-radius:0 0 2mm 2mm;background:linear-gradient(transparent,rgba(0,0,0,.55))}.gal .gg.jr .cnt{position:absolute;left:4mm;bottom:3.5mm;z-index:1;color:#fff;font-size:7pt;font-weight:800;letter-spacing:1px;text-transform:uppercase}.gal .gg.jr .cnt b{display:block;font-size:20pt;font-weight:900;line-height:1;color:var(--or);letter-spacing:0}.gal.solo .gs{width:auto;right:6mm}.gal.solo .gt,.gal.solo .gw{column-count:2;column-gap:10mm}.gal .gw{flex:0 0 auto;margin-bottom:2mm}.gal .gw .wk{padding:2mm 0;break-inside:avoid}.gal .gw .wk b{font-size:7.4pt}.gal .gw .vol i{font-size:13pt}.gal.gsm .gw .wk{padding:1.2mm 0}.gal.gsm .gw .wk b{font-size:6.6pt}.gal.gsm .gw .vol i{font-size:11pt}.gal .gs small.s2{margin-top:3mm}
+.gal .gg.jr{display:flex;flex-direction:column}.gal .gg.jb .top{display:flex;gap:3mm;min-height:0;background:none;border-radius:0;box-shadow:none}.gal .gg.jb .jc{display:flex;flex-direction:column;gap:3mm;min-width:0;background:none;border-radius:0;box-shadow:none}.gal .gg.jb .big{position:relative;border-radius:2mm;box-shadow:0 0 0 .9mm var(--or),0 1mm 4mm rgba(0,0,0,.4)}.gal .gg.jb .big:after{content:"";position:absolute;left:0;right:0;bottom:0;height:40%;border-radius:0 0 2mm 2mm;background:linear-gradient(transparent,rgba(0,0,0,.55))}.gal .gg.jb .big .cnt{position:absolute;left:4mm;bottom:3.5mm;z-index:1;color:#fff;font-size:7pt;font-weight:800;letter-spacing:1px;text-transform:uppercase}.gal .gg.jb .big .cnt b{display:block;font-size:20pt;font-weight:900;line-height:1;color:var(--or);letter-spacing:0}.gal .gg.jb .jc .rw:first-child div:first-child{box-shadow:0 .8mm 2.5mm rgba(0,0,0,.35)}.gal .gg.jb .jc .rw:first-child div:first-child:after{display:none}.gl3 .gg.jr,.gl3 .gg.jr .rw,.gl3 .gg.jb .jc{gap:1.2mm}.gl3 .gg.jr .rw div,.gl3 .gg.jb .big{border-radius:0}.gal .gg.jr .rw{display:flex;gap:3mm;min-height:0;background:none;border-radius:0}.gal .gg.jr .rw div{position:relative;min-width:0;border-radius:2mm;box-shadow:0 .8mm 2.5mm rgba(0,0,0,.35)}.gal .gg.jr .rw:first-child div:first-child{box-shadow:0 0 0 .9mm var(--or),0 1mm 4mm rgba(0,0,0,.4)}.gal .gg.jr .rw:first-child div:first-child:after{content:"";position:absolute;left:0;right:0;bottom:0;height:40%;border-radius:0 0 2mm 2mm;background:linear-gradient(transparent,rgba(0,0,0,.55))}.gal .gg.jr .cnt{position:absolute;left:4mm;bottom:3.5mm;z-index:1;color:#fff;font-size:7pt;font-weight:800;letter-spacing:1px;text-transform:uppercase}.gal .gg.jr .cnt b{display:block;font-size:20pt;font-weight:900;line-height:1;color:var(--or);letter-spacing:0}.gal.solo .gs{width:auto;right:6mm}.gal.solo .gt,.gal.solo .gw{column-count:2;column-gap:10mm}.gal .gw{flex:0 0 auto;margin-bottom:2mm}.gal .gw .wk{padding:2mm 0;break-inside:avoid}.gal .gw .wk b{font-size:7.4pt}.gal .gw .vol i{font-size:13pt}.gal.gsm .gw .wk{padding:1.2mm 0}.gal.gsm .gw .wk b{font-size:6.6pt}.gal.gsm .gw .vol i{font-size:11pt}.gal .gs small.s2{margin-top:3mm}.gal .gs>.gw:first-child{margin-top:-4mm}.gal .gs>.gw:first-child .wk:first-child{padding-top:0}
 .gal .n4{grid-template:1fr 1fr/1fr 1fr}.gal .n5{grid-template:1fr 1fr/1.5fr 1fr 1fr}.gal .n5 div:first-child{grid-row:span 2}.gal .n6{grid-template:1fr 1fr/1fr 1fr 1fr}
 .svcp:before{content:"";position:absolute;left:0;top:0;width:70mm;height:52mm;background:linear-gradient(135deg,var(--or2),var(--or));clip-path:polygon(0 0,100% 0,0 100%)}
 .svcp .sh{position:absolute;left:16mm;top:20mm;width:190mm}.svcp .sh .kick{font-size:7.5pt;font-weight:800;letter-spacing:1.4px;color:var(--ink);margin-bottom:2mm}
@@ -167,7 +167,7 @@
 .foot{position:absolute;left:0;right:0;bottom:0;height:25mm;background:#fff;display:grid;grid-template-columns:1fr 1fr;align-items:center;padding:0 10mm;gap:8mm;z-index:2}
 .foot small{display:block;font-size:6.5pt;font-weight:800;color:var(--ord);letter-spacing:.8px;margin-bottom:1mm}.foot b{font-size:9.5pt;font-weight:800}
 .foot div+div{border-left:1px solid var(--line);padding-left:8mm}
-.foot b,.lay3 .strip b{display:block;line-height:1.2;overflow-wrap:anywhere}.foot b.s1,.lay3 .strip b.s1{font-size:8pt}.foot b.s2,.lay3 .strip b.s2{font-size:7pt}
+.foot b,.lay3 .strip b{display:block;line-height:1.15;overflow-wrap:break-word;max-height:3.5em;overflow:hidden}.foot b.s1,.lay3 .strip b.s1{font-size:8pt}.foot b.s2,.lay3 .strip b.s2{font-size:7pt}
 .chain{position:absolute;inset:0;z-index:3;pointer-events:none}.chain .c{position:absolute;margin:0;width:32mm;height:32mm}
 .A1{position:absolute;left:0;top:0;bottom:0;width:86mm;background:linear-gradient(170deg,var(--or2),var(--or) 60%,var(--ord));padding:12mm 9mm;display:flex;flex-direction:column}
 .A1 .lg{background:#fff;border-radius:3mm;padding:4mm;text-align:center;margin-bottom:7mm;box-shadow:0 2mm 6mm rgba(0,0,0,.12)}
@@ -399,7 +399,8 @@
  const ringOf=p=>`<div class="ring" style="--p:${p}"><div><b>${p}%</b><span class="up">выполнено</span></div></div>`;
  const docOf=()=>`<div class="doc up"><em>${CHECK}</em>Полный пакет<br>исполнительной<br>документации</div>`;
  const logoOf=(co,logo,cls="")=>`<div class="logo${cls}">${logo?`<img src="${esc(logo)}" alt="">`:`<b>${esc(co.name)}</b>`}</div>`;
- const nmOf=v=>{const t=String(v||"—").trim()||"—";return`<b${t.length>34?' class="s2"':t.length>24?' class="s1"':""}>${esc(t)}</b>`};
+ // генподрядчик и заказчик одним размером, длинное название — в две строки (инженер 26.11.2026 «почему генподрядчик таким маленьким шрифтом?»)
+ const nmOf=v=>{const t=String(v||"—").trim()||"—";return`<b>${esc(t)}</b>`};
  const footOf=(o,cls="")=>`<div class="foot${cls}"><div><small class="up">Генеральный подрядчик</small>${nmOf(o.general_contractor)}</div><div><small class="up">Заказчик</small>${nmOf(o.customer)}</div></div>`;
  const yearOf=o=>{const y=String(o.years||"").trim();return y?`<div class="yr">${CAL}${esc(y)}</div>`:""};
  // сколько фото берёт каждый макет (инженер 24.11.2026 «сделай для каждого вида макета ограничение по количеству
@@ -409,8 +410,12 @@
  // листом фото, всего 16 (инженер 24.11.2026 «макеты добавь где есть хотя бы 12 фотографий»)
  const LAYOUT_MAX=[16,16,16,16,16,16,16,16,16,16,16];
  const capOf=o=>LAYOUT_MAX[Number(o?.layout)||0]||LAYOUT_MAX[0];
- const layoutOf=(o,i)=>{const n=Number(o.layout);if(n>=1&&n<=LAYOUTS.length)return n;const pics=(o.pictures||[]).length;if(!pics)return 1;
-  const seq=(pics>=3?[1,3,5,2,4,6]:[1,3,5,2,6]).filter(l=>LAYOUT_MAX[l]>=pics);return seq.length?seq[i%seq.length]:pics<=12?7:8};
+ // «Альбом» (7) и «Фотоотчёт» (8) и лист фото «Плёнка» (4) убраны (инженер 26.11.2026 «что за два макета странных? и пленку
+ // вроде как договорились убрать»): номера остаются, чтобы сохранённые «Акцент» и «Диагональ» не сдвинулись; выбранные
+ // раньше — «Альбом» как «Классика», «Фотоотчёт» как «Мозаика», «Плёнка» как «Авто»
+ const LAY_GONE={7:1,8:4},GAL_GONE={4:0};
+ const layoutOf=(o,i)=>{const n=Number(o.layout);if(LAY_GONE[n])return LAY_GONE[n];if(n>=1&&n<=LAYOUTS.length)return n;const pics=(o.pictures||[]).length;if(!pics)return 1;
+  const seq=(pics>=3?[1,3,5,2,4,6]:[1,3,5,2,6]).filter(l=>LAYOUT_MAX[l]>=pics);return seq.length?seq[i%seq.length]:1};
  function textCol(o,max,co){const name=String(o.name||"Объект"),ws=worksOf(o),p=doneOf(o);
   return`<h1 class="ttl up${titleCls(name)}">${esc(name)}</h1>
   <div class="wks">${wkRows(ws.slice(0,Math.min(max,o.wkMax||max)))}</div>${o.summary&&!o.sumMoved?`<div class="sum">${sumHtml(o.summary)}</div>`:""}
@@ -430,8 +435,10 @@
  function circlesOf(rest){return rest.length?`<div class="circles">${rest.map((s,i)=>`<div class="c${rest.length===3&&i===1?" big":""}"${bg(s)}></div>`).join("")}</div>`:""}
  function objectPage(o,co,logo,i=0){const h=withLabels(objectPage0(o,co,logo,i),o.lbl);return o.fit?h.replace('<section class="page','<section class="page fit'+o.fit):h}
  // один лист объекта — для окна, где щелчком ставятся точки подписей (те же размеры, что в PDF)
- function pageHtml(o,i=0,{logo="",company={}}={}){const co={...COMPANY,...company};
-  return`<!doctype html><html lang="ru"><head><meta charset="utf-8"><link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800;900&display=swap" rel="stylesheet"><style>${CSS}body{margin:0;overflow:hidden}</style></head><body>${objectPage(o,co,logo,i)}</body></html>`}
+ function pageHtml(o,i=0,{logo="",company={},page=""}={}){const co={...COMPANY,...company};
+  return`<!doctype html><html lang="ru"><head><meta charset="utf-8"><link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800;900&display=swap" rel="stylesheet"><style>${CSS}body{margin:0;overflow:hidden}</style></head><body>${page==="gal"?galleryPage(o,co,logo,i):objectPage(o,co,logo,i)}</body></html>`}
+ // есть ли у объекта лист «Фото с объекта» — для тегов на нём в окне (инженер 26.11.2026 «почему теги только на одной странице?»)
+ const hasGallery=(o,i=0)=>!!galleryPage(o,COMPANY,"",i);
  function objectPage0(o,co,logo,i=0){
   const lay0=layoutOf(o,i),lay=lay0===7?1:lay0===8?4:lay0,pics=o.pictures||[],main=pics[0]||"",rest=pics.slice(1,lay0===1||lay0===2?1+CHAIN:4);
   if(lay===2)return`<section class="page lay2"><div class="L"><div class="in">${textCol(o,12,co)}</div></div>
@@ -487,7 +494,7 @@
  // фото крупно слева, остальные сеткой справа, 3 «Тёмный» — тёмный лист и шапка, фото встык
  // 4 «Плёнка» — фото кадрами фотоплёнки (инженер 24.11.2026 «поинтереснее»)
  const GALLERIES=["Сетка","Крупное + мелкие","Тёмный","Плёнка"];
- const galleryOf=o=>{const n=Number(o?.gallery);return n>=1&&n<=GALLERIES.length?n:0};
+ const galleryOf=o=>{const n=Number(o?.gallery);if(n in GAL_GONE)return GAL_GONE[n];return n>=1&&n<=GALLERIES.length?n:0};
  // раскладка без пустых ячеек: число столбцов по форме ячейки ближе к 4:3, лишние ячейки — первые фото на два столбца
  function galFit(m,w,h){let best=null;for(let k=1;k<=m;k++){const r=Math.ceil(m/k),e=k*r-m;if(e>=r)continue;const s=e*.3+Math.abs(Math.log((w/k)/(h/r)/1.33));if(!best||s<best.s)best={c:k,r,e,s}}return best}
  // «Авто» — фото рядами, каждое в своих пропорциях (инженер 24.11.2026 «сделай тут фотографий 12», «красиво оформи»,
@@ -542,7 +549,8 @@
  // показывай с краткой информацией»)
  // «Плёнка»: полосы плёнки с перфорацией — 1 полоса до 3 фото, 2 до 8, иначе 3; кадры равные, пустые — тёмные
  function filmOf(ps,gn,W){const k=gn<=3?1:gn<=8?2:3,per=Math.ceil(gn/k),fw=(W-8-2.5*(per-1))/per,fh=Math.min(fw*.75,(176-6*(k-1))/k-13),sh=`flex:0 0 ${(fh+13).toFixed(1)}mm`;let h="";for(let r=0;r<k;r++){let f="";for(let q=0;q<per;q++){const n=r*per+q;f+=`<div class="fr"${n<gn?bg(ps[n]):""}>${n<gn?`<em>${String(n+1).padStart(2,"0")}</em>`:""}</div>`}h+=`<div class="fs" style="${sh}">${f}</div>`}return`<div class="gg film">${h}</div>`}
- function galleryPage(o,co,logo,i=0){const all=o.pictures||[],sm=o.summary&&o.sumMoved,wr=wkRest(o,i),side=sm||wr.length>0;
+ function galleryPage(o,co,logo,i=0){const h=galleryPage0(o,co,logo,i);return h?withLabels(h,o.lbl2):""}
+ function galleryPage0(o,co,logo,i=0){const all=o.pictures||[],sm=o.summary&&o.sumMoved,wr=wkRest(o,i),side=sm||wr.length>0;
   const st=onPage(o,i);if(all.length<=st&&!side)return"";const ps=all.slice(st,MAX_PHOTOS);const gn=Math.min(ps.length,12);if(!ps.length&&!side)return"";
   const gv=galleryOf(o),ra=k=>ratioOk((o.ratios||[])[st+k]),W0=side?187:285,
    // «Крупное + мелкие» (инженер 24.11.2026 «вот такие фотографии подобрать тяжело»): крупное — в своей пропорции слева
@@ -774,6 +782,6 @@ ${screen?`<div class="pvn">Снаружи · клапан | задняя сто�
    if(!changed)return;
   }
  }
- const api={labelsLayer,pageHtml,FOLD_PH,FOLD_LAYOUTS,foldSketch,foldBuild,spreadHtml,SPREAD_LABELS,FOLD_OBJ,softMain,rowsOf,wkShown,wkRest,GALLERIES,galleryOf,layoutSketch,gallerySketch,MAX_PHOTOS,LAYOUT_MAX,capOf,clientList,mapPage,geoGroups,dropTooLong,build,make,preview,totals,doneOf,parties,COMPANY,LAYOUTS,layoutOf,thumb,read,pickDefault};
+ const api={hasGallery,LAY_GONE,GAL_GONE,labelsLayer,pageHtml,FOLD_PH,FOLD_LAYOUTS,foldSketch,foldBuild,spreadHtml,SPREAD_LABELS,FOLD_OBJ,softMain,rowsOf,wkShown,wkRest,GALLERIES,galleryOf,layoutSketch,gallerySketch,MAX_PHOTOS,LAYOUT_MAX,capOf,clientList,mapPage,geoGroups,dropTooLong,build,make,preview,totals,doneOf,parties,COMPANY,LAYOUTS,layoutOf,thumb,read,pickDefault};
  if(typeof module!=="undefined"&&module.exports)module.exports=api;else root.irBooklet=api;
 })(typeof window!=="undefined"?window:globalThis);

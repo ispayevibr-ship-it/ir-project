@@ -520,7 +520,7 @@
  async function saveBooklet(id,files,layout,locked,gallery=0,lb={}){
   const api=irProject.data.forObject(id).section("object-meta"),rows=await api.list().catch(()=>[]),r=rows.find(x=>x.record_type===BOOKLET);
   const was=r?.data?.locked||null,lk=locked===undefined?was:locked;
-  const body={record_type:BOOKLET,title:"Фото для буклета",data:{entity_type:BOOKLET,files:lk?lk.files:files,layout:lk?lk.layout:layout,gallery:Number(lk?lk.gallery:gallery)||0,labels:(lk?lk.labels:lb.labels)||null,pts:(lk?lk.pts:lb.pts)||{},...(lk?{locked:lk}:{})}};
+  const body={record_type:BOOKLET,title:"Фото для буклета",data:{entity_type:BOOKLET,files:lk?lk.files:files,layout:lk?lk.layout:layout,gallery:Number(lk?lk.gallery:gallery)||0,labels:(lk?lk.labels:lb.labels)||null,pts:(lk?lk.pts:lb.pts)||{},labels2:(lk?lk.labels2:lb.labels2)||null,pts2:(lk?lk.pts2:lb.pts2)||{},...(lk?{locked:lk}:{})}};
   if(!r)await api.create(body);else await api.update(r.id,body)
  }
  // инженер 24.11.2026 «переименуй Буклет в Журнал, а для ЕвроБуклета сделай отдельную (как сейчас Буклет) и переименуй в
@@ -554,15 +554,15 @@
   // выбор макета плитками со схемой листа (инженер 24.11.2026 «какое-нибудь превью или схему при выборе макета, чтобы
   // понятно было»): макет листа объекта и макет листа «Фото с объекта»
   const tile=(attr,on,sk,t,s)=>`<button type="button" class="ir-bk-lt${on?" on":""}" ${attr}>${sk||'<span class="auto">А</span>'}<b>${esc(t)}</b>${s?`<small>${esc(s)}</small>`:""}</button>`;
-  const layTiles=x=>`<div class="ir-bk-lh">Макет листа объекта</div><div class="ir-bk-lts">${["Авто",...irBooklet.LAYOUTS].map((t,i)=>tile(`data-lay="${i}"`,x.layout===i,i?irBooklet.layoutSketch(i):"",t,i?"до "+irBooklet.LAYOUT_MAX[i]+" фото":"подберёт сам")).join("")}</div>
-   <div class="ir-bk-lh">Макет листа «Фото с объекта» <small>— лист с фото сверх основного листа и с характеристикой, если она не вместилась</small></div><div class="ir-bk-lts g">${["Авто",...irBooklet.GALLERIES].map((t,i)=>tile(`data-gal="${i}"`,(x.gallery||0)===i,irBooklet.gallerySketch(i),t,"")).join("")}</div>`;
+  const layTiles=x=>`<div class="ir-bk-lh">Макет листа объекта</div><div class="ir-bk-lts">${["Авто",...irBooklet.LAYOUTS].map((t,i)=>(irBooklet.LAY_GONE||{})[i]?"":tile(`data-lay="${i}"`,x.layout===i,i?irBooklet.layoutSketch(i):"",t,i?"до "+irBooklet.LAYOUT_MAX[i]+" фото":"подберёт сам")).join("")}</div>
+   <div class="ir-bk-lh">Макет листа «Фото с объекта» <small>— лист с фото сверх основного листа и с характеристикой, если она не вместилась</small></div><div class="ir-bk-lts g">${["Авто",...irBooklet.GALLERIES].map((t,i)=>i in (irBooklet.GAL_GONE||{})?"":tile(`data-gal="${i}"`,(x.gallery||0)===i,irBooklet.gallerySketch(i),t,"")).join("")}</div>`;
   // подписи с линиями к точкам на листе (инженер 24.11.2026 «везде дай подписи ставить», «и в журнале тоже», «на одном
   // фото как я могу показать несколько видов работ»), проще (24.11.2026 «Ткнул на место, поставил Тег, сохранил»):
   // щелчок по листу — поле прямо там, вписал тег, Enter — тег на листе и запомнен; щелчок по тегу или его точке —
   // исправить или удалить (пустой — удалить), тег можно перетащить. Лист показан так, как уйдёт в PDF.
   // st = {labels — порядок и подсказки, pts:{тег:[x,y]}}
-  const lbHtml=(st,sugg)=>{const n=Object.keys(st.pts||{}).length,o=[...new Set([...(sugg?sugg():[]),...(st.labels||[])])].filter(t=>!(st.pts||{})[t]);
-   return`<div class="ir-bk-lh">Теги на листе <small>— щёлкните по листу, куда тег показывает, впишите и нажмите Enter; щелчок по тегу — исправить или удалить, тег можно перетащить${n?` · на листе: ${n}`:""}</small></div>
+  const lbHtml=(st,sugg,head="Теги на листе")=>{const n=Object.keys(st.pts||{}).length,o=[...new Set([...(sugg?sugg():[]),...(st.labels||[])])].filter(t=>!(st.pts||{})[t]);
+   return`<div class="ir-bk-lh">${esc(head)} <small>— щёлкните по листу, куда тег показывает, впишите и нажмите Enter; щелчок по тегу — исправить или удалить, тег можно перетащить${n?` · на листе: ${n}`:""}</small></div>
     <div class="ir-bk-lpv" data-lv><iframe data-lf tabindex="-1" title="Лист"></iframe><div class="hit" data-lh></div></div><datalist id="ir-bk-lsug">${o.map(t=>`<option value="${esc(t)}">`).join("")}</datalist>`};
   const lbArr=st=>{const P=st.pts||{},ks=[...(st.labels||[]).filter(l=>P[l]),...Object.keys(P).filter(l=>!(st.labels||[]).includes(l))];return[...new Set(ks)].filter(l=>Array.isArray(P[l])).map(l=>[l,...P[l]])};
   const lbBind=(box,st,sugg,html,changed)=>{const v=box.querySelector("[data-lv]"),fr=box.querySelector("[data-lf]"),hit=box.querySelector("[data-lh]");if(!v||!fr||!hit)return;
@@ -600,7 +600,11 @@
     if(s0.drag){s0.dot.remove();st.pts[s0.t]=[+x.toFixed(4),+y.toFixed(4)];changed();return}
     ask(s0.t,x,y,px,py,r)}};
   const worksOfX=x=>[...new Set((x.data.works||[]).map(w=>String(w.name||"").trim()).filter(Boolean))].slice(0,10);
-  const jPage=(x,id)=>irBooklet.pageHtml({...x.data,files:x.files,layout:x.layout,gallery:x.gallery||0,lbl:lbArr(x.lb),pictures:x.files.slice(0,irBooklet.capOf(x)).map(f=>thumbs.get(f)||"")},Math.max(0,chosen.indexOf(id)));
+  const jObj=x=>({...x.data,files:x.files,layout:x.layout,gallery:x.gallery||0,lbl:lbArr(x.lb),lbl2:lbArr(x.lb2),pictures:x.files.slice(0,irBooklet.capOf(x)).map(f=>thumbs.get(f)||"")});
+  const jPage=(x,id,page="")=>irBooklet.pageHtml(jObj(x),Math.max(0,chosen.indexOf(id)),{page});
+  // теги и на листе «Фото с объекта» (инженер 26.11.2026 «почему теги только на одной странице?») — свои, x.lb2
+  const jGal=(x,id)=>!!irBooklet.hasGallery&&irBooklet.hasGallery(jObj(x),Math.max(0,chosen.indexOf(id)));
+  const lbSave=(id,x)=>saveBooklet(id,x.files,x.layout,undefined,x.gallery,{labels:x.lb.labels,pts:x.lb.pts,labels2:x.lb2.labels,pts2:x.lb2.pts}).catch(()=>{});
   const photosHtml=id=>{const x=info.get(id);if(!x)return`<div class="ir-so-empty">Загружаем фото…</div>`;
    if(FOLD){const fs=foldPics(x),k=chosen.indexOf(id),PH=irBooklet.FOLD_PH;
     if(!x.all.length)return`<div class="ir-so-empty">У объекта нет фото</div>`;
@@ -615,25 +619,27 @@
    ${layTiles(x)}
    <div class="ir-bk-ph">${x.all.slice(0,SHOW).map((f,k)=>{const n=x.files.indexOf(f)+1,t=thumbs.get(f);return`<button type="button" class="ir-bk-t${n?" on":""}" data-k="${k}">${t?`<img src="${esc(t)}" alt="">`:'<span class="ir-hero-no">…</span>'}${n?`<b>${n}</b>`:""}</button>`}).join("")}</div>
    ${x.all.length>SHOW?`<div class="ir-acc-help">Показаны первые ${SHOW} фото из ${x.all.length}.</div>`:""}
-   ${lbHtml(x.lb,()=>worksOfX(x))}`};
+   <div data-lw="1">${lbHtml(x.lb,()=>worksOfX(x),"Теги на листе объекта")}</div>${jGal(x,id)?`<div data-lw="2">${lbHtml(x.lb2,()=>worksOfX(x),"Теги на листе «Фото с объекта»")}</div>`:""}`};
   const drawObj=id=>{const box=list.querySelector(`[data-box="${id}"]`);if(!box)return;box.innerHTML=photosHtml(id);const x=info.get(id);if(!x)return;
    box.querySelectorAll("[data-lay]").forEach(b=>b.onclick=()=>{x.layout=Number(b.dataset.lay)||0;const cap=irBooklet.capOf(x);if(x.files.length>cap)x.files.length=cap;drawObj(id)});
    box.querySelectorAll("[data-gal]").forEach(b=>b.onclick=()=>{x.gallery=Number(b.dataset.gal)||0;drawObj(id)});
    const busy=b=>{b.disabled=true;b.textContent="Сохраняем…"};
    box.querySelector("[data-lock]")?.addEventListener("click",async e=>{busy(e.target);
-    const L={at:new Date().toISOString(),date:today(),files:[...x.files],layout:x.layout,gallery:x.gallery||0,labels:[...(x.lb.labels||[])],pts:{...x.lb.pts},data:Object.fromEntries(LOCK_KEYS.map(k=>[k,x.data[k]]))};
+    const L={at:new Date().toISOString(),date:today(),files:[...x.files],layout:x.layout,gallery:x.gallery||0,labels:[...(x.lb.labels||[])],pts:{...x.lb.pts},labels2:[...(x.lb2.labels||[])],pts2:{...x.lb2.pts},data:Object.fromEntries(LOCK_KEYS.map(k=>[k,x.data[k]]))};
     try{await saveBooklet(id,L.files,L.layout,L);x.locked=L;locks.set(id,L.date||"")}catch(err){bad(err)}draw()});
    box.querySelector("[data-edit]")?.addEventListener("click",async e=>{busy(e.target);
-    try{const lb={labels:x.locked.labels||x.lb.labels,pts:x.locked.pts||{}};await saveBooklet(id,x.locked.files,x.locked.layout,null,x.locked.gallery,lb);x.lb={...x.lb,...lb};x.files=[...x.locked.files];x.layout=Number(x.locked.layout)||0;x.gallery=Number(x.locked.gallery)||0;x.locked=null;locks.delete(id)}catch(err){bad(err)}draw()});
+    try{const lb={labels:x.locked.labels||x.lb.labels,pts:x.locked.pts||{},labels2:x.locked.labels2||x.lb2.labels,pts2:x.locked.pts2||{}};await saveBooklet(id,x.locked.files,x.locked.layout,null,x.locked.gallery,lb);x.lb={...x.lb,labels:lb.labels,pts:lb.pts};x.lb2={labels:lb.labels2||[],pts:lb.pts2};x.files=[...x.locked.files];x.layout=Number(x.locked.layout)||0;x.gallery=Number(x.locked.gallery)||0;x.locked=null;locks.delete(id)}catch(err){bad(err)}draw()});
    if(FOLD){box.querySelectorAll("[data-k]").forEach(b=>b.onclick=()=>{const f=x.all[Number(b.dataset.k)],a=foldPics(x).slice(),i=a.indexOf(f);
     if(i>=0)a.splice(i,1);else if(a.length<irBooklet.FOLD_PH)a.push(f);else return;x.fpicks=a;drawObj(id)});return}
    box.querySelectorAll("[data-k]").forEach(b=>b.onclick=()=>{const f=x.all[Number(b.dataset.k)],i=x.files.indexOf(f);
     if(i>=0)x.files.splice(i,1);else if(x.files.length<irBooklet.capOf(x))x.files.push(f);else return;drawObj(id)});
-   if(!x.locked)lbBind(box,x.lb,()=>worksOfX(x),()=>jPage(x,id),()=>{saveBooklet(id,x.files,x.layout,undefined,x.gallery,{labels:x.lb.labels,pts:x.lb.pts}).catch(()=>{});drawObj(id)})};
+   if(!x.locked){const w1=box.querySelector('[data-lw="1"]'),w2=box.querySelector('[data-lw="2"]');
+    if(w1)lbBind(w1,x.lb,()=>worksOfX(x),()=>jPage(x,id),()=>{lbSave(id,x);drawObj(id)});
+    if(w2)lbBind(w2,x.lb2,()=>worksOfX(x),()=>jPage(x,id,"gal"),()=>{lbSave(id,x);drawObj(id)})}};
   async function load(id){if(info.has(id))return drawObj(id);
    const o=objects.find(x=>Number(x.id)===id);let data;try{data=await siteObjectData(o,0)}catch(e){bad(e);return}
    const p=irBooklet.pickDefault(data),B=data.booklet||{};
-   const x0={data,...p,locked:B.locked||null};if(FOLD&&fpPend[id])x0.fpicks=fpPend[id].slice();x0.lb={labels:Array.isArray(B.labels)?B.labels:[],pts:B.pts&&typeof B.pts==="object"?B.pts:{},cur:""};info.set(id,x0);drawObj(id);
+   const x0={data,...p,locked:B.locked||null};if(FOLD&&fpPend[id])x0.fpicks=fpPend[id].slice();x0.lb={labels:Array.isArray(B.labels)?B.labels:[],pts:B.pts&&typeof B.pts==="object"?B.pts:{},cur:""};x0.lb2={labels:Array.isArray(B.labels2)?B.labels2:[],pts:B.pts2&&typeof B.pts2==="object"?B.pts2:{}};info.set(id,x0);drawObj(id);
    for(const f of [...new Set([...(data.booklet?.locked?.files||[]),...p.all.slice(0,SHOW)])]){if(thumbs.has(f))continue;thumbs.set(f,await irBooklet.thumb(await irBooklet.read(f)));if(d.isConnected){drawObj(id);d._sp?.()}}}
   const draw=()=>{
    $("[data-tabs]").innerHTML=TABS.map(([k,t])=>{const n=k==="all"?objects.length:objects.filter(o=>STATUS_TAG(o.status||"")===k).length;
@@ -721,8 +727,8 @@
   async function collect(save){const data=[];for(const [i,id] of chosen.entries()){const o=objects.find(x=>Number(x.id)===id);setProg(i/chosen.length*20,"Собираем объекты…",(i+1)+" из "+chosen.length+" — "+(o?.name||""));
     if(!info.has(id))await load(id);const x=info.get(id);if(!x)continue;
     if(FOLD){data.push({...x.data,...(x.locked?.data||{}),files:foldPics(x),layout:0,gallery:0});continue}
-    if(x.locked){const L=x.locked;data.push({...x.data,...L.data,asOf:L.date,files:L.files||[],layout:Number(L.layout)||0,gallery:Number(L.gallery)||0,lbl:lbArr({labels:L.labels||[],pts:L.pts||{}})});continue}
-    if(save)await saveBooklet(id,x.files,x.layout,undefined,x.gallery,{labels:x.lb.labels,pts:x.lb.pts}).catch(()=>{});data.push({...x.data,files:x.files,layout:x.layout,gallery:x.gallery||0,lbl:lbArr(x.lb)})}return data}
+    if(x.locked){const L=x.locked;data.push({...x.data,...L.data,asOf:L.date,files:L.files||[],layout:Number(L.layout)||0,gallery:Number(L.gallery)||0,lbl:lbArr({labels:L.labels||[],pts:L.pts||{}}),lbl2:lbArr({labels:L.labels2||[],pts:L.pts2||{}})});continue}
+    if(save)await lbSave(id,x);data.push({...x.data,files:x.files,layout:x.layout,gallery:x.gallery||0,lbl:lbArr(x.lb),lbl2:lbArr(x.lb2)})}return data}
   // предпросмотр — те же листы, что уйдут в PDF, уменьшенными, с малыми фото (инженер 20.11.2026 «сделать
   // предомостр как каждая страница выглядеть будет»)
   pv.onclick=async()=>{pv.disabled=go.disabled=true;st.textContent="";
