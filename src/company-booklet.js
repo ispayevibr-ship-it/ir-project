@@ -390,7 +390,7 @@
  // «объемы должны также браться с программы, на день выгрузки буклета»)
  const planOf=w=>num(w.plan)>num(w.volume)?`<u>из ${esc(fmt(w.plan))}</u>`:"";
  // сколько видов работ на листе объекта: у макета свой предел (Обложка 4, Тёмный 8, остальные 12) и wkMax после подгонки;
- // остальные — на листе «Фото с объекта» колонкой «Виды работ (продолжение)» (инженер 24.11.2026 «если часть верхняя
+ // остальные — на листе «Фото с объекта» колонкой без заголовка (инженер 26.11.2026 «ВИДЫ РАБОТ (ПРОДОЛЖЕНИЕ) убери»; 24.11.2026 «если часть верхняя
  // работы не вмещаются, можно их перенести на вторую страницу?»)
  const WK_CAP={3:4,6:8,9:9,10:8};
  const wkShown=(o,i)=>{const l0=layoutOf(o,i),l=l0===7?1:l0===8?4:l0,cap=WK_CAP[l]||12;return Math.min(cap,o.wkMax||cap)};
@@ -552,7 +552,7 @@
   const cellImg=s=>s?`background-image:url('${String(s).replace(/'/g,"%27")}')`:"";
   return`<section class="page gal${gv?" gl"+gv:""}${side?" wsum":""}${side&&!ps.length?" solo":""}${o.galSmall?" gsm":""}"><div class="gh"><div class="t"><small class="up">${ps.length?"Фото с объекта":"Виды работ"}</small><b>${esc(o.name||"Объект")}</b></div>
   <div class="lg">${logo?`<img src="${esc(logo)}" alt="">`:`<b>${esc(co.name)}</b>`}</div></div>
-  ${side?`<div class="gs">${wr.length?`<small class="up">Виды работ (продолжение)</small><div class="gw">${wkRows(wr)}</div>`:""}${sm?`<small class="up${wr.length?" s2":""}">Краткая характеристика</small><div class="gt">${sumHtml(o.summary)}</div>`:""}</div>`:""}
+  ${side?`<div class="gs">${wr.length?`<div class="gw">${wkRows(wr)}</div>`:""}${sm?`<small class="up${wr.length?" s2":""}">Краткая характеристика</small><div class="gt">${sumHtml(o.summary)}</div>`:""}</div>`:""}
   ${gv===4&&ps.length?filmOf(ps,gn,side?182:279):big||jr?(()=>{const cnt=`<span class="cnt"><b>${gn}</b> фото</span>`,rowsH=(J,off)=>J.rows.map((r,j)=>`<div class="rw" style="flex:${J.hs[j].toFixed(2)} 1 0">${r.map(q=>{const k=q+off;return`<div style="flex:${ra(k).toFixed(3)} 1 0;${cellImg(ps[k])}">${k===0?cnt:""}</div>`}).join("")}</div>`).join("");
    if(!big)return`<div class="gg jr">${rowsH(jr,0)}</div>`;const H0=176;
    return`<div class="gg jr jb"><div class="top" style="flex:${big.Hb.toFixed(1)} 1 0"><div class="big" style="flex:${big.bw.toFixed(1)} 1 0;${cellImg(ps[0])}">${cnt}</div>${big.R?`<div class="jc" style="flex:${(W0-big.bw-3).toFixed(1)} 1 0">${rowsH(big.R,1)}</div>`:""}</div>${big.D?`<div class="jc" style="flex:${(H0-big.Hb-3).toFixed(1)} 1 0">${rowsH(big.D,1+big.k)}</div>`:""}</div>`})():ps.length?`<div class="gg n${gn}${gst?.big?" bento":""}"${gst?` style="${gst.st}"`:""}>${ps.slice(0,12).map((s,k)=>gst?`<div style="${gst.cell(k)}${s?`;background-image:url('${String(s).replace(/'/g,"%27")}')`:""}">${gst.big&&k===0?`<span class="cnt"><b>${gn}</b> фото</span>`:""}</div>`:`<div${bg(s)}></div>`).join("")}</div>`:""}</section>`}
