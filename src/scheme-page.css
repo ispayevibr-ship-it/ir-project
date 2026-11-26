@@ -728,13 +728,16 @@ body.scheme-editing .scheme-edit-top{position:fixed;left:0;right:0;top:var(--sch
 .scheme-edit-top button.ok{background:#2f9e5b;border-color:#2f9e5b}
 .scheme-edit-top button.ok:hover:not(:disabled){background:#278a4e}
 .scheme-edit-gap{flex:1}
-body.scheme-editing .scheme-workspace{position:fixed;left:0;right:0;bottom:0;top:calc(var(--scheme-edit-top,38px) + 42px);z-index:8999;margin:0;gap:0;min-height:0;grid-template-columns:54px minmax(0,1fr) 290px!important;align-items:stretch;background:#eef2f6}
-body.scheme-editing .scheme-edit-tools{display:flex;flex-direction:column;align-items:center;gap:3px;padding:8px 0;background:#fff;border-right:1px solid #d7e0e8;overflow-y:auto}
+body.scheme-editing .scheme-workspace{position:fixed;left:0;right:0;bottom:0;top:calc(var(--scheme-edit-top,38px) + 42px);z-index:8999;margin:0;gap:0;min-height:0;grid-template-columns:96px minmax(0,1fr) 290px!important;align-items:stretch;background:#eef2f6}
+/* инструменты в две колонки — все видны без прокрутки (инженер 26.11.2026 «расширь меню левое при редактирование … чем
+   этот скролл вниз»): 19 значков в 10 рядов ≈ 450 px; окно ниже 560 px — в три колонки */
+body.scheme-editing .scheme-edit-tools{display:grid;grid-template-columns:repeat(2,40px);justify-content:center;align-content:start;gap:3px;padding:8px 0;background:#fff;border-right:1px solid #d7e0e8;overflow-y:auto}
 .scheme-edit-tools button{width:40px;height:38px;flex:0 0 auto;border-radius:8px;border:1px solid transparent;background:transparent;font-size:18px;line-height:1;color:#22313f}
 .scheme-edit-tools button:hover:not(:disabled){background:#eaf2fc}
 .scheme-edit-tools button.on{background:#2563eb;color:#fff}
 .scheme-edit-tools button:disabled{opacity:.28;cursor:default}
-.scheme-edit-tools hr{align-self:stretch;border:0;border-top:1px solid #e1e7ee;margin:4px 8px}
+.scheme-edit-tools hr{grid-column:1/-1;align-self:center;border:0;border-top:1px solid #e1e7ee;margin:4px 2px}
+@media (max-height:560px){body.scheme-editing .scheme-workspace{grid-template-columns:139px minmax(0,1fr) 290px!important}body.scheme-editing .scheme-edit-tools{grid-template-columns:repeat(3,40px)}}
 body.scheme-editing .scheme-workspace>.scheme-stage{display:flex;flex-direction:column;height:100%;min-height:0;margin:0;border-radius:0;border:0}
 body.scheme-editing .scheme-stage-toolbar{display:none}
 body.scheme-editing .scheme-three-stage .scheme-canvas{flex:1 1 auto;height:auto;min-height:0;max-height:none}
@@ -751,6 +754,8 @@ body.scheme-editing .ir-three-toolbar{top:auto;bottom:10px;left:50%;right:auto;t
 .scheme-fix-log ol{list-style:none;margin:0;padding:6px 10px;overflow-y:auto}
 .scheme-fix-log li{display:grid;grid-template-columns:92px 110px 1fr auto auto;gap:8px;align-items:center;padding:6px;border-bottom:1px solid #eef2f6;font-size:13px}
 .scheme-fix-log li.undone{opacity:.5}
+.scheme-fix-log li.gone em{color:#9a3b2b}
+.scheme-fix-log li.gone button{grid-column:span 2;justify-self:start}
 .scheme-fix-log li em{font-style:normal}
 .scheme-fix-log li span{color:#5a6b7b;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .scheme-fix-log li button{padding:4px 8px;border:1px solid #c9d4de;border-radius:6px;background:#fff;cursor:pointer;font-size:12px}

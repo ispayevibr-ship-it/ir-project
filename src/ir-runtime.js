@@ -1309,7 +1309,11 @@ window.irSchemePage=async function(objectId,opts){
  // просмотра; кнопка «✎ Режим редактирования» включает правку. Пока режим включён, правки не пишутся в базу — копятся в
  // памяти окна (editStage), 3D меняется на месте; «Сохранить» записывает их по порядку и один раз перестраивает схему,
  // «Отмена» возвращает всё как было до входа в режим. canWrite — право и запрет (самоисправления при открытии схемы).
- let editOn=false,editStage=null;
+ let editOn=false,editStage=null,removeManyNow=null,removedTrimsList=[];
+ // (a trim deleted now joins the list at once: by its place on the scheme, in mm)
+ const goneTrimOf=r=>{const d=r?.data||{};return{id:String(r?.id||""),mark:String(d.mark||r?.title||""),x:Number(d.absolute_x_mm),y:Number(d.absolute_y_mm),x2:d.absolute_x2_mm!=null?Number(d.absolute_x2_mm):null,y2:d.absolute_y2_mm!=null?Number(d.absolute_y2_mm):null,z0:Number(d.z0_mm),z1:d.end_z_mm!=null?Number(d.end_z_mm):d.z1_mm!=null?Number(d.z1_mm):null}};
+ const isTrimRow=r=>{const d=r?.data||{};return String(d.fitting_type||d.ft||"")==="trim"||/^trim/.test(String(d.type_key||""))||String(d.scheme_group||"")==="trims"};
+ const removedTrimsNow=()=>{const live=new Set(arr(rows).map(r=>String(r.id)));return removedTrimsList.filter(t=>!live.has(String(t.id)))};
  const canWrite=()=>mayEdit()&&!lockRow;
  const canEdit=()=>canWrite()&&editOn;
  const clone=v=>v==null?v:JSON.parse(JSON.stringify(v));
@@ -1338,7 +1342,7 @@ window.irSchemePage=async function(objectId,opts){
  // «Выбрать»), справа карточка выбранного, внизу виды и разделы КМ/АР — панель 3D. Инструмент нажимает кнопку режима
  // в карточке выбранного (как меню правой кнопки), без выбранного — недоступен.
  const editInfo3d=()=>{try{return window.irThreeSchemeView?.editInfo?.()||{n:0,undo:0,redo:0,at:0}}catch(e){return{n:0,undo:0,redo:0,at:0}}};
- const EDIT_TOOLS=[["select","Выбрать (Esc)","↖"],["add","Добавить элемент","＋"],["-"],["move","Двигать","✥",["[data-edit-move]","[data-trim-mode='whole']"]],["shift","Сдвинуть на мм (Ctrl+щелчок — добавить элемент к выбору)","⇲"],["copy","Копировать / массив (Ctrl+C, Ctrl+V)","⎘"],["turn","Повернуть / зеркало","⟲"],["extend","Продлить до грани: щёлкните элемент, потом грань","⇤"],["split","Разрезать на два: щёлкните элемент стали в месте реза","⫽"],["join","Соединить два выбранных в один (Ctrl+щелчок — второй)","⊕"],["props","Общие свойства выбранных: статус, профиль, поворот","☰"],["pull","Тянуть край","⇥",["[data-edit-pull]"]],["line","Срезать по линии","✂",["[data-trim-line]","[data-panel-mode='line']"]],["rect","Вырез прямоугольником","▭",["[data-panel-mode='rect']"]],["mitre","Сделать угол","◿",["[data-trim-corner]"]],["over","Этот поверх","⧉",["[data-trim-over]"]],["-"],["back","Показать позади","⤓",["[data-order-step='-1']"]],["front","Показать поверх","⤒",["[data-order-step='1']"]],["-"],["hide","Убрать кусок","⌫",["[data-trim-hide]"]],["delete","Удалить элемент","🗑",["[data-scheme-delete]"]]];
+ const EDIT_TOOLS=[["select","Выбрать (Esc)","↖"],["add","Добавить элемент","＋"],["-"],["move","Двигать (фасонный — целиком)","✥",["[data-edit-move]","[data-trim-mode='whole']"]],["piece","Двигать полку — только кусок фасонного под щелчком","⇅",["[data-trim-mode='piece']"]],["shift","Сдвинуть на мм (Ctrl+щелчок — добавить элемент к выбору)","⇲"],["copy","Копировать / массив (Ctrl+C, Ctrl+V)","⎘"],["turn","Повернуть / зеркало","⟲"],["extend","Продлить до грани: щёлкните элемент, потом грань","⇤"],["split","Разрезать на два: щёлкните элемент стали в месте реза","⫽"],["join","Соединить два выбранных в один (Ctrl+щелчок — второй)","⊕"],["props","Общие свойства выбранных: статус, профиль, поворот","☰"],["pull","Тянуть край","⇥",["[data-edit-pull]"]],["line","Срезать по линии","✂",["[data-trim-line]","[data-panel-mode='line']"]],["rect","Вырез прямоугольником","▭",["[data-panel-mode='rect']"]],["mitre","Сделать угол","◿",["[data-trim-corner]"]],["over","Этот поверх","⧉",["[data-trim-over]"]],["-"],["back","Показать позади","⤓",["[data-order-step='-1']"]],["front","Показать поверх","⤒",["[data-order-step='1']"]],["-"],["hide","Убрать кусок","⌫",["[data-trim-hide]"]],["delete","Удалить элемент","🗑",["[data-scheme-delete]"]]];
  // Журнал правок схемы (инженер 20.11.2026 «сделай журнал и возможность возврата»): каждая правка мышью или в карточке —
  // когда, кто, что; «Вернуть» — эта правка, «Вернуть к этому» — все правки после неё. Возврат тоже идёт через режим
  // редактирования: пишется по «Сохранить», модель не перестраивается целиком
@@ -1347,11 +1351,25 @@ window.irSchemePage=async function(objectId,opts){
  function fixLogRows(){return arr(rows).filter(r=>r.record_type==="scheme_trim_fix"&&r.data).sort((a,b)=>String(b.data.at||"").localeCompare(String(a.data.at||"")))}
  function fixLogWhat(r){const d=r.data||{},c=allRecords().find(x=>String(x.id)===String(d.member_id));return`${esc(String(c?(c.mark||c.title||""):(d.mark||"")))} — ${esc(FIX_WORD[d.action]||String(d.action||"правка"))}`}
  async function fixLogUndo(list){for(const r of list){if(r.data.undone)continue;await schemeApi.update(r.id,{record_type:"scheme_trim_fix",title:r.title,data:{...r.data,undone:new Date().toISOString()}});r.data={...r.data,undone:true}}refreshAfterMemberChange()}
+ // (и удалённые элементы — сохранённые из «🗑 Удалённые» за 7 дней, удалённые в этом режиме — из его списка, у каждого
+ // «Вернуть»: инженер 26.11.2026 «я удаляю все фасонки которые мне не нравятся как стоят»)
  function openFixLog(){document.getElementById("schemeFixLog")?.remove();const dlg=document.createElement("dialog");dlg.id="schemeFixLog";dlg.className="scheme-fix-log";
-  const paint=()=>{const l=fixLogRows(),t=v=>{const d=new Date(v);return isNaN(d)?"":d.toLocaleString("ru-RU",{day:"2-digit",month:"2-digit",hour:"2-digit",minute:"2-digit"})};
-   dlg.innerHTML=`<form method="dialog"><header><b>Журнал правок схемы</b><button value="close" aria-label="Закрыть">✕</button></header>${l.length?`<ol>${l.map(r=>`<li class="${r.data.undone?"undone":""}"><time>${t(r.data.at)}</time><span>${esc(String(r.data.by||""))}</span><em>${fixLogWhat(r)}</em>${r.data.undone?"<small>возвращено</small>":`<button type="button" data-one="${esc(String(r.id))}">Вернуть</button><button type="button" data-upto="${esc(String(r.id))}" title="Вернуть эту и все правки после неё">Вернуть к этому</button>`}</li>`).join("")}</ol>`:"<p>Правок нет.</p>"}<footer>Возврат запишется по «Сохранить».</footer></form>`;
+  const t=v=>{const d=new Date(v);return isNaN(d)?"":d.toLocaleString("ru-RU",{day:"2-digit",month:"2-digit",hour:"2-digit",minute:"2-digit"})};
+  const goneName=b=>{const n=[...new Set((Array.isArray(b.items)?b.items:[]).map(i=>String(i?.name||"").trim()).filter(Boolean))];return(n.length?n.slice(0,3).join(", ")+(n.length>3?" и др.":""):String(b.title||"элемент"))+(Number(b.count)>1?" ("+b.count+")":"")};
+  const stagedName=id=>{const r=(editStage?.snap||[]).find(x=>sameId(x.id,id)),d=r?.data||{};return String(d.mark||r?.title||id)};
+  const paint=async()=>{let gone=[];try{const g=await irProject.ai?.invoke?.("ai-settings:trash-list",{objectId:oid,section:"scheme"});gone=Array.isArray(g)?g:[]}catch(_e){gone=[]}
+   const l=fixLogRows(),staged=editStage?editStage.ops.filter(o=>o.op==="remove"&&!/^edit\d+$/.test(String(o.id))):[];
+   const items=[...l.map(r=>({at:Date.parse(r.data.at)||0,html:`<li class="${r.data.undone?"undone":""}"><time>${t(r.data.at)}</time><span>${esc(String(r.data.by||""))}</span><em>${fixLogWhat(r)}</em>${r.data.undone?"<small>возвращено</small>":`<button type="button" data-one="${esc(String(r.id))}">Вернуть</button><button type="button" data-upto="${esc(String(r.id))}" title="Вернуть эту и все правки после неё">Вернуть к этому</button>`}</li>`})),
+    ...staged.map(o=>({at:o.at||0,html:`<li class="gone"><time>${t(o.at)}</time><span></span><em>${esc(stagedName(o.id))} — удалён (до «Сохранить»)</em><button type="button" data-stage="${esc(String(o.id))}">Вернуть</button></li>`})),
+    ...gone.map(b=>({at:Date.parse(b.deletedAt)||0,html:`<li class="gone"><time>${t(b.deletedAt)}</time><span></span><em>${esc(goneName(b))} — удалён</em><button type="button" data-gone="${esc(String(b.id))}">Вернуть</button></li>`}))].sort((a,b)=>b.at-a.at);
+   dlg.innerHTML=`<form method="dialog"><header><b>Журнал правок схемы</b><button value="close" aria-label="Закрыть">✕</button></header>${items.length?`<ol>${items.map(x=>x.html).join("")}</ol>`:"<p>Правок нет.</p>"}<footer>Возврат правки запишется по «Сохранить». Удалённый элемент возвращается на своё место.</footer></form>`;
    dlg.querySelectorAll("[data-one]").forEach(b=>b.onclick=async()=>{b.disabled=true;await fixLogUndo(l.filter(r=>String(r.id)===b.dataset.one));paint()});
-   dlg.querySelectorAll("[data-upto]").forEach(b=>b.onclick=async()=>{b.disabled=true;const i=l.findIndex(r=>String(r.id)===b.dataset.upto);await fixLogUndo(l.slice(0,i+1));paint()})};
+   dlg.querySelectorAll("[data-upto]").forEach(b=>b.onclick=async()=>{b.disabled=true;const i=l.findIndex(r=>String(r.id)===b.dataset.upto);await fixLogUndo(l.slice(0,i+1));paint()});
+   dlg.querySelectorAll("[data-stage]").forEach(b=>b.onclick=()=>{if(!editStage)return;const id=b.dataset.stage,i=editStage.ops.findIndex(o=>o.op==="remove"&&sameId(o.id,id));
+    if(i>=0){editStage.ops.splice(i,1);if(Array.isArray(editStage.journal))editStage.journal=editStage.journal.filter(j=>!(sameId(j[0],id)&&j[1]==="deleted"));editReplay()}paint()});
+   dlg.querySelectorAll("[data-gone]").forEach(b=>b.onclick=async()=>{b.disabled=true;
+    try{await direct(async()=>{await irProject.ai.invoke("ai-montage:trash-restore",{id:Number(b.dataset.gone)});rows=await realApi.list().catch(()=>rows);await loadSnapshot();refreshGridModel();draw()});bumpTrash()}
+    catch(error){alert("Не удалось вернуть: "+String(error?.message||error).replace(/^Error invoking remote method '[^']+': (Error: )?/,""))}paint()})};
   paint();document.body.appendChild(dlg);dlg.addEventListener("close",()=>{dlg.remove();restoreKeyboardAfterConfirm()});dlg.showModal()}
  // Сдвиг на мм (инженер 24.11.2026, инструменты редактора: «выделение нескольких», «сдвиг на мм»): выбранные элементы —
  // щелчком, ещё — Ctrl+щелчок — переносятся целиком на ΔX (вдоль цифровых осей), ΔY (вдоль буквенных), ΔZ (вверх) одной
@@ -1511,7 +1529,8 @@ window.irSchemePage=async function(objectId,opts){
  const toolBtn=t=>{const box=document.getElementById("schemeDetails");if(!box||!t[3])return null;for(const q of t[3]){const b=box.querySelector(q);if(b&&!b.disabled)return b}return null};
  function paintTools(){const nav=document.querySelector(".scheme-edit-tools");if(!nav)return;const kind=window.irThreeSchemeView?.editMode?.()||"";
   nav.querySelectorAll("[data-edit-tool]").forEach(b=>{const t=EDIT_TOOLS.find(x=>x[0]===b.dataset.editTool);
-   b.disabled=Boolean(t[3])&&!toolBtn(t);b.classList.toggle("on",t[0]==="select"?(!kind||kind==="select"):t[0]===kind)})}
+   const whole=window.irThreeSchemeView?.dragWhole?.()!==false;
+   b.disabled=Boolean(t[3])&&!toolBtn(t);b.classList.toggle("on",t[0]==="select"?(!kind||kind==="select"):t[0]==="piece"?kind==="move"&&!whole:t[0]==="move"?kind==="move"&&whole:t[0]===kind)})}
  function editTool(id){const V=window.irThreeSchemeView,t=EDIT_TOOLS.find(x=>x[0]===id);if(!t)return;
   if(id==="select"){try{V?.editStart?.("select")}catch(e){}paintTools();return}
   if(id==="add"){if(V?.startPlacement)V.startPlacement();else openEditor();return}
@@ -1519,6 +1538,8 @@ window.irSchemePage=async function(objectId,opts){
   if(id==="extend"){try{V?.setPairMode?.("extend")}catch(e){}paintTools();return}
   if(id==="split"){try{V?.setPairMode?.("split")}catch(e){}paintTools();return}
   if(id==="join"){joinMembers(V?.selection?.()||[]);return}if(id==="props"){openProps();return}
+  // (several chosen — Ctrl+щелчок — deleted at once, one question; the engineer 26.11.2026 «я удаляю все фасонки которые мне не нравятся»)
+  if(id==="delete"){const sel=V?.selection?.()||[];if(sel.length>1&&removeManyNow){removeManyNow(sel);return}}
   toolBtn(t)?.click();setTimeout(paintTools,60)}
  // (↶ — последняя правка: мышью в 3D — шагом 3D, на месте; добавление, удаление, правка в окне — список схемы назад)
  const applyOp=(rs,o)=>o.op==="create"?[{...clone(o.p),id:o.id},...rs]:o.op==="update"?rs.map(r=>sameId(r.id,o.id)?{...r,...clone(o.p),id:r.id}:r):rs.filter(r=>!sameId(r.id,o.id));
@@ -1544,7 +1565,8 @@ window.irSchemePage=async function(objectId,opts){
    else if((e.ctrlKey||e.metaKey)&&!e.shiftKey&&(e.key==="z"||e.key==="я"||e.code==="KeyZ")){e.preventDefault();editUndo()}
    else if((e.ctrlKey||e.metaKey)&&(e.key==="y"||e.code==="KeyY"||e.shiftKey&&e.code==="KeyZ")){e.preventDefault();editRedo()}
    else if((e.ctrlKey||e.metaKey)&&e.code==="KeyC"){const ids=window.irThreeSchemeView?.selection?.()||[];if(ids.length){e.preventDefault();copyBuf=ids.slice()}}
-   else if((e.ctrlKey||e.metaKey)&&e.code==="KeyV"&&copyBuf.length){e.preventDefault();openCopy(true)}})}}
+   else if((e.ctrlKey||e.metaKey)&&e.code==="KeyV"&&copyBuf.length){e.preventDefault();openCopy(true)}
+   else if(e.key==="Delete"&&!e.ctrlKey&&!e.altKey&&!e.metaKey&&!document.querySelector("dialog[open]")){const sel=window.irThreeSchemeView?.selection?.()||[];if(sel.length||selectedId){e.preventDefault();editTool("delete")}}})}}
  function editEnter(){if(!canWrite()||editOn)return;editOn=true;editStage=newStage();draw()}
  async function editLeave(save){
   if(!editOn)return;const V=window.irThreeSchemeView;
@@ -1657,7 +1679,10 @@ window.irSchemePage=async function(objectId,opts){
   try{window.localStorage?.setItem(backgroundStorageKey,JSON.stringify({mode:currentBackground(),color:currentCustomBackground()}))}catch(e){}
   renderScene()
  }
+ // (the trims the engineer deleted — the 3D does not put a trim back along one of them by its rules, 26.11.2026)
+ const goneTrimsAsk=Promise.resolve(irProject.ai?.invoke?.("ai-montage:removed-trims",{objectId:oid})).then(r=>Array.isArray(r?.list)?r.list:[]).catch(()=>[]);
  [rows,markRows,workRows]=await Promise.all([schemeApi.list().catch(()=>[]),root.section("marks").list().catch(()=>[]),root.section("work-types").list().catch(()=>[])]);
+ removedTrimsList=await goneTrimsAsk;
  if(location.hash!==requestedRoute){loading.cancel();return}
  // The profiled sheet of a porch and the abutment over it — elements of their own (the engineer 20.11.2026: «профлист и
  // нащельник над ним отдельными элементами», «очерёдность … нащельник над профлистом сверху»): one record each per porch
@@ -2142,7 +2167,9 @@ const fittingSection=c=>c.ft==="flight"||c.ft==="ladder"||c.ft==="deck"?(c.fd>0?
  // Карточка без кнопок (инженер 20.11.2026 «столько кнопок, куда что, убери лишнее»): действия — правой кнопкой мыши по
  // элементу (contextMenu нажимает эти же кнопки, они в карточке скрыты); во время режима правки видно только поле его
  // мм («Тянуть край», «Резать линией») — блок режима; без режима карточка только сведения.
- function cardActs(mode,order,acts,em){return`<div class="scheme-card-acts"${em?"":" hidden"}>${mode||""}</div><div class="scheme-card-acts" hidden>${order||""}${acts||""}</div>`}
+ // Карточка — только сведения: блоки «Фасонный элемент», «Сэндвич-панель под щелчком», «Перенос» не показываются и в режиме
+ // редактирования — их кнопки нажимают инструменты слева и меню правой кнопки (инженер 26.11.2026 «это зачем? если есть редактор»)
+ function cardActs(mode,order,acts,em){return`<div class="scheme-card-acts" hidden>${mode||""}</div><div class="scheme-card-acts" hidden>${order||""}${acts||""}</div>`}
  function contextMenu(at){
   ctxMenu?.remove();ctxMenu=null;if(!at||!canEdit())return;
   const ITEMS=[["Изменить","[data-scheme-edit]"],["Двигать","[data-edit-move]"],["Двигать целиком","[data-trim-mode='whole']"],["Двигать одну полку","[data-trim-mode='piece']"],["Тянуть край","[data-edit-pull]"],["Срезать по линии","[data-trim-line]"],["Резать линией","[data-panel-mode='line']"],["Вырез прямоугольником","[data-panel-mode='rect']"],["Сделать угол","[data-trim-corner]"],["Показать позади","[data-order-step='-1']"],["Показать поверх","[data-order-step='1']"],["Этот поверх","[data-trim-over]"],["Убрать кусок","[data-trim-hide]"],["Отменить последнее","[data-trim-undo-last]"],["Удалить элемент","[data-scheme-delete]"]];
@@ -2402,12 +2429,26 @@ const fittingSection=c=>c.ft==="flight"||c.ft==="ladder"||c.ft==="deck"?(c.fd>0?
    if(!confirm("Удалить элемент "+(name?"«"+name+"» ":"")+"со схемы?\nВернуть можно 7 дней: кнопка «🗑 Удалённые».")){restoreKeyboardAfterConfirm();return}
    restoreKeyboardAfterConfirm();
    try{
-    await journalAuto(id,"deleted");
+    await journalAuto(id,"deleted");if(isTrimRow(record))removedTrimsList.push(goneTrimOf(record));
     await schemeApi.remove(id);bumpTrash();
     rows=await schemeApi.list().catch(()=>rows.filter(r=>String(r.id)!==String(id)));
     selectedId="";refreshAfterMemberChange();restoreKeyboardAfterConfirm()
    }catch(error){alert("Не удалось удалить элемент: "+String(error?.message||error))}
   };
+  // Несколько выбранных сразу (Ctrl+щелчок, затем Delete или 🗑): один вопрос, каждый — как удалённый по одному (в журнал,
+  // в «Удалённые» на 7 дней, при «Расставить» не возвращается), 3D убирает их на месте без перестройки (до 50 сразу).
+  const removeMany=async ids=>{
+   if(!canEdit())return;const list=allRecords().filter(r=>ids.some(id=>String(id)===String(r.id)));if(!list.length)return;
+   if(list.length===1){remove(list[0].id);return}
+   const names=[...new Set(list.map(r=>String(r.mark||r.title||"").trim()).filter(Boolean))];
+   if(!confirm("Удалить выбранные элементы ("+list.length+")"+(names.length?": "+names.slice(0,5).join(", ")+(names.length>5?" и др.":""):"")+"?\nВернуть можно 7 дней: кнопка «🗑 Удалённые».")){restoreKeyboardAfterConfirm();return}
+   restoreKeyboardAfterConfirm();
+   try{for(const r of list){await journalAuto(r.id,"deleted");if(isTrimRow(r))removedTrimsList.push(goneTrimOf(r));await schemeApi.remove(r.id)}bumpTrash();
+    rows=await schemeApi.list().catch(()=>rows.filter(r=>!list.some(q=>String(q.id)===String(r.id))));
+    selectedId="";try{window.irThreeSchemeView?.multiClear?.()}catch(e){}refreshAfterMemberChange();restoreKeyboardAfterConfirm()
+   }catch(error){alert("Не удалось удалить: "+String(error?.message||error))}
+  };
+  removeManyNow=removeMany;
   // (the specifications of the КМ for the page «Ведомость металла» — once; the 3D drawn again when they come)
   if(specsKm===null){specsKm=[];window.irSchemeSpecsReload=specsReload;specsReload()}
   window.irThreeSchemeView.render(box,{
@@ -2416,7 +2457,7 @@ const fittingSection=c=>c.ft==="flight"||c.ft==="ladder"||c.ft==="deck"?(c.fd>0?
    elements:members.map(c=>({...c,scheme_group:recordMarkGroup(c).key,role:recordRole(c),work:recordWorkId(c)||(frameMode?"":String(activeWorkId||""))})),
    // (the work types with their names: the page «Ведомость металла» of the 3D — a tab to each, beside its specification КМ)
    works:enabledWorks().map(w=>({id:w.id,label:w.name+(w.code?" · "+w.code:"")})),
-   specs:specsKm,trimFixes:trimFixes(),
+   specs:specsKm,trimFixes:trimFixes(),removedTrims:removedTrimsNow(),
    selected:selectedId,
    maxZ:members.reduce((m,c)=>Math.max(m,num(c.z0),num(c.z2),num(c.mz)),0),
    colorMode:schemeColorMode,showLabels:labelsVisible,showDimensions:dimensionsVisible,
@@ -2503,7 +2544,7 @@ const fittingSection=c=>c.ft==="flight"||c.ft==="ladder"||c.ft==="deck"?(c.fd>0?
   let specs=[];try{const all=await irProject.ai?.invoke?.("ai-documents:specs-km"),nc=v=>String(v||"").replace(/\s+/g,"").replace(/[.\-–_]/g,"").toUpperCase(),labs=[...workCounts.values()].map(w=>nc(w.label));
    // (all of them: the 3D finds the one of each work type — by the code in its name, the files or the volume of its sheets)
    specs=Array.isArray(all)?all:[];void labs}catch(_error){specs=[]}
-  return{objectId:oid,nodeCrops,specs,porchMade,trimFixes:trimFixes(),object:{name:String(object.name||object.title||""),short:String(object.short_name||""),address:String(object.address||"")},title:activeGroup()?.label||"Все",
+  return{objectId:oid,nodeCrops,specs,porchMade,trimFixes:trimFixes(),removedTrims:removedTrimsNow(),object:{name:String(object.name||object.title||""),short:String(object.short_name||""),address:String(object.address||"")},title:activeGroup()?.label||"Все",
     axesX:[...axesX],axesY:[...axesY],spanX,spanY,gridDirX,gridDirY,gridX:Object.fromEntries(axisXPos),gridY:Object.fromEntries(axisYPos),background:currentBackground(),
     elements:list,groups:[...counts.values()].sort((a,b)=>b.count-a.count),summary:statusCounts(),
     work:frameMode?(workCounts.size>1?"Все виды работ":""):currentWork?currentWork.name+(currentWork.code?" · "+currentWork.code:""):"",works:frameMode&&workCounts.size>1?[...workCounts.values()].sort((a,b)=>b.count-a.count):[]}
@@ -3007,7 +3048,7 @@ const fittingSection=c=>c.ft==="flight"||c.ft==="ladder"||c.ft==="deck"?(c.fd>0?
    bumpTrash();
    rows=await schemeApi.list().catch(()=>rows);selectedId="";refreshAfterMemberChange();restoreKeyboardAfterConfirm()
   });
-  panel.querySelector("[data-scheme-delete]")?.addEventListener("click",async()=>{if(!confirm(`Удалить элемент ${c.mark?`«${c.mark}» `:""}со схемы?\nВернуть можно 7 дней: кнопка «🗑 Удалённые».`)){restoreKeyboardAfterConfirm();return}restoreKeyboardAfterConfirm();await journalAuto(c.id,"deleted");await schemeApi.remove(c.id);bumpTrash();rows=await schemeApi.list().catch(()=>rows);selectedId="";refreshAfterMemberChange();restoreKeyboardAfterConfirm()});bindElementPicker(panel)
+  panel.querySelector("[data-scheme-delete]")?.addEventListener("click",async()=>{if(!confirm(`Удалить элемент ${c.mark?`«${c.mark}» `:""}со схемы?\nВернуть можно 7 дней: кнопка «🗑 Удалённые».`)){restoreKeyboardAfterConfirm();return}restoreKeyboardAfterConfirm();await journalAuto(c.id,"deleted");{const rr=allRecords().find(r=>String(r.id)===String(c.id));if(rr&&isTrimRow(rr))removedTrimsList.push(goneTrimOf(rr))}await schemeApi.remove(c.id);bumpTrash();rows=await schemeApi.list().catch(()=>rows);selectedId="";refreshAfterMemberChange();restoreKeyboardAfterConfirm()});bindElementPicker(panel)
  }
  let gridDraft=null;
  const yAlphabet=["А","Б","В","Г","Д","Е","Ж","З","И","К","Л","М","Н","П","Р","С","Т","У","Ф","Х","Ц","Ч","Ш","Щ","Э","Ю","Я"];

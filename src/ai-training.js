@@ -105,6 +105,17 @@ function createTraining({database,getUserDataPath,base=null}){
    ids.push(String(row.id))}
   return{ids}
  }
+ // The trims the engineer deleted (the engineer, 26.11.2026: «я удаляю все фасонки которые мне не нравятся») — for the 3D,
+ // whose rules adding a trim where none was read do not put one along a deleted one: where each was, in mm of the scheme.
+ function removedTrims(oid){
+  // (by the numbers of the records of this kind, each read alone — the placements of the same section are large)
+  const ids=typeof database.getEntity==="function"&&index?index(oid,SECTION,"element_removed"):null;
+  const rows=Array.isArray(ids)?ids.map(id=>oneRow(oid,SECTION,id)).filter(Boolean):database.listEntity(oid,SECTION);
+  const out=[];for(const r of rows){if(r.record_type!=="element_removed")continue;const o=r.data?.element||r.data?.placed;if(!o)continue;
+   if(!(String(o.group||"")==="trims"||/^trim/.test(String(o.type_key||""))||/^Нщ$/u.test(String(o.mark||"").trim())))continue;
+   out.push({id:String(r.data?.id||""),mark:String(o.mark||""),x:o.x,y:o.y,x2:o.x2,y2:o.y2,z0:o.z0,z1:o.z1})}
+  return out
+ }
  // …and brought back by «Вернуть»: no longer deleted.
  function forgetRemoved(oid,ids){
   const want=new Set((ids||[]).map(String));let n=0;if(!want.size)return 0;
@@ -283,6 +294,6 @@ function createTraining({database,getUserDataPath,base=null}){
   }
   return out
  }
- return{recordPlacement,corrections,saveCorrections,confirmScheme,status,promptFor,correctionLines,journalAdd,journalList,journalLines,removedMany,forgetRemoved,SECTION}
+ return{recordPlacement,corrections,saveCorrections,confirmScheme,status,promptFor,correctionLines,journalAdd,journalList,journalLines,removedMany,forgetRemoved,removedTrims,SECTION}
 }
 module.exports={createTraining,originOf,diff,setIdOf,setCodeOf,ruleOf,SECTION};

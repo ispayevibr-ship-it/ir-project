@@ -189,6 +189,7 @@ handle("ai-montage:journal-add",(_e,{objectId,elementId,comment,objectName,actio
  const r=training.journalAdd(objectId,{elementId,comment,objectName,action,auto:auto===true,grid});
  if(r.entry?.rule){try{knowledge.setType(r.entry.rule);github.schedule("вид элемента по правке инженера")}catch(e){r.ruleError=String(e.message||e)}}
  return r});
+ handle("ai-montage:removed-trims",(_e,{objectId}={})=>({list:training.removedTrims(objectId)}));
  handle("ai-montage:journal-list",(_e,{objectId,limit}={})=>({...training.journalList({objectId,limit}),github:github.info()}));
  handle("ai-montage:journal-send",()=>github.push({reason:"журнал, вручную"}));
  handle("ai-montage:training",(_e,{objectId}={})=>{const r=training.status(objectId);return{...r,base:base.stats?base.stats():null}});
