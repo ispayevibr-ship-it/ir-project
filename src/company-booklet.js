@@ -9,13 +9,15 @@
  * build(objects, company) — только разметка (проверка: scripts/test-company-booklet.js); make() — в окне программы.
  */
 (function(root){
+ // значок WhatsApp у номера (инженер 27.11.2026 «рядом с каждым номером поставь значок ватсапа»)
+ const WA='<svg class="wa" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="12" fill="#f5a700"/><path fill="#141414" d="M12 5.2a6.8 6.8 0 0 0-5.85 10.27L5.2 18.8l3.4-.9A6.8 6.8 0 1 0 12 5.2zm0 12.4c-1.03 0-2.04-.28-2.92-.8l-.21-.12-2.02.53.54-1.97-.14-.22A5.6 5.6 0 1 1 12 17.6zm3.07-4.2c-.17-.08-1-.49-1.15-.55-.16-.06-.27-.08-.38.09-.11.17-.44.55-.54.66-.1.11-.2.13-.37.04-.17-.08-.71-.26-1.36-.84-.5-.45-.84-1-.94-1.17-.1-.17-.01-.26.07-.34.08-.08.17-.2.25-.3.08-.1.11-.17.17-.28.06-.11.03-.21-.01-.3-.04-.08-.38-.92-.52-1.26-.14-.33-.28-.28-.38-.29h-.33c-.11 0-.3.04-.45.21-.16.17-.6.58-.6 1.42 0 .84.61 1.65.7 1.76.08.11 1.2 1.84 2.92 2.58.41.18.73.28.98.36.41.13.79.11 1.08.07.33-.05 1-.41 1.15-.81.14-.4.14-.74.1-.81-.04-.07-.16-.11-.33-.2z"/></svg>';
  const COMPANY={
   name:"ТОО «А-Темир Строй»",
   full:"Товарищество с ограниченной ответственностью «А-Темир Строй»",
   bin:"990740008450",
   address:"Республика Казахстан, Карагандинская обл., г. Темиртау, Спортивный переулок 5, офис 17",
-  phones:[["WhatsApp","+7 701 466 86 96"],["Директор","+7 778 459 73 93"],["Бухгалтерия","+7 775 730 00 05"]],
-  mail:"kasken7@mail.ru · a-tk@list.ru",site:"a-ts.kz",whatsapp:"+7 701 466 86 96",contactMail:"kasken7@mail.ru",
+  phones:[["Директор","+7 701 466 86 96"],["Зам. директора","+7 778 459 73 93"],["Бухгалтерия","+7 775 730 00 05"]],
+  mail:"kasken7@mail.ru · a-tk@list.ru",site:"a-ts.kz",whatsapp:"+7 701 466 86 96",contactMail:"kasken7@mail.ru · a-tk@list.ru",
   head:"Саргаскаев Аслан Каскенович",
   bank:["ИИК KZ20601A371002289201","АО «Народный Банк Казахстана»","БИК HSBKKZKX · КБе 17"],
   title:"Изготовление и монтаж металлоконструкций",
@@ -363,7 +365,7 @@
   return`<section class="page"><div class="A1"><div class="lg">${logo?`<img src="${esc(logo)}" alt="">`:`<b>${esc(co.name)}</b>`}</div>
   <h3 class="up">${esc(co.full)}</h3><div class="bin">БИН ${esc(co.bin)}</div>
   <div class="kv"><small class="up">Юридический адрес</small>${esc(co.address)}</div>
-  <div class="kv"><small class="up">Телефоны</small>${co.phones.map(([k,v])=>esc(k)+": "+esc(v)).join("<br>")}</div>
+  <div class="kv"><small class="up">Телефоны</small>${co.phones.map(([k,v])=>esc(k)+": "+WA+esc(v)).join("<br>")}</div>
   <div class="kv"><small class="up">Почта и сайт</small>${esc(co.mail)}<br>${esc(co.site)}</div>
   <div class="kv"><small class="up">Директор</small>${esc(co.head)}</div>
   <div class="kv"><small class="up">Банковские реквизиты</small>${co.bank.map(esc).join("<br>")}</div>
@@ -621,6 +623,8 @@ ${(()=>{const pages=[["О компании",aboutPage(firm,co,logo)],...(service
 .tf .svd p{margin:.4mm 0 0;font-size:5.9pt;line-height:1.3;color:#aab2bc}
 .tf .bk .ct{gap:1.2mm;margin-bottom:3mm}
 .tf .bk .ct div{padding-bottom:1.1mm;font-size:7pt}
+.tf .ct .ph{display:inline-flex;align-items:center;gap:1.4mm;white-space:nowrap}.tf .ct .ml{text-align:right;line-height:1.35}
+svg.wa{width:3.4mm;height:3.4mm;flex:none;vertical-align:-.7mm;margin-right:1mm}svg.wa{width:3.4mm!important;height:3.4mm!important}.tf .ct svg.wa{margin:0}
 .tf .cv.oq{left:0;width:100.3mm}
 .tf .oq .lg img{height:16mm;max-width:76mm}
 .tf .oq .od{position:absolute;left:9mm;right:9mm;bottom:11mm;z-index:2}
@@ -756,7 +760,7 @@ ${(()=>{const pages=[["О компании",aboutPage(firm,co,logo)],...(service
    ${co.license?`<div class="lic"><em>${CHECK}</em>${esc(co.license)}</div>`:""}${`<div class="adv">${(co.adv||[]).map(([t,d])=>`<div><b>${esc(t)}</b><span>${esc(d)}</span></div>`).join("")}</div>`}
    ${geo.length?`<div class="amap"><div class="kk up">География работ</div>${foldMap(L)}</div>`:""}<div class="slg">${esc(co.slogan[0])}<br><span>${esc(co.slogan[1])}</span></div></div>
   <div class="pn bk"><div class="kk up">Услуги</div><h2>Что мы делаем</h2><div class="svd">${sv.map(([t,d],i)=>`<div class="it"><i>${String(i+1).padStart(2,"0")}</i><b>${esc(t)}</b><p>${esc(d)}</p></div>`).join("")}</div>
-   <div class="kk up">Контакты</div><div class="ct">${co.phones.map(([t,v])=>`<div><small class="up">${esc(t)}</small><b>${esc(v)}</b></div>`).join("")}<div><small class="up">Почта</small><b>${esc(co.contactMail||co.mail)}</b></div><div><small class="up">Сайт</small><b>${esc(co.site)}</b></div></div>
+   <div class="kk up">Контакты</div><div class="ct">${co.phones.map(([t,v])=>`<div><small class="up">${esc(t)}</small><b class="ph">${WA}${esc(v)}</b></div>`).join("")}<div><small class="up">Почта</small><b class="ml">${(co.contactMail||co.mail).split(/\s*·\s*/).map(esc).join("<br>")}</b></div><div><small class="up">Сайт</small><b>${esc(co.site)}</b></div></div>
    <div class="rq"><b>${esc(co.full)}</b><br>БИН ${esc(co.bin)}<br>${esc(co.address)}<br>${co.bank.map(esc).join("<br>")}<br>Директор — ${esc(co.head)}</div></div>
   <div class="pn nm fr"><div class="kk up">В цифрах</div><h2>Что мы уже сделали</h2><div class="tot">${tot.slice(0,8).map(([b,t])=>`<div><b>${esc(b)}</b><span>${esc(t)}</span></div>`).join("")}</div>
    ${cl.length?`<div class="cl ${cl.length>24?"c2 ":""}f${cl.length<=9?0:cl.length<=13?1:cl.length<=17?2:cl.length<=24?3:4}"><div class="kk up">Нам доверяют</div><div class="cg">${cl.map(t=>`<div>${esc(t)}</div>`).join("")}</div></div>`:""}</div>${mk([97,197])}</section>`}
