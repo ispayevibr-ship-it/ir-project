@@ -622,6 +622,7 @@ ${(()=>{const pages=[["О компании",aboutPage(firm,co,logo)],...(service
 .tf .ab:has(.amap) .adv{gap:2mm}
 .tf .ab:has(.amap) .ld{margin-bottom:3mm}
 .tf .amap svg{flex:1 1 0;min-height:0;width:100%;height:100%;display:block;margin-top:1mm}
+.tf .amap .rk{flex:none;margin-top:1.2mm;text-align:center;font-size:7pt;font-weight:800;letter-spacing:1.6px;text-transform:uppercase;color:#1d2228}.tf .amap .rk:before,.tf .amap .rk:after{content:"";display:inline-block;width:6mm;height:.35mm;background:var(--or);vertical-align:middle;margin:0 2mm}
 .tf .amap .kz{fill:#ece7dd;stroke:#d6cfc1;stroke-width:2}
 .tf .amap .dt{fill:var(--or)}
 .tf .amap .dn{fill:#1d2228;font:900 17px Montserrat,sans-serif;text-anchor:middle;dominant-baseline:central}
@@ -839,7 +840,7 @@ svg.wa{width:3.4mm;height:3.4mm;flex:none;vertical-align:-.7mm;margin-right:1mm}
    <div class="rq"><b>${esc(co.full)}</b><br>БИН ${esc(co.bin)}<br>${esc(co.address)}<br>${co.bank.map(esc).join("<br>")}<br>Директор — ${esc(co.head)}</div></div>
   <div class="pn nm fr"><div class="kk up">В цифрах</div><h2>Что мы уже сделали</h2><div class="tot">${tot.slice(0,8).map(([b,t])=>`<div><b>${esc(b)}</b><span>${esc(t)}</span></div>`).join("")}</div>
    ${cl.length?`<div class="cl ${clC2(cl.length,geo.length)?"c2 ":""}f${clF(cl.length,geo.length)}"><div class="kk up">Нам доверяют</div><div class="cg">${cl.map(t=>`<div>${esc(t)}</div>`).join("")}</div><p class="oth">И другие предприятия и организации.</p></div>`:""}
-   ${geo.length?`<div class="amap"><div class="kk up">География работ</div>${foldMap(L)}</div>`:""}</div>${mk([97,197])}</section>`}
+   ${geo.length?`<div class="amap"><div class="kk up">География работ</div>${foldMap(L)}<div class="rk">Республика Казахстан</div></div>`:""}</div>${mk([97,197])}</section>`}
  // сторона объекта: первая полоса — фото на всю полосу, логотип фирмы, внизу название, адрес, генподрядчик, заказчик;
  // вторая и третья — виды работ с объёмами (много работ — две колонки и шрифт мельче)
  function objSide(o,co,logo){const ps=(o.pictures||[]),cvp=ps[0]||"",score=o.mainPx&&o.mainPx[0]>0?Math.min(o.mainPx[0]/100,o.mainPx[1]/210):9;
