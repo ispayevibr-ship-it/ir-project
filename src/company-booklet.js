@@ -599,7 +599,7 @@ ${(()=>{const pages=[["О компании",aboutPage(firm,co,logo)],...(service
 .tf .adv{display:flex;flex-direction:column;gap:3mm}.tf .adv div{border-left:1mm solid var(--or);padding-left:3mm}.tf .adv b{display:block;font-size:7.6pt;font-weight:900}.tf .adv span{display:block;font-size:6.6pt;color:var(--mut);line-height:1.35;margin-top:.6mm}
 .tf .alg{margin:0 0 4mm}
 .tf .alg img{display:block;width:100%;max-height:30mm;object-fit:contain;object-position:center}
-.tf .amap{flex:1 1 0;min-height:22mm;padding-top:2mm;display:flex;flex-direction:column}
+.tf .amap{flex:1 1 0;min-height:22mm;padding-top:7mm;display:flex;flex-direction:column}
 .tf .ab:has(.amap) .adv{gap:2mm}
 .tf .ab:has(.amap) .ld{margin-bottom:3mm}
 .tf .amap svg{flex:1 1 0;min-height:0;width:100%;height:100%;display:block;margin-top:1mm}
@@ -624,7 +624,6 @@ ${(()=>{const pages=[["О компании",aboutPage(firm,co,logo)],...(service
 .tf .cv.oq{left:0;width:100.3mm}
 .tf .oq .lg img{height:16mm;max-width:76mm}
 .tf .oq .od{position:absolute;left:9mm;right:9mm;bottom:11mm;z-index:2}
-.tf .oq .od:before{content:"";display:block;width:20mm;height:1.6mm;background:var(--or);margin-bottom:4mm}
 .tf .oq .yr{display:inline-block;background:var(--or);color:var(--ink);font-size:7pt;font-weight:900;padding:.8mm 2.4mm;border-radius:1mm;margin-bottom:2.5mm}
 .tf .oq h2{font-size:16pt;line-height:1.12;margin:0 0 2mm;color:#fff}
 .tf .oq .pl{font-size:7.4pt;font-weight:700;color:#d5dae0;margin-bottom:3.5mm}
@@ -650,8 +649,6 @@ ${(()=>{const pages=[["О компании",aboutPage(firm,co,logo)],...(service
 .tf .opx.n5 .gx{grid-template-areas:"a a" "b c" "d e";grid-template-rows:1.35fr 1fr 1fr}
 .tf .opx.n6 .gx{grid-template-areas:"a a" "b c" "d e" "f f";grid-template-rows:1.3fr 1fr 1fr 1.05fr}
 .tf .opx i{border-radius:2.5mm;background:#3a4047 center/cover no-repeat;min-height:0;box-shadow:0 .6mm 2mm rgba(0,0,0,.18)}
-.tf .opx i:first-child{position:relative}
-.tf .opx i:first-child:after{content:"";position:absolute;left:4mm;bottom:4mm;width:14mm;height:1.4mm;background:var(--or);border-radius:1mm}
 .tf .ow.f1 .wl div{font-size:8.4pt;padding:2.2mm 0}.tf .ow.f1 .wl b{font-size:11pt}
 .tf .ow.f2 .wl div{font-size:7.4pt;padding:1.7mm 0}.tf .ow.f2 .wl b{font-size:9.5pt}
 .tf .ow.f3 .wl div{font-size:6.6pt;padding:1.3mm 0}.tf .ow.f3 .wl b{font-size:8.4pt}
