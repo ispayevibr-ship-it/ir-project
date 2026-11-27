@@ -597,8 +597,8 @@ ${(()=>{const pages=[["О компании",aboutPage(firm,co,logo)],...(service
 .tf .ab .ld{font-size:7.6pt;line-height:1.55;color:#3a414a;margin:0 0 4mm}.tf .lic{display:flex;gap:3mm;align-items:center;background:#1d2228;color:#fff;border-radius:2mm;padding:3mm 3.5mm;font-size:6.8pt;font-weight:700;line-height:1.35;margin-bottom:4mm}
 .tf .lic em{flex:none;width:8mm;height:8mm;border-radius:2mm;background:var(--or);display:grid;place-items:center}.tf .lic em svg{width:5mm;height:5mm}
 .tf .adv{display:flex;flex-direction:column;gap:3mm}.tf .adv div{border-left:1mm solid var(--or);padding-left:3mm}.tf .adv b{display:block;font-size:7.6pt;font-weight:900}.tf .adv span{display:block;font-size:6.6pt;color:var(--mut);line-height:1.35;margin-top:.6mm}
-.tf .alg{margin:1.5mm 0 4mm}
-.tf .alg img{display:block;width:100%;max-height:26mm;object-fit:contain;object-position:left center}
+.tf .alg{margin:0 0 4mm}
+.tf .alg img{display:block;width:100%;max-height:30mm;object-fit:contain;object-position:center}
 .tf .amap{flex:1 1 0;min-height:22mm;padding-top:2mm;display:flex;flex-direction:column}
 .tf .ab:has(.amap) .adv{gap:2mm}
 .tf .ab:has(.amap) .ld{margin-bottom:3mm}
@@ -746,7 +746,7 @@ ${(()=>{const pages=[["О компании",aboutPage(firm,co,logo)],...(service
  // лицензия, преимущества, карта без списка городов | тёмная — что мы делаем, контакты, реквизиты | цифры за всё время и все
  // заказчики (без «и ещё», много — шрифт мельче, больше 24 — в две колонки). L — все объекты фирмы (firmOf).
  function firmSide(co,logo,L){const geo=geoGroups(L),tot=totals(L),cl=clientList(L,co),sv=(co.what||COMPANY.what).items.slice(0,8),mk=()=>"";
-  return`<section class="tf"><div class="pn ab"><div class="kk up">О компании</div>${logo?`<div class="alg"><img src="${esc(logo)}" alt=""></div>`:`<h2>${esc(co.name)}</h2>`}${(co.about||[]).map(t=>`<p class="ld">${esc(t)}</p>`).join("")}
+  return`<section class="tf"><div class="pn ab">${logo?`<div class="alg"><img src="${esc(logo)}" alt=""></div>`:`<div class="kk up">О компании</div><h2>${esc(co.name)}</h2>`}${(co.about||[]).map(t=>`<p class="ld">${esc(t)}</p>`).join("")}
    ${co.license?`<div class="lic"><em>${CHECK}</em>${esc(co.license)}</div>`:""}${`<div class="adv">${(co.adv||[]).map(([t,d])=>`<div><b>${esc(t)}</b><span>${esc(d)}</span></div>`).join("")}</div>`}
    ${geo.length?`<div class="amap"><div class="kk up">География работ</div>${foldMap(L)}</div>`:""}<div class="slg">${esc(co.slogan[0])}<br><span>${esc(co.slogan[1])}</span></div></div>
   <div class="pn bk"><div class="kk up">Услуги</div><h2>Что мы делаем</h2><div class="svd">${sv.map(([t,d],i)=>`<div class="it"><i>${String(i+1).padStart(2,"0")}</i><b>${esc(t)}</b><p>${esc(d)}</p></div>`).join("")}</div>
