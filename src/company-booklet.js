@@ -648,7 +648,7 @@ svg.wa{width:3.4mm;height:3.4mm;flex:none;vertical-align:-.7mm;margin-right:1mm}
 .tf .oq .pr{border-left:1mm solid var(--or);padding-left:3mm;margin-top:2mm}
 .tf .oq .pr small{display:block;font-size:5.8pt;font-weight:800;letter-spacing:1.2px;color:var(--or2)}
 .tf .oq .pr b{display:block;font-size:7.8pt;font-weight:800;line-height:1.3}
-.tf .ow{left:100mm;width:197mm;padding:14mm 12mm 12mm 11mm;display:flex;flex-direction:column}
+.tf .ow{left:100mm;width:197mm;padding:9mm 12mm 10mm 11mm;display:flex;flex-direction:column}
 .tf .ow h2{font-size:18pt;margin-bottom:6mm}
 .tf .ow .wl{flex:1 1 0;min-height:0}
 .tf .ow .fin{flex:none;display:flex;align-items:center;gap:3.5mm;margin-top:3mm;background:#1d2228;color:#fff;border-radius:2.5mm;padding:3mm 4mm}
@@ -658,10 +658,10 @@ svg.wa{width:3.4mm;height:3.4mm;flex:none;vertical-align:-.7mm;margin-right:1mm}
 .tf .ow .wl div{break-inside:avoid;display:flex;justify-content:space-between;align-items:baseline;gap:4mm;border-bottom:1px solid var(--line);padding:3mm 0;font-size:10pt;font-weight:700;line-height:1.3}
 .tf .ow .wl b{font-size:14pt;font-weight:900;color:var(--or);white-space:nowrap}
 .tf .ow .wl s{text-decoration:none;font-size:.6em;color:var(--mut)}
-.tf .ow.nar{width:100.3mm;padding:14mm 9mm 10mm 10mm}
+.tf .ow.nar{width:100.3mm;padding:8mm 9mm 9mm 10mm}
 .tf .ow.nar h2{font-size:15pt;margin-bottom:4mm}
 .tf .ow.nar .wl.c2{column-gap:5mm}
-.tf .opx{left:200mm;width:97mm;padding:14mm 9mm 10mm 2mm;display:flex;flex-direction:column}
+.tf .opx{left:200mm;width:97mm;padding:8mm 9mm 9mm 2mm;display:flex;flex-direction:column}
 .tf .opx .gx{flex:1 1 0;min-height:0;display:grid;gap:2.2mm;grid-template-columns:1fr 1fr;margin-top:2mm}
 .tf .opx.n1 .gx{grid-template-areas:"a a"}
 .tf .opx.n2 .gx{grid-template-areas:"a a" "b b";grid-template-rows:1.3fr 1fr}
@@ -726,6 +726,9 @@ svg.wa{width:3.4mm;height:3.4mm;flex:none;vertical-align:-.7mm;margin-right:1mm}
 .tf .q3 .ct{margin:5mm 0 0}.tf .q3 .lg2{font-size:9pt;font-weight:900;margin-top:2mm}.tf .q3 .lg2 span{color:var(--or)}
 .tf .nb{display:grid;grid-template-columns:1fr 1fr;gap:3mm;margin-bottom:4mm}.tf .nb div{border-top:1mm solid var(--or);padding-top:1.8mm}.tf .nb b{display:block;font-size:11.5pt;font-weight:900;line-height:1.05;white-space:nowrap}.tf .nb span{display:block;font-size:6pt;font-weight:700;color:var(--mut);line-height:1.25;margin-top:.8mm}`;
  const FOLD_OBJ=3,FOLD_PH=3,FOLD_PH_OBJ=7;
+ // сколько фото объекта берётся в буклет: «Лист объекта» и «Буклет на объект» — до 7 у каждого (полоса + 6 в галерее),
+ // остальные макеты — до 3 у первых трёх (инженер 27.11.2026 «фото 2, хотя выбрано 7»: PDF брал по-старому 3)
+ const foldCap=(i,inside,spread)=>{let n=inside===undefined?(spread&&spread.src?0:1):Number(inside)||0;if(n===0&&!(spread&&spread.src))n=1;return n===1||n===4?FOLD_PH_OBJ:i<FOLD_OBJ?FOLD_PH:0};
  // макеты разворота внутри евробуклета (инженер 24.11.2026 «в буклете выбор нескольких фото и макетов сделай»):
  // 0 — одно фото на весь разворот с подписями, 1 — цифры, услуги, объекты, 2 — три объекта по полосе с фото,
  // 3 — фотоколлаж из фото отмеченных объектов. У каждого из первых трёх объектов до 3 фото, первое — главное.
@@ -866,7 +869,7 @@ ${screen?`<div class="pvn">Снаружи · клапан | задняя сто�
   const objects=[];
   for(const [i,o] of data.entries()){
    onProgress?.(i,data.length,o.name);
-   const files=(o.files||pickDefault(o).files).slice(0,fold?(i<FOLD_OBJ||Number(inside)===4?FOLD_PH:0):capOf(o)),pictures=[];
+   const files=(o.files||pickDefault(o).files).slice(0,fold?foldCap(i,inside,spread):capOf(o)),pictures=[];
    for(const f of files){const s=await read(f);if(s)pictures.push(await small(s,pictures.length?1400:2800))}
    objects.push({...o,pictures,ratios:await ratios(pictures),mainPx:await dims(pictures[0])})
   }
@@ -887,7 +890,7 @@ ${screen?`<div class="pvn">Снаружи · клапан | задняя сто�
   const profile=await root.irProject.company.get().catch(()=>({}));
   const logo=await small(await read(profile?.logo||""),600);
   const objects=[];
-  for(const [i,o] of data.entries()){const pictures=[];for(const f of (o.files||pickDefault(o).files).slice(0,fold?(i<FOLD_OBJ||Number(inside)===4?FOLD_PH:0):capOf(o))){const s=(pic&&await pic(f))||await small(await read(f),900,.8);if(s)pictures.push(s)}const f0=(o.files||pickDefault(o).files)[0];objects.push({...o,pictures,ratios:await ratios(pictures),mainPx:await dims(await read(f0))})}
+  for(const [i,o] of data.entries()){const pictures=[];for(const f of (o.files||pickDefault(o).files).slice(0,fold?foldCap(i,inside,spread):capOf(o))){const s=(pic&&await pic(f))||await small(await read(f),900,.8);if(s)pictures.push(s)}const f0=(o.files||pickDefault(o).files)[0];objects.push({...o,pictures,ratios:await ratios(pictures),mainPx:await dims(await read(f0))})}
   const opts={logo,company:profile?.name?{name:profile.name}:{},services,map,inside,all:firmOf(all,data)};
   if(fold){if(spread?.file){const s=await read(spread.file);if(s)opts.spread={...spread,src:await small(s,1400,.82),px:await dims(s)}}if(spread&&!opts.spread)opts.spread=spread;return foldBuild(objects,{...opts,screen:true})}
   await dropTooLong(objects,opts);
