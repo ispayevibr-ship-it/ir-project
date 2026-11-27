@@ -593,15 +593,71 @@ ${(()=>{const pages=[["О компании",aboutPage(firm,co,logo)],...(service
  const FOLD_CSS=`.tf{position:relative;width:297mm;height:210mm;overflow:hidden;page-break-after:always;background:#fff;color:var(--ink)}
 .tf .pn{position:absolute;top:0;bottom:0;overflow:hidden}.tf .mk{position:absolute;width:.25mm;height:4mm;background:#b9c0c7}.tf .mk.t{top:0}.tf .mk.b{bottom:0}
 .tf .kk{font-size:6.6pt;font-weight:800;letter-spacing:1.6px;color:var(--ord);margin-bottom:1.8mm}.tf h2{margin:0 0 4mm;font-size:16pt;font-weight:900;line-height:1.1}
-.tf .ab{left:0;width:97mm;padding:24mm 9mm 10mm 10mm;display:flex;flex-direction:column}.tf .ab:before{content:"";position:absolute;left:0;top:0;width:32mm;height:20mm;background:linear-gradient(135deg,var(--or2),var(--or));clip-path:polygon(0 0,100% 0,0 100%)}
+.tf .ab{left:0;width:97mm;padding:13mm 9mm 9mm 10mm;display:flex;flex-direction:column}.tf .ab:before{content:"";position:absolute;left:0;top:0;width:32mm;height:20mm;background:linear-gradient(135deg,var(--or2),var(--or));clip-path:polygon(0 0,100% 0,0 100%)}
 .tf .ab .ld{font-size:7.6pt;line-height:1.55;color:#3a414a;margin:0 0 4mm}.tf .lic{display:flex;gap:3mm;align-items:center;background:#1d2228;color:#fff;border-radius:2mm;padding:3mm 3.5mm;font-size:6.8pt;font-weight:700;line-height:1.35;margin-bottom:4mm}
 .tf .lic em{flex:none;width:8mm;height:8mm;border-radius:2mm;background:var(--or);display:grid;place-items:center}.tf .lic em svg{width:5mm;height:5mm}
 .tf .adv{display:flex;flex-direction:column;gap:3mm}.tf .adv div{border-left:1mm solid var(--or);padding-left:3mm}.tf .adv b{display:block;font-size:7.6pt;font-weight:900}.tf .adv span{display:block;font-size:6.6pt;color:var(--mut);line-height:1.35;margin-top:.6mm}
+.tf .alg{margin:1.5mm 0 4mm}
+.tf .alg img{display:block;width:100%;max-height:26mm;object-fit:contain;object-position:left center}
+.tf .amap{flex:1 1 0;min-height:22mm;padding-top:2mm;display:flex;flex-direction:column}
+.tf .ab:has(.amap) .adv{gap:2mm}
+.tf .ab:has(.amap) .ld{margin-bottom:3mm}
+.tf .amap svg{flex:1 1 0;min-height:0;width:100%;height:100%;display:block;margin-top:1mm}
+.tf .amap .kz{fill:#ece7dd;stroke:#d6cfc1;stroke-width:2}
+.tf .amap .dt{fill:var(--or)}
+.tf .amap .dn{fill:#1d2228;font:900 17px Montserrat,sans-serif;text-anchor:middle;dominant-baseline:central}
+.tf .amap .of{fill:#1d2228}
+.tf .amap+.slg{margin-top:3mm}
 .tf .slg{margin-top:auto;font-size:10.5pt;font-weight:900;line-height:1.25}.tf .slg span{color:var(--ord)}
 .tf .bk{left:97mm;width:100.3mm;background:#1d2228;color:#fff;padding:13mm 9mm 10mm;display:flex;flex-direction:column}.tf .bk .kk{color:var(--or)}
 .tf .bk svg{width:100%;height:auto;display:block;margin:1mm 0 2mm}.tf .bk .kz{fill:#2f363e;stroke:#4a535d;stroke-width:2}.tf .bk .dt{fill:var(--or)}.tf .bk .dn{fill:#1d2228;font:900 17px Montserrat,sans-serif;text-anchor:middle;dominant-baseline:central}.tf .bk .of{fill:#fff}
 .tf .bk .pl{font-size:6.6pt;color:#aab2bc;line-height:1.45;margin-bottom:6mm}.tf .bk .pl b{color:#fff}
 .tf .ct{display:flex;flex-direction:column;gap:2.4mm;margin-bottom:5mm}.tf .ct div{display:flex;justify-content:space-between;gap:3mm;font-size:7.6pt;border-bottom:1px solid rgba(255,255,255,.1);padding-bottom:2mm}.tf .ct small{color:#aab2bc;font-size:6.4pt;font-weight:700;letter-spacing:.5px}.tf .ct b{font-weight:800;white-space:nowrap}
+.tf .bk h2{font-size:14pt;margin-bottom:2mm}
+.tf .svd{margin-bottom:4mm}
+.tf .svd .it{display:grid;grid-template-columns:7mm 1fr;gap:0 2mm;padding:1.5mm 0;border-bottom:1px solid rgba(255,255,255,.1)}
+.tf .svd i{font-style:normal;font-size:8pt;font-weight:900;color:var(--or);grid-row:span 2}
+.tf .svd b{font-size:7pt;font-weight:900}
+.tf .svd p{margin:.4mm 0 0;font-size:5.9pt;line-height:1.3;color:#aab2bc}
+.tf .bk .ct{gap:1.2mm;margin-bottom:3mm}
+.tf .bk .ct div{padding-bottom:1.1mm;font-size:7pt}
+.tf .cv.oq{left:0;width:100.3mm}
+.tf .oq .lg img{height:16mm;max-width:76mm}
+.tf .oq .od{position:absolute;left:9mm;right:9mm;bottom:11mm;z-index:2}
+.tf .oq .od:before{content:"";display:block;width:20mm;height:1.6mm;background:var(--or);margin-bottom:4mm}
+.tf .oq .yr{display:inline-block;background:var(--or);color:var(--ink);font-size:7pt;font-weight:900;padding:.8mm 2.4mm;border-radius:1mm;margin-bottom:2.5mm}
+.tf .oq h2{font-size:16pt;line-height:1.12;margin:0 0 2mm;color:#fff}
+.tf .oq .pl{font-size:7.4pt;font-weight:700;color:#d5dae0;margin-bottom:3.5mm}
+.tf .oq .pr{border-left:1mm solid var(--or);padding-left:3mm;margin-top:2mm}
+.tf .oq .pr small{display:block;font-size:5.8pt;font-weight:800;letter-spacing:1.2px;color:var(--or2)}
+.tf .oq .pr b{display:block;font-size:7.8pt;font-weight:800;line-height:1.3}
+.tf .ow{left:100mm;width:197mm;padding:14mm 12mm 12mm 11mm;display:flex;flex-direction:column}
+.tf .ow h2{font-size:18pt;margin-bottom:6mm}
+.tf .ow .wl{flex:1 1 0;min-height:0}
+.tf .ow .wl.c2{column-count:2;column-gap:9mm}
+.tf .ow .wl div{break-inside:avoid;display:flex;justify-content:space-between;align-items:baseline;gap:4mm;border-bottom:1px solid var(--line);padding:3mm 0;font-size:10pt;font-weight:700;line-height:1.3}
+.tf .ow .wl b{font-size:14pt;font-weight:900;color:var(--or);white-space:nowrap}
+.tf .ow .wl s{text-decoration:none;font-size:.6em;color:var(--mut)}
+.tf .ow .xs{flex:none;height:62mm;display:grid;grid-auto-flow:column;grid-auto-columns:1fr;gap:2mm;margin-top:5mm}
+.tf .ow .xs.n4,.tf .ow .xs.n5,.tf .ow .xs.n6{grid-auto-flow:row;grid-template-columns:repeat(3,1fr);grid-auto-columns:auto;height:78mm}
+.tf .ow .xs.n4{grid-template-columns:repeat(2,1fr)}
+.tf .ow .xs.n5 i:first-child{grid-row:span 2}
+.tf .ow .xs i{border-radius:2mm;background:#3a4047 center/cover no-repeat}
+.tf .ow.f1 .wl div{font-size:8.4pt;padding:2.2mm 0}.tf .ow.f1 .wl b{font-size:11pt}
+.tf .ow.f2 .wl div{font-size:7.4pt;padding:1.7mm 0}.tf .ow.f2 .wl b{font-size:9.5pt}
+.tf .ow.f3 .wl div{font-size:6.6pt;padding:1.3mm 0}.tf .ow.f3 .wl b{font-size:8.4pt}
+.tf .ow.f4 .wl div{font-size:5.8pt;padding:.9mm 0}.tf .ow.f4 .wl b{font-size:7.4pt}
+.tf .nm.fr{left:196.7mm;width:100.3mm}
+.tf .fr .tot{gap:1.8mm;margin-bottom:4mm}
+.tf .fr .tot div{padding-bottom:1.6mm}
+.tf .fr .cl{flex:1 1 0;min-height:0;overflow:hidden;margin-top:0}
+.tf .fr .cl .cg div{font-size:6.8pt}
+.tf .fr .cl.f1 .cg div{font-size:6.2pt;padding:.9mm 0}
+.tf .fr .cl.f2 .cg div{font-size:5.6pt;padding:.7mm 0}
+.tf .fr .cl.f3 .cg div{font-size:5pt;padding:.55mm 0}
+.tf .fr .cl.f4 .cg div{font-size:4.6pt;padding:.45mm 0}
+.tf .fr .cl.c2 .cg{column-count:2;column-gap:3mm}
+.tf .fr .cl.c2 .cg div{break-inside:avoid}
 .tf .rq{margin-top:auto;font-size:6pt;line-height:1.5;color:#aab2bc}.tf .rq b{color:#fff;font-size:6.6pt}
 .tf .cv{left:196.7mm;width:100.3mm;background:#2b3036;color:#fff}.tf .cv .ph{position:absolute;inset:0;background:#3a4047 center/cover no-repeat}
 .tf .cv .ph:after{content:"";position:absolute;inset:0;background:linear-gradient(180deg,rgba(0,0,0,.25),rgba(0,0,0,0) 30%,rgba(0,0,0,.15) 50%,rgba(0,0,0,.82))}
@@ -642,16 +698,16 @@ ${(()=>{const pages=[["О компании",aboutPage(firm,co,logo)],...(service
 .tf .q3 .sm p{margin:0 0 2mm}.tf .q3 .sm h5{margin:2mm 0 1mm;font-size:7.6pt;color:#fff}.tf .q3 .sm ul,.tf .q3 .sm ol{margin:0 0 2mm;padding-left:4mm}.tf .q3 .sm b,.tf .q3 .sm strong{color:#fff}
 .tf .q3 .ct{margin:5mm 0 0}.tf .q3 .lg2{font-size:9pt;font-weight:900;margin-top:2mm}.tf .q3 .lg2 span{color:var(--or)}
 .tf .nb{display:grid;grid-template-columns:1fr 1fr;gap:3mm;margin-bottom:4mm}.tf .nb div{border-top:1mm solid var(--or);padding-top:1.8mm}.tf .nb b{display:block;font-size:11.5pt;font-weight:900;line-height:1.05;white-space:nowrap}.tf .nb span{display:block;font-size:6pt;font-weight:700;color:var(--mut);line-height:1.25;margin-top:.8mm}`;
- const FOLD_OBJ=3,FOLD_PH=3;
+ const FOLD_OBJ=3,FOLD_PH=3,FOLD_PH_OBJ=7;
  // макеты разворота внутри евробуклета (инженер 24.11.2026 «в буклете выбор нескольких фото и макетов сделай»):
  // 0 — одно фото на весь разворот с подписями, 1 — цифры, услуги, объекты, 2 — три объекта по полосе с фото,
  // 3 — фотоколлаж из фото отмеченных объектов. У каждого из первых трёх объектов до 3 фото, первое — главное.
- const FOLD_LAYOUTS=["Фото с подписями","Цифры, услуги, объекты","Три объекта","Фотоколлаж","Буклет на объект"];
+ const FOLD_LAYOUTS=["Фото с подписями","Лист объекта","Три объекта","Фотоколлаж","Буклет на объект"];
  // коллаж: число фото → [столбцов, рядов, крупное 2×2]
  const COLLAGE={1:[1,1,0],2:[2,1,0],3:[3,1,0],4:[2,2,0],5:[4,2,1],6:[3,2,0],7:[5,2,1],8:[4,2,0],9:[4,3,1]};
  function foldSketch(k){const r=(x,y,w,h,c="#cfd5db")=>`<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="1" fill="${c}"/>`,O="#f5a700",fm=`<line x1="20" y1="2" x2="20" y2="40" stroke="#fff" stroke-dasharray="2 2"/><line x1="40" y1="2" x2="40" y2="40" stroke="#fff" stroke-dasharray="2 2"/>`;
   const b=[r(1,1,58,40,"#7d8790")+`<line x1="12" y1="14" x2="22" y2="20" stroke="${O}"/><line x1="44" y1="10" x2="36" y2="22" stroke="${O}"/>`+r(4,12,8,2,"#fff")+r(44,8,10,2,"#fff"),
-   r(1,1,19,40,"#fff")+r(4,6,13,3,O)+r(4,12,13,2)+r(4,16,13,2)+r(4,20,13,2)+r(20,1,20,40,O)+r(40,1,19,40,"#fff")+r(43,5,13,9)+r(43,17,13,9)+r(43,29,13,9),
+   r(1,1,19,40,"#59626b")+r(3,3,9,4,"#fff")+r(3,30,10,2,O)+r(3,34,13,2,"#fff")+r(20,1,39,40,"#fff")+r(23,4,16,3,"#1d2228")+r(23,10,15,2)+r(42,10,15,2)+r(23,14,15,2)+r(42,14,15,2)+r(23,18,15,2)+r(42,18,15,2)+r(23,26,10,12)+r(35,26,10,12)+r(47,26,10,12),
    r(1,1,19,40,"#fff")+r(3,4,15,20)+r(3,25,7,6)+r(11,25,7,6)+r(3,33,12,2,O)+r(20,1,20,40,"#f6f3ec")+r(22,4,16,20)+r(22,25,8,6)+r(31,25,7,6)+r(22,33,12,2,O)+r(40,1,19,40,"#fff")+r(42,4,15,20)+r(42,25,7,6)+r(50,25,7,6)+r(42,33,12,2,O),
    r(1,1,58,40,"#1d2228")+r(2,2,28,25)+r(31,2,13,12)+r(45,2,13,12)+r(31,15,13,12)+r(45,15,13,12)+r(2,28,13,12)+r(16,28,14,12)+r(31,28,13,12)+r(45,28,13,12),
    r(1,1,20,40,"#fff")+r(1,1,20,20,"#7d8790")+r(3,24,14,3,O)+r(3,29,12,2)+r(3,33,12,2)+r(21,1,19,40,"#f6f3ec")+r(23,5,14,3,O)+r(23,11,15,2)+r(23,15,15,2)+r(23,19,15,2)+r(23,30,7,8)+r(31,30,7,8)+r(40,1,19,40,"#1d2228")+r(42,5,13,2,O)+r(42,10,15,2,"#59626b")+r(42,14,15,2,"#59626b")+r(42,33,15,4,"#59626b")];
@@ -686,6 +742,28 @@ ${(()=>{const pages=[["О компании",aboutPage(firm,co,logo)],...(service
   const row=pts.length?"":`<div class="row">${(sp.labels||SPREAD_LABELS()).map(t=>`<div class="lb up">${esc(t)}</div>`).join("")}</div>`;
   const cap=sp.cap&&sp.cap.name?`<div class="cap"><small class="up">На фото</small><b>${esc(sp.cap.name)}</b>${sp.cap.place?`<span>${esc(sp.cap.place)}</span>`:""}</div>`:"";
   return`<section class="tf sp">${ph}<div class="sh"></div><svg class="ld" viewBox="0 0 297 210">${svg}</svg>${lbs}${row}${cap}`}
+ // сторона о фирме (инженер 27.11.2026, лист с двух сторон в 3 сложения): клапан — о компании, логотип на всю ширину,
+ // лицензия, преимущества, карта без списка городов | тёмная — что мы делаем, контакты, реквизиты | цифры за всё время и все
+ // заказчики (без «и ещё», много — шрифт мельче, больше 24 — в две колонки). L — все объекты фирмы (firmOf).
+ function firmSide(co,logo,L){const geo=geoGroups(L),tot=totals(L),cl=clientList(L,co),sv=(co.what||COMPANY.what).items.slice(0,8),mk=()=>"";
+  return`<section class="tf"><div class="pn ab"><div class="kk up">О компании</div>${logo?`<div class="alg"><img src="${esc(logo)}" alt=""></div>`:`<h2>${esc(co.name)}</h2>`}${(co.about||[]).map(t=>`<p class="ld">${esc(t)}</p>`).join("")}
+   ${co.license?`<div class="lic"><em>${CHECK}</em>${esc(co.license)}</div>`:""}${`<div class="adv">${(co.adv||[]).map(([t,d])=>`<div><b>${esc(t)}</b><span>${esc(d)}</span></div>`).join("")}</div>`}
+   ${geo.length?`<div class="amap"><div class="kk up">География работ</div>${foldMap(L)}</div>`:""}<div class="slg">${esc(co.slogan[0])}<br><span>${esc(co.slogan[1])}</span></div></div>
+  <div class="pn bk"><div class="kk up">Услуги</div><h2>Что мы делаем</h2><div class="svd">${sv.map(([t,d],i)=>`<div class="it"><i>${String(i+1).padStart(2,"0")}</i><b>${esc(t)}</b><p>${esc(d)}</p></div>`).join("")}</div>
+   <div class="kk up">Контакты</div><div class="ct">${co.phones.map(([t,v])=>`<div><small class="up">${esc(t)}</small><b>${esc(v)}</b></div>`).join("")}<div><small class="up">Почта</small><b>${esc(co.contactMail||co.mail)}</b></div><div><small class="up">Сайт</small><b>${esc(co.site)}</b></div></div>
+   <div class="rq"><b>${esc(co.full)}</b><br>БИН ${esc(co.bin)}<br>${esc(co.address)}<br>${co.bank.map(esc).join("<br>")}<br>Директор — ${esc(co.head)}</div></div>
+  <div class="pn nm fr"><div class="kk up">В цифрах</div><h2>Что мы уже сделали</h2><div class="tot">${tot.slice(0,8).map(([b,t])=>`<div><b>${esc(b)}</b><span>${esc(t)}</span></div>`).join("")}</div>
+   ${cl.length?`<div class="cl ${cl.length>24?"c2 ":""}f${cl.length<=9?0:cl.length<=13?1:cl.length<=17?2:cl.length<=24?3:4}"><div class="kk up">Нам доверяют</div><div class="cg">${cl.map(t=>`<div>${esc(t)}</div>`).join("")}</div></div>`:""}</div>${mk([97,197])}</section>`}
+ // сторона объекта: первая полоса — фото на всю полосу, логотип фирмы, внизу название, адрес, генподрядчик, заказчик;
+ // вторая и третья — виды работ с объёмами (много работ — две колонки и шрифт мельче)
+ function objSide(o,co,logo){const ps=(o.pictures||[]),cvp=ps[0]||"",score=o.mainPx&&o.mainPx[0]>0?Math.min(o.mainPx[0]/100,o.mainPx[1]/210):9;
+  const cover=score<4?`<div class="ph soft"${bg(cvp)}><b${bg(cvp)}></b><i${bg(cvp)}></i></div>`:`<div class="ph"${bg(cvp)}></div>`;
+  const lg=logo?`<img src="${esc(logo)}" alt="">`:`<b>${esc(co.name)}</b>`,place=String(o.address||"").trim();
+  const pt=[["Генподрядчик",o.general_contractor],["Заказчик",o.customer]].filter(([,v])=>String(v||"").trim());
+  const ws=(o.works||[]).filter(w=>String(w.name||"").trim()),ex=ps.slice(1,FOLD_PH_OBJ),n=ws.length+(ex.length?6:0),f=n<=8?0:n<=14?1:n<=22?2:n<=30?3:4;
+  return`<section class="tf"><div class="pn cv oq">${cover}<div class="lg">${lg}</div><div class="od">${o.years?`<span class="yr">${esc(o.years)}</span>`:""}<h2>${esc(o.name||"Объект")}</h2>${place?`<div class="pl">${esc(place)}</div>`:""}
+   ${pt.map(([t,v])=>`<div class="pr"><small class="up">${t}</small><b>${esc(v)}</b></div>`).join("")}</div></div>
+  <div class="pn ow f${f}"><div class="kk up">Выполнено на объекте</div><h2>Виды работ и объёмы</h2><div class="wl${ws.length>(ex.length?5:8)?" c2":""}">${ws.map(w=>`<div><span>${esc(w.name)}</span>${isSvc(w)||!(num(w.volume)>0)?"":`<b>${esc(fmt(num(w.volume)))} <s>${esc(unitOf(w.unit))}</s></b>`}</div>`).join("")}</div>${ex.length?`<div class="xs n${ex.length}">${ex.map(p=>`<i${bg(p)}></i>`).join("")}</div>`:""}</div></section>`}
  function foldBuild(objects,{logo="",company={},screen=false,spread=null,inside,all}={}){
   let IN=inside===undefined?(spread&&spread.src?0:1):Number(inside)||0;if(IN===0&&!(spread&&spread.src))IN=1;
   if(IN===4)return foldPerObject(objects,{logo,company,screen,all});
@@ -697,24 +775,12 @@ ${(()=>{const pages=[["О компании",aboutPage(firm,co,logo)],...(service
   // обложка — фото с лучшим разрешением для полосы 100×210 мм; мало точек — целиком, вокруг размыто (как softMain)
   const withPic=list.filter(o=>(o.pictures||[])[0]),score=o=>{const d=o.mainPx;return d&&d[0]>0?Math.min(d[0]/100,d[1]/210):1},cvo=withPic.slice().sort((a,b)=>score(b)-score(a))[0],cvp=cvo?.pictures[0]||"";
   const cover=cvo&&cvo.mainPx&&score(cvo)<4?`<div class="ph soft"${bg(cvp)}><b${bg(cvp)}></b><i${bg(cvp)}></i></div>`:`<div class="ph"${bg(cvp)}></div>`;
-  const L=liveOf(Array.isArray(all)&&all.length?all:list),geo=geoGroups(L),tot=totals(L),cl=clientList(L,co),sv=(co.what||COMPANY.what).items.slice(0,8),shown=list.slice(0,FOLD_OBJ);
-  const out=`<section class="tf"><div class="pn ab"><div class="kk up">О компании</div><h2>${esc(co.name)}</h2>${(co.about||[]).map(t=>`<p class="ld">${esc(t)}</p>`).join("")}
-   ${co.license?`<div class="lic"><em>${CHECK}</em>${esc(co.license)}</div>`:""}${spOn?`<div class="kk up">В цифрах</div><div class="nb">${tot.slice(0,8).map(([b,t])=>`<div><b>${esc(b)}</b><span>${esc(t)}</span></div>`).join("")}</div>`:`<div class="adv">${(co.adv||[]).map(([t,d])=>`<div><b>${esc(t)}</b><span>${esc(d)}</span></div>`).join("")}</div>`}
-   <div class="slg">${esc(co.slogan[0])}<br><span>${esc(co.slogan[1])}</span></div></div>
-  <div class="pn bk"><div class="kk up">География работ</div>${geo.length?foldMap(L)+`<div class="pl">${geo.slice(0,8).map(g=>`<b>${esc(g.name)}</b> ${g.list.length}`).join(" · ")} · офис — <b>Темиртау</b></div>`:""}
-   <div class="kk up">Контакты</div><div class="ct">${co.phones.map(([t,v])=>`<div><small class="up">${esc(t)}</small><b>${esc(v)}</b></div>`).join("")}<div><small class="up">Почта</small><b>${esc(co.contactMail||co.mail)}</b></div><div><small class="up">Сайт</small><b>${esc(co.site)}</b></div></div>
-   <div class="rq"><b>${esc(co.full)}</b><br>БИН ${esc(co.bin)}<br>${esc(co.address)}<br>${co.bank.map(esc).join("<br>")}<br>Директор — ${esc(co.head)}</div></div>
-  <div class="pn cv">${cover}<div class="cut"></div><div class="lg">${lg}</div><div class="tt"><h1>${esc(co.title)}</h1>${(co.pledges||[])[0]?`<p class="up">${esc(co.pledges[0][1])}</p>`:""}</div></div>${mk([97,197])}</section>
-${IN===0?spreadHtml(spread)+mk([100,200])+"</section>":IN===2?foldThree(shown)+mk([99,198])+inLb+"</section>":IN===3?foldCollage(shown)+mk([100,200])+inLb+"</section>":`<section class="tf"><div class="pn nm"><div class="kk up">В цифрах</div><h2>Что мы уже сделали</h2><div class="tot">${tot.slice(0,8).map(([b,t])=>`<div><b>${esc(b)}</b><span>${esc(t)}</span></div>`).join("")}</div>
-   ${cl.length?`<div class="cl"><div class="kk up">Нам доверяют</div>${cl.slice(0,8).map(t=>`<div>${esc(t)}</div>`).join("")}${cl.length>8?`<div>и ещё ${cl.length-8}</div>`:""}</div>`:""}</div>
-  <div class="pn sv"><div class="kk up">Услуги</div><h2>Что мы делаем</h2>${sv.map(([t,d],i)=>`<div class="it"><i>${String(i+1).padStart(2,"0")}</i><b>${esc(t)}</b><p>${esc(d)}</p></div>`).join("")}</div>
-  <div class="pn ob"><div class="kk up">Объекты</div><h2>Наши объекты</h2>${shown.map(o=>{const ws=worksOf(o).slice(0,2),place=String(o.address||"").trim();
-    const ps=(o.pictures||[]).slice(0,FOLD_PH),op=`<div class="op"${bg(ps[0])}>${o.years?`<span>${esc(o.years)}</span>`:""}</div>`;
-    return`<div class="oc">${ps.length>1?`<div class="og n${ps.length}">${op}${ps.slice(1).map(p=>`<i${bg(p)}></i>`).join("")}</div>`:op}<b>${esc(o.name||"Объект")}</b>${place?`<small>${esc(place)}</small>`:""}<div class="ov">${ws.filter(w=>!isSvc(w)).map(w=>`<em>${esc(fmt(num(w.volume)))}<s>${esc(unitOf(w.unit))}</s></em>`).join("")}</div></div>`}).join("")}
-   ${list.length>shown.length?`<div class="om">и ещё ${list.length-shown.length} ${objWord(list.length-shown.length)} — на сайте ${esc(co.site)}</div>`:""}</div>${mk([100,200])}${inLb}</section>`}`;
+  const L=liveOf(Array.isArray(all)&&all.length?all:list),shown=list.slice(0,FOLD_OBJ);
+  const out=`${firmSide(co,logo,L)}
+${IN===0?spreadHtml(spread)+mk([100,200])+"</section>":IN===2?foldThree(shown)+mk([99,198])+inLb+"</section>":IN===3?foldCollage(shown)+mk([100,200])+inLb+"</section>":list.map((o,i)=>{const h=objSide(o,co,logo);return i||!inLb?h:h.replace(/<\/section>$/,inLb+"</section>")}).join("\n")}`;
   return`<!doctype html><html lang="ru"><head><meta charset="utf-8"><title>Буклет ${esc(co.name)}</title>
 <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800;900&display=swap" rel="stylesheet"><style>${CSS}${FOLD_CSS}${screen?SCREEN.replace(/\.page\{/g,".tf{")+".tf{margin:0 auto 10mm}":""}</style></head><body>
-${screen?`<div class="pvn">Снаружи · клапан | задняя сторона | обложка</div>`:""}${screen?out.replace(/<\/section>(\s*)<section class="tf/,`</section><div class="pvn">Внутри · ${["фото на весь разворот с подписями","цифры | услуги | объекты","три объекта","фотоколлаж"][IN]}</div><section class="tf`):out}</body></html>`}
+${screen?`<div class="pvn">Снаружи · клапан | задняя сторона | обложка</div>`:""}${screen?out.replace(/<\/section>(\s*)<section class="tf/,`</section><div class="pvn">Внутри · ${["фото на весь разворот с подписями","объект: фото | виды работ и объёмы","три объекта","фотоколлаж"][IN]}</div><section class="tf`):out}</body></html>`}
  // буклет на каждый объект (инженер 27.11.2026 «на каждый объект будет свой буклет … первый лист идет общий со всей
  // информацией об фирме, общий объем работ, виды работ и тд, а второй лист (задняя сторона) объект и информация об
  // объекте»): лист с двух сторон, в 3 сложения. Первая сторона — о фирме: о компании, лицензия, общий объём по всем
@@ -728,19 +794,8 @@ ${screen?`<div class="pvn">Снаружи · клапан | задняя сто�
    const cover=score<4?`<div class="ph soft"${bg(cvp)}><b${bg(cvp)}></b><i${bg(cvp)}></i></div>`:`<div class="ph"${bg(cvp)}></div>`;
    const place=String(o.address||"").trim(),ws=(o.works||[]).filter(w=>String(w.name||"").trim()).slice(0,16),sum=sumHtml(o.summary);
    const pt=[["Генподрядчик",o.general_contractor],["Заказчик",o.customer]].filter(([,v])=>String(v||"").trim());
-   return`<section class="tf"><div class="pn ab"><div class="kk up">О компании</div><h2>${esc(co.name)}</h2>${(co.about||[]).map(t=>`<p class="ld">${esc(t)}</p>`).join("")}
-   ${co.license?`<div class="lic"><em>${CHECK}</em>${esc(co.license)}</div>`:""}<div class="kk up">Общий объём работ</div><div class="nb">${tot.slice(0,8).map(([b,t])=>`<div><b>${esc(b)}</b><span>${esc(t)}</span></div>`).join("")}</div>
-   <div class="slg">${esc(co.slogan[0])}<br><span>${esc(co.slogan[1])}</span></div></div>
-  <div class="pn sv"><div class="kk up">Виды работ</div><h2>Что мы делаем</h2>${sv.map(([t,d],i)=>`<div class="it"><i>${String(i+1).padStart(2,"0")}</i><b>${esc(t)}</b><p>${esc(d)}</p></div>`).join("")}</div>
-  <div class="pn cv">${cover}<div class="cut"></div><div class="lg">${lg}</div><div class="tt"><h1>${esc(co.title)}</h1>${(co.pledges||[])[0]?`<p class="up">${esc(co.pledges[0][1])}</p>`:""}</div></div></section>
-<section class="tf"><div class="pn q1"><div class="m"${bg(ps[0])}>${o.years?`<span>${esc(o.years)}</span>`:""}</div><div class="tx"><div class="kk up">Объект</div><h2>${esc(o.name||"Объект")}</h2>${place?`<div class="pl">${esc(place)}</div>`:""}
-   ${pt.length?`<div class="pt">${pt.map(([t,v])=>`<div><small class="up">${t}</small><b>${esc(v)}</b></div>`).join("")}</div>`:""}</div></div>
-  <div class="pn q2"><div class="kk up">Выполнено на объекте</div><h2>Виды работ</h2><div class="w">${ws.map(w=>`<div><span>${esc(w.name)}</span>${isSvc(w)||!(num(w.volume)>0)?"":`<b>${esc(fmt(num(w.volume)))} ${esc(unitOf(w.unit))}</b>`}</div>`).join("")}</div>
-   ${ps.length>1?`<div class="s n${ps.length-1}">${ps.slice(1).map(p=>`<i${bg(p)}></i>`).join("")}</div>`:""}</div>
-  <div class="pn q3">${sum?`<div class="kk up">Об объекте</div><div class="sm">${sum}</div>`:`<div class="kk up">Реквизиты</div><div class="sm"><div class="rq"><b>${esc(co.full)}</b><br>БИН ${esc(co.bin)}<br>${esc(co.address)}<br>${co.bank.map(esc).join("<br>")}</div></div>`}
-   <div class="kk up">Контакты</div><div class="ct">${co.phones.map(([t,v])=>`<div><small class="up">${esc(t)}</small><b>${esc(v)}</b></div>`).join("")}<div><small class="up">Почта</small><b>${esc(co.contactMail||co.mail)}</b></div><div><small class="up">Сайт</small><b>${esc(co.site)}</b></div></div>
-   <div class="lg2">${esc(co.name)}<br><span>${esc(co.title)}</span></div></div></section>`};
-  const body=list.map(o=>screen?`<div class="pvn">${esc(o.name||"Объект")} · о фирме | виды работ | обложка</div>`+side(o).replace(/<\/section>\s*<section class="tf">/,`</section><div class="pvn">${esc(o.name||"Объект")} · объект | виды работ | об объекте</div><section class="tf">`):side(o)).join("\n");
+   return firmSide(co,logo,liveOf(every))+"\n"+objSide(o,co,logo)};
+  const body=list.map(o=>screen?`<div class="pvn">${esc(o.name||"Объект")} · о компании, карта | услуги, контакты | цифры, заказчики</div>`+side(o).replace(/<\/section>\s*<section class="tf">/,`</section><div class="pvn">${esc(o.name||"Объект")} · фото объекта | виды работ и объёмы</div><section class="tf">`):side(o)).join("\n");
   return`<!doctype html><html lang="ru"><head><meta charset="utf-8"><title>Буклет ${esc(co.name)}</title>
 <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800;900&display=swap" rel="stylesheet"><style>${CSS}${FOLD_CSS}${screen?SCREEN.replace(/\.page\{/g,".tf{")+".tf{margin:0 auto 10mm}":""}</style></head><body>${body}</body></html>`}
  function foldThree(list){return`<section class="tf">${list.slice(0,3).map((o,k)=>{const ps=(o.pictures||[]).slice(0,FOLD_PH),place=String(o.address||"").trim(),ws=worksOf(o).slice(0,4);
@@ -840,6 +895,6 @@ ${screen?`<div class="pvn">Снаружи · клапан | задняя сто�
    if(!changed)return;
   }
  }
- const api={firmOf,liveOf,foldPerObject,fitOne,hasGallery,LAY_GONE,GAL_GONE,labelsLayer,pageHtml,FOLD_PH,FOLD_LAYOUTS,foldSketch,foldBuild,spreadHtml,SPREAD_LABELS,FOLD_OBJ,softMain,rowsOf,wkShown,wkRest,GALLERIES,galleryOf,layoutSketch,gallerySketch,MAX_PHOTOS,LAYOUT_MAX,capOf,clientList,mapPage,geoGroups,dropTooLong,build,make,preview,totals,doneOf,parties,COMPANY,LAYOUTS,layoutOf,thumb,read,pickDefault};
+ const api={firmOf,liveOf,foldPerObject,fitOne,hasGallery,LAY_GONE,GAL_GONE,labelsLayer,pageHtml,FOLD_PH,FOLD_PH_OBJ,FOLD_LAYOUTS,foldSketch,foldBuild,spreadHtml,SPREAD_LABELS,FOLD_OBJ,softMain,rowsOf,wkShown,wkRest,GALLERIES,galleryOf,layoutSketch,gallerySketch,MAX_PHOTOS,LAYOUT_MAX,capOf,clientList,mapPage,geoGroups,dropTooLong,build,make,preview,totals,doneOf,parties,COMPANY,LAYOUTS,layoutOf,thumb,read,pickDefault};
  if(typeof module!=="undefined"&&module.exports)module.exports=api;else root.irBooklet=api;
 })(typeof window!=="undefined"?window:globalThis);
