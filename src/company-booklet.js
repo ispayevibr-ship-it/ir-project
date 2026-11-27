@@ -597,7 +597,7 @@ ${(()=>{const pages=[["О компании",aboutPage(firm,co,logo)],...(service
  const FOLD_CSS=`.tf{position:relative;width:297mm;height:210mm;overflow:hidden;page-break-after:always;background:#fff;color:var(--ink)}
 .tf .pn{position:absolute;top:0;bottom:0;overflow:hidden}.tf .mk{position:absolute;width:.25mm;height:4mm;background:#b9c0c7}.tf .mk.t{top:0}.tf .mk.b{bottom:0}
 .tf .kk{font-size:6.6pt;font-weight:800;letter-spacing:1.6px;color:var(--ord);margin-bottom:1.8mm}.tf h2{margin:0 0 4mm;font-size:16pt;font-weight:900;line-height:1.1}
-.tf .ab{left:0;width:97mm;padding:13mm 9mm 9mm 10mm;display:flex;flex-direction:column}.tf .ab:before{content:"";position:absolute;left:0;top:0;width:32mm;height:20mm;background:linear-gradient(135deg,var(--or2),var(--or));clip-path:polygon(0 0,100% 0,0 100%)}
+.tf .ab{left:0;width:97mm;padding:8mm 9mm 9mm 10mm;display:flex;flex-direction:column}.tf .ab:before{content:"";position:absolute;left:0;top:0;width:32mm;height:20mm;background:linear-gradient(135deg,var(--or2),var(--or));clip-path:polygon(0 0,100% 0,0 100%)}
 .tf .ab .ld{font-size:7.6pt;line-height:1.55;color:#3a414a;margin:0 0 4mm}.tf .lic{display:flex;gap:3mm;align-items:center;background:#1d2228;color:#fff;border-radius:2mm;padding:3mm 3.5mm;font-size:6.8pt;font-weight:700;line-height:1.35;margin-bottom:4mm}
 .tf .lic em{flex:none;width:8mm;height:8mm;border-radius:2mm;background:var(--or);display:grid;place-items:center}.tf .lic em svg{width:5mm;height:5mm}
 .tf .adv{display:flex;flex-direction:column;gap:3mm}.tf .adv div{border-left:1mm solid var(--or);padding-left:3mm}.tf .adv b{display:block;font-size:7.6pt;font-weight:900}.tf .adv span{display:block;font-size:6.6pt;color:var(--mut);line-height:1.35;margin-top:.6mm}
@@ -614,7 +614,14 @@ ${(()=>{const pages=[["О компании",aboutPage(firm,co,logo)],...(service
 .tf .amap+.slg{margin-top:3mm}
 .tf .ab:has(.art) .adv{gap:1.6mm}.tf .ab:has(.art) .adv div{padding:1.8mm 2.6mm}.tf .ab:has(.art) .ld{margin-bottom:3mm}.tf .ab:has(.art) .lic{margin-bottom:3mm;padding:2.4mm 3mm}.tf .ab:has(.art) .alg{margin-bottom:3mm}
 .tf .ab .art{flex:1 1 0;min-height:30mm;display:flex;flex-direction:column;padding-top:3.5mm}
-.tf .ab .art .aimg{flex:1 1 0;min-height:18mm;border-radius:2.5mm;background:#e3e9f1 center/contain no-repeat;box-shadow:0 .6mm 2mm rgba(0,0,0,.12);margin-bottom:3mm}
+.tf .ab .art .aimg{flex:1 1 0;min-height:18mm;border-radius:2.5mm;background:#faf6ee;margin-bottom:3mm;display:flex;overflow:hidden;position:relative}
+.tf .ab .art .aimg:before{content:"";position:absolute;left:0;top:0;bottom:0;width:1mm;background:var(--or)}
+.tf .asvg{position:absolute;left:2mm;top:1mm;right:1mm;bottom:1mm;width:calc(100% - 3mm);height:calc(100% - 2mm);display:block}
+.tf .asvg line{stroke-linecap:round}.tf .asvg .ga{stroke:#d6cfc1;stroke-width:.6;stroke-dasharray:3 2.5}
+.tf .asvg .gb{fill:#fff;stroke:#1d2228;stroke-width:.8}.tf .asvg .gt{font:800 6px Montserrat,sans-serif;fill:#1d2228;text-anchor:middle;dominant-baseline:central}
+.tf .asvg .pw{fill:#e9e3d6;stroke:#d6cfc1;stroke-width:.5}.tf .asvg .pr{fill:#f1ece2;stroke:#d6cfc1;stroke-width:.5}.tf .asvg .ps{stroke:#d6cfc1;stroke-width:.4}
+.tf .asvg .sd{stroke:#1d2228}.tf .asvg .so{stroke:#f5a700}.tf .asvg .sx{stroke:#1d2228;stroke-width:.7}
+.tf .asvg .bs{fill:#1d2228}.tf .asvg .ld{stroke:#1d2228;stroke-width:.6}.tf .asvg .tg{fill:#1d2228}.tf .asvg .mt{font:900 7px Montserrat,sans-serif;fill:#f5a700;text-anchor:middle;dominant-baseline:central}
 .tf .ab .art .kk{margin-bottom:1.2mm}
 .tf .ab .art p{font-size:6.9pt;line-height:1.5;color:#3a414a;margin:0}.tf .ab .art p b{color:var(--ink)}
 .tf .ab .art+.slg{margin-top:4mm}
@@ -625,7 +632,7 @@ ${(()=>{const pages=[["О компании",aboutPage(firm,co,logo)],...(service
 .tf .fr .amap{flex:0 0 44mm;min-height:0;padding-top:5mm}
 .tf .fr .cl+.amap{margin-top:0}
 .tf .slg{margin-top:auto;font-size:10.5pt;font-weight:900;line-height:1.25}.tf .slg span{color:var(--ord)}
-.tf .bk{left:97mm;width:100.3mm;background:#1d2228;color:#fff;padding:13mm 9mm 10mm;display:flex;flex-direction:column}.tf .bk .kk{color:var(--or)}
+.tf .bk{left:97mm;width:100.3mm;background:#1d2228;color:#fff;padding:8mm 9mm 9mm;display:flex;flex-direction:column}.tf .bk .kk{color:var(--or)}
 .tf .bk svg{width:100%;height:auto;display:block;margin:1mm 0 2mm}.tf .bk .kz{fill:#2f363e;stroke:#4a535d;stroke-width:2}.tf .bk .dt{fill:var(--or)}.tf .bk .dn{fill:#1d2228;font:900 17px Montserrat,sans-serif;text-anchor:middle;dominant-baseline:central}.tf .bk .of{fill:#fff}
 .tf .bk .pl{font-size:6.6pt;color:#aab2bc;line-height:1.45;margin-bottom:6mm}.tf .bk .pl b{color:#fff}
 .tf .ct{display:flex;flex-direction:column;gap:2.4mm;margin-bottom:5mm}.tf .ct div{display:flex;justify-content:space-between;gap:3mm;font-size:7.6pt;border-bottom:1px solid rgba(255,255,255,.1);padding-bottom:2mm}.tf .ct small{color:#aab2bc;font-size:6.4pt;font-weight:700;letter-spacing:.5px}.tf .ct b{font-weight:800;white-space:nowrap}
@@ -692,7 +699,7 @@ svg.wa{width:3.4mm;height:3.4mm;flex:none;vertical-align:-.7mm;margin-right:1mm}
 .tf .cv .tt{position:absolute;left:9mm;right:9mm;bottom:14mm;z-index:2}.tf .cv .tt:before{content:"";display:block;width:20mm;height:1.6mm;background:var(--or);margin-bottom:5mm}
 .tf .cv h1{margin:0;font-size:20pt;font-weight:900;line-height:1.1}.tf .cv .tt p{margin:4mm 0 0;font-size:8pt;font-weight:700;color:var(--or2);letter-spacing:.6px}
 .tf .cv .cut{position:absolute;right:0;top:0;width:34mm;height:40mm;background:linear-gradient(225deg,var(--or2),var(--or));clip-path:polygon(0 0,100% 0,100% 100%);z-index:1}
-.tf .nm{left:0;width:100mm;padding:14mm 9mm 10mm 10mm;display:flex;flex-direction:column}.tf .tot{display:grid;grid-template-columns:1fr;gap:2.6mm;margin-bottom:6mm}
+.tf .nm{left:0;width:100mm;padding:8mm 9mm 9mm 10mm;display:flex;flex-direction:column}.tf .tot{display:grid;grid-template-columns:1fr;gap:2.6mm;margin-bottom:6mm}
 .tf .tot div{display:grid;grid-template-columns:38mm 1fr;align-items:baseline;gap:3mm;border-bottom:1px solid var(--line);padding-bottom:2.2mm}.tf .tot b{font-size:14pt;font-weight:900;color:var(--or);white-space:nowrap;line-height:1}.tf .tot span{font-size:6.6pt;font-weight:700;color:var(--mut);line-height:1.3}
 .tf .cl{background:#f6f3ec;border-radius:2mm;padding:4mm 4.5mm;margin-top:auto}.tf .cl .kk{margin-bottom:2.4mm}.tf .cl div{font-size:6.8pt;font-weight:700;line-height:1.3;padding:1.1mm 0;border-bottom:1px solid #e6e0d3}.tf .cl div:last-child{border:0}
 .tf .sv{left:99.8mm;width:100.4mm;background:linear-gradient(170deg,var(--or2),var(--or) 55%,var(--ord));padding:14mm 9mm 10mm;display:flex;flex-direction:column}.tf .sv .kk{color:#4a3500}
@@ -776,13 +783,41 @@ svg.wa{width:3.4mm;height:3.4mm;flex:none;vertical-align:-.7mm;margin-right:1mm}
  // лицензия, преимущества, карта без списка городов | тёмная — что мы делаем, контакты, реквизиты | цифры за всё время и все
  // заказчики (без «и ещё», много — шрифт мельче, больше 24 — в две колонки). L — все объекты фирмы (firmOf).
  // рисунок монтажной схемы на клапане (src/booklet-art.js), подпись про ИИ (инженер 27.11.2026)
- const ART=()=>{try{return (typeof window!=="undefined"&&window.irBookletArt&&window.irBookletArt.scheme)||(typeof globalThis!=="undefined"&&globalThis.irBookletArt&&globalThis.irBookletArt.scheme)||""}catch(_){return""}};
+ // рисунок монтажной схемы в цветах буклета (инженер 27.11.2026 «схема не нравится вид, нарисуй под дизайн буклета»):
+ // каркас цеха в изометрии — колонны, ригели, прогоны, связи тёмным, смонтированное оранжевым, часть стен сэндвичем,
+ // сетка осей с кружками
+ const ART=()=>{const c=Math.cos(Math.PI/6),sn=.5,K=11,ox=150,oy=128;
+  const P=(x,y,z)=>[ox+(x-y)*c*K,oy+(x+y)*sn*K-z*K],pt=a=>a.map(v=>v.toFixed(1)).join(",");
+  const L=(a,b,cl,w)=>`<line x1="${P(...a)[0].toFixed(1)}" y1="${P(...a)[1].toFixed(1)}" x2="${P(...b)[0].toFixed(1)}" y2="${P(...b)[1].toFixed(1)}" class="${cl}"${w?` stroke-width="${w}"`:""}/>`;
+  const Q=(ps,cl)=>`<polygon points="${ps.map(q=>pt(P(...q))).join(" ")}" class="${cl}"/>`;
+  const W=12,H=6,R=8,ys=[0,4,8,12,16],xs=[0,3,6,9,12],zr=x=>H+(R-H)*(1-Math.abs(x-W/2)/(W/2));
+  let g="",pn="",st="";
+  // сетка осей на земле
+  for(const y of ys)g+=L([-1.6,y,0],[W+2,y,0],"ga");for(const x of [0,W])g+=L([x,-1.6,0],[x,18,0],"ga");
+  ys.forEach((y,i)=>{const [X,Y]=P(W+2.8,y,0);g+=`<circle cx="${X.toFixed(1)}" cy="${Y.toFixed(1)}" r="5.2" class="gb"/><text x="${X.toFixed(1)}" y="${(Y+.2).toFixed(1)}" class="gt">${i+1}</text>`});
+  ["А","Б"].forEach((t,i)=>{const [X,Y]=P(i?W:0,18.8,0);g+=`<circle cx="${X.toFixed(1)}" cy="${Y.toFixed(1)}" r="5.2" class="gb"/><text x="${X.toFixed(1)}" y="${(Y+.2).toFixed(1)}" class="gt">${t}</text>`});
+  // стены и кровля сэндвич-панелями — дальний ряд и часть кровли
+  pn+=Q([[0,12,0],[0,16,0],[0,16,H],[0,12,H]],"pw")+Q([[0,8,0],[0,12,0],[0,12,H],[0,8,H]],"pw");
+  pn+=Q([[0,8,H],[0,16,H],[W/2,16,R],[W/2,8,R]],"pr");
+  for(let y=8.8;y<16;y+=.8)pn+=L([0,y,0],[0,y,H],"ps");for(let x=.75;x<W/2;x+=.75)pn+=L([x,8,zr(x)],[x,16,zr(x)],"ps");
+  // каркас: колонны, ригели, прогоны, связи
+  ys.forEach((y,i)=>{const on=i>=2;const k=on?"so":"sd";
+   st+=L([0,y,0],[0,y,H],k,2.4)+L([W,y,0],[W,y,H],k,2.4)+L([0,y,H],[W/2,y,R],k,2.2)+L([W/2,y,R],[W,y,H],k,2.2);
+   for(const [x0,x1] of [[0,3],[3,6],[6,9],[9,12]])st+=L([x0,y,zr(x0)],[x1,y,zr(x1)],"sd",.6)});
+  for(const x of xs)st+=L([x,0,zr(x)],[x,16,zr(x)],x===W/2?"so":"sd",x===W/2?1.6:1);
+  st+=L([W,0,0],[W,4,H],"sx")+L([W,4,0],[W,0,H],"sx")+L([W,12,0],[W,16,H],"sx")+L([W,16,0],[W,12,H],"sx");
+  for(const z of [2,4])st+=L([W,0,z],[W,16,z],"sd",.8);
+  // плиты баз
+  for(const y of ys)for(const x of [0,W]){const [X,Y]=P(x,y,0);st+=`<rect x="${(X-2.6).toFixed(1)}" y="${(Y-1.2).toFixed(1)}" width="5.2" height="2.4" class="bs"/>`}
+  // выноска «марка»
+  const [mx,my]=P(W/2,8,R);st+=`<line x1="${mx.toFixed(1)}" y1="${my.toFixed(1)}" x2="${(mx+30).toFixed(1)}" y2="${(my-18).toFixed(1)}" class="ld"/><rect x="${(mx+30).toFixed(1)}" y="${(my-24.5).toFixed(1)}" width="34" height="13" rx="2.5" class="tg"/><text x="${(mx+47).toFixed(1)}" y="${(my-18).toFixed(1)}" class="mt">Ф-1</text>`;
+  return`<svg class="asvg" viewBox="-38 58 336 250" preserveAspectRatio="xMidYMid meet" aria-hidden="true">${g}${pn}${st}</svg>`};
  // шрифт и колонки заказчиков по числу строк; с картой под ними места меньше
  const clC2=(n,map)=>n>(map?14:24),clF=(n,map)=>{const rows=clC2(n,map)?Math.ceil(n/2):n;if(map)return clC2(n,map)?(n<=15?0:n<=19?1:n<=30?2:n<=40?3:4):(n<=9?0:n<=11?1:n<=13?2:3);return rows<=9?0:rows<=13?1:rows<=17?2:rows<=24?3:4};
  function firmSide(co,logo,L){const geo=geoGroups(L),tot=totals(L),cl=clientList(L,co),sv=(co.what||COMPANY.what).items.slice(0,8),mk=()=>"";
   return`<section class="tf"><div class="pn ab">${logo?`<div class="alg"><img src="${esc(logo)}" alt=""></div>`:`<div class="kk up">О компании</div><h2>${esc(co.name)}</h2>`}${(co.about||[]).map(t=>`<p class="ld">${esc(t)}</p>`).join("")}
    ${co.license?`<div class="lic"><em>${CHECK}</em>${esc(co.license)}</div>`:""}${`<div class="adv">${(co.adv||[]).map(([t,d])=>`<div><b>${esc(t)}</b><span>${esc(d)}</span></div>`).join("")}</div>`}
-   ${ART()?`<div class="art"><div class="aimg"${bg(ART())}></div><div class="kk up">В ногу со временем</div><p>Своя программа <b>IR Project</b>: чертежи КМ и АР распознаёт искусственный интеллект, по ним строится 3D-монтажная схема с узлами, болтами и сэндвич-панелями. Ход монтажа и объёмы — онлайн по ссылке.</p></div>`:""}<div class="slg">${esc(co.slogan[0])}<br><span>${esc(co.slogan[1])}</span></div></div>
+   ${`<div class="art"><div class="aimg">${ART()}</div><div class="kk up">В ногу со временем</div><p>Своя программа <b>IR Project</b>: чертежи КМ и АР распознаёт искусственный интеллект, по ним строится 3D-монтажная схема с узлами, болтами и сэндвич-панелями. Ход монтажа и объёмы — онлайн по ссылке.</p></div>`}<div class="slg">${esc(co.slogan[0])}<br><span>${esc(co.slogan[1])}</span></div></div>
   <div class="pn bk"><div class="kk up">Услуги</div><h2>Что мы делаем</h2><div class="svd">${sv.map(([t,d],i)=>`<div class="it"><i>${String(i+1).padStart(2,"0")}</i><b>${esc(t)}</b><p>${esc(d)}</p></div>`).join("")}</div>
    <div class="kk up">Контакты</div><div class="ct">${co.phones.map(([t,v])=>`<div><small class="up">${esc(t)}</small><b class="ph">${WA}${esc(v)}</b></div>`).join("")}<div><small class="up">Почта</small><b class="ml">${(co.contactMail||co.mail).split(/\s*·\s*/).map(esc).join("<br>")}</b></div><div><small class="up">Сайт</small><b>${esc(co.site)}</b></div></div>
    <div class="rq"><b>${esc(co.full)}</b><br>БИН ${esc(co.bin)}<br>${esc(co.address)}<br>${co.bank.map(esc).join("<br>")}<br>Директор — ${esc(co.head)}</div></div>
@@ -795,10 +830,12 @@ svg.wa{width:3.4mm;height:3.4mm;flex:none;vertical-align:-.7mm;margin-right:1mm}
   const cover=score<4?`<div class="ph soft"${bg(cvp)}><b${bg(cvp)}></b><i${bg(cvp)}></i></div>`:`<div class="ph"${bg(cvp)}></div>`;
   const lg=logo?`<img src="${esc(logo)}" alt="">`:`<b>${esc(co.name)}</b>`,place=String(o.address||"").trim();
   const pt=[["Генподрядчик",o.general_contractor],["Заказчик",o.customer]].filter(([,v])=>String(v||"").trim());
-  const ws=(o.works||[]).filter(w=>String(w.name||"").trim()),ex=ps.slice(1,FOLD_PH_OBJ),n=ws.length,f=ex.length?(n<=6?0:n<=10?1:n<=15?2:n<=21?3:4):(n<=8?0:n<=14?1:n<=22?2:n<=30?3:4),c2=ex.length?n>24:n>8;
+  const ws=(o.works||[]).filter(w=>String(w.name||"").trim()),ex=ps.slice(1,FOLD_PH_OBJ),done=/заверш/i.test(String(o.status||"")),
+   // строки по длине названия (длинное — в две строки), плашка «100%» занимает место трёх строк (инженер 27.11.2026: плашка легла на работы)
+   n=ex.length?ws.reduce((a,w)=>a+(String(w.name||"").length>34?1:.8),0)+(done?1:0):ws.length+(done?2:0),f=ex.length?(n<=9?0:n<=12?1:n<=16?2:n<=19?3:4):(n<=8?0:n<=14?1:n<=22?2:n<=30?3:4),c2=ex.length?n>23:n>10;
   return`<section class="tf"><div class="pn cv oq">${cover}<div class="lg">${lg}</div><div class="od">${o.years?`<span class="yr">${esc(o.years)}</span>`:""}<h2>${esc(o.name||"Объект")}</h2>${place?`<div class="pl">${esc(place)}</div>`:""}
    ${pt.map(([t,v])=>`<div class="pr"><small class="up">${t}</small><b>${esc(v)}</b></div>`).join("")}</div></div>
-  <div class="pn ow f${f}${ex.length?" nar":""}"><div class="kk up">Выполнено на объекте</div><h2>Виды работ и объёмы</h2><div class="wl${c2?" c2":""}">${ws.map(w=>`<div><span>${esc(w.name)}</span>${isSvc(w)||!(num(w.volume)>0)?"":`<b>${esc(fmt(num(w.volume)))} <s>${esc(unitOf(w.unit))}</s></b>`}</div>`).join("")}</div>${/заверш/i.test(String(o.status||""))?`<div class="fin"><b>100%</b><span>Работы выполнены полностью<br>Полный пакет исполнительной документации</span></div>`:""}</div>${ex.length?`<div class="pn opx n${ex.length}"><div class="kk up">Фото с объекта</div><div class="gx">${ex.map((p,k)=>`<i style="grid-area:${"abcdef"[k]}${p?`;background-image:url('${String(p).replace(/'/g,"%27")}')`:""}"></i>`).join("")}</div></div>`:""}</section>`}
+  <div class="pn ow f${f}${ex.length?" nar":""}"><div class="kk up">Выполнено на объекте</div><h2>Виды работ и объёмы</h2><div class="wl${c2?" c2":""}">${ws.map(w=>`<div><span>${esc(w.name)}</span>${isSvc(w)||!(num(w.volume)>0)?"":`<b>${esc(fmt(num(w.volume)))} <s>${esc(unitOf(w.unit))}</s></b>`}</div>`).join("")}</div>${done?`<div class="fin"><b>100%</b><span>Работы выполнены полностью<br>Полный пакет исполнительной документации</span></div>`:""}</div>${ex.length?`<div class="pn opx n${ex.length}"><div class="kk up">Фото с объекта</div><div class="gx">${ex.map((p,k)=>`<i style="grid-area:${"abcdef"[k]}${p?`;background-image:url('${String(p).replace(/'/g,"%27")}')`:""}"></i>`).join("")}</div></div>`:""}</section>`}
  function foldBuild(objects,{logo="",company={},screen=false,spread=null,inside,all}={}){
   let IN=inside===undefined?(spread&&spread.src?0:1):Number(inside)||0;if(IN===0&&!(spread&&spread.src))IN=1;
   if(IN===4)return foldPerObject(objects,{logo,company,screen,all});
