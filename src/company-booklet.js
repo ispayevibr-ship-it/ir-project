@@ -644,7 +644,7 @@ ${(()=>{const pages=[["О компании",aboutPage(firm,co,logo)],...(service
 .tf .fr:has(.amap) .tot div{display:block;padding-bottom:1.6mm}
 .tf .fr:has(.amap) .tot b{display:block;font-size:12.5pt;margin-bottom:.8mm}
 .tf .fr:has(.amap) .tot span{display:block;font-size:6pt}
-.tf .fr .amap{flex:0 0 44mm;min-height:0;padding-top:5mm}
+.tf .fr .amap{flex:1 0 44mm;min-height:0;padding-top:5mm}
 .tf .fr .cl+.amap{margin-top:0}
 .tf .slg{margin-top:auto;font-size:10.5pt;font-weight:900;line-height:1.25}.tf .slg span{color:var(--ord)}
 .tf .bk{left:97mm;width:100.3mm;background:#1d2228;color:#fff;padding:8mm 9mm 9mm;display:flex;flex-direction:column}.tf .bk .kk{color:var(--or)}
@@ -700,7 +700,7 @@ svg.wa{width:3.4mm;height:3.4mm;flex:none;vertical-align:-.7mm;margin-right:1mm}
 .tf .nm.fr{left:196.7mm;width:100.3mm}
 .tf .fr .tot{gap:1.8mm;margin-bottom:4mm}
 .tf .fr .tot div{padding-bottom:1.6mm}
-.tf .fr .cl{flex:1 1 0;min-height:0;overflow:hidden;margin-top:0}
+.tf .fr .cl{flex:0 1 auto;min-height:0;overflow:hidden;margin-top:0}.tf .cl .oth{margin:1.6mm 0 0;font-size:6.4pt;font-weight:600;font-style:italic;color:#6b7280}
 .tf .fr .cl .cg div{font-size:6.8pt}
 .tf .fr .cl.f1 .cg div{font-size:6.2pt;padding:.9mm 0}
 .tf .fr .cl.f2 .cg div{font-size:5.6pt;padding:.7mm 0}
@@ -838,7 +838,7 @@ svg.wa{width:3.4mm;height:3.4mm;flex:none;vertical-align:-.7mm;margin-right:1mm}
    <div class="kk up">Контакты</div><div class="ct">${co.phones.map(([t,v])=>`<div><small class="up">${esc(t)}</small><b class="ph">${WA}${esc(v)}</b></div>`).join("")}<div><small class="up">Почта</small><b class="ml">${(co.contactMail||co.mail).split(/\s*·\s*/).map(esc).join("<br>")}</b></div><div><small class="up">Сайт</small><b>${esc(co.site)}</b></div></div>
    <div class="rq"><b>${esc(co.full)}</b><br>БИН ${esc(co.bin)}<br>${esc(co.address)}<br>${co.bank.map(esc).join("<br>")}<br>Директор — ${esc(co.head)}</div></div>
   <div class="pn nm fr"><div class="kk up">В цифрах</div><h2>Что мы уже сделали</h2><div class="tot">${tot.slice(0,8).map(([b,t])=>`<div><b>${esc(b)}</b><span>${esc(t)}</span></div>`).join("")}</div>
-   ${cl.length?`<div class="cl ${clC2(cl.length,geo.length)?"c2 ":""}f${clF(cl.length,geo.length)}"><div class="kk up">Нам доверяют</div><div class="cg">${cl.map(t=>`<div>${esc(t)}</div>`).join("")}</div></div>`:""}
+   ${cl.length?`<div class="cl ${clC2(cl.length,geo.length)?"c2 ":""}f${clF(cl.length,geo.length)}"><div class="kk up">Нам доверяют</div><div class="cg">${cl.map(t=>`<div>${esc(t)}</div>`).join("")}</div><p class="oth">И другие предприятия и организации.</p></div>`:""}
    ${geo.length?`<div class="amap"><div class="kk up">География работ</div>${foldMap(L)}</div>`:""}</div>${mk([97,197])}</section>`}
  // сторона объекта: первая полоса — фото на всю полосу, логотип фирмы, внизу название, адрес, генподрядчик, заказчик;
  // вторая и третья — виды работ с объёмами (много работ — две колонки и шрифт мельче)
