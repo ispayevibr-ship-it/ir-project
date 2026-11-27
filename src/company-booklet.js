@@ -760,6 +760,10 @@ ${screen?`<div class="pvn">Снаружи · клапан | задняя сто�
  // всё на листе объекта видно целиком: не вмещается — краткая характеристика уходит на лист «Фото с объекта», затем
  // шрифт видов работ меньше по шагам (fit1–fit3, инженер «если не вмещается, то уменьшает размер шрифта»), без строки итогов (fit4), и только потом лишние строки снизу (wkMax); строка, не вместившаяся целиком, уходит в невидимую колонку справа —
  // не обрезанной наполовину строкой поверх итогов (инженер 20.11.2026 «поправь» — «Демонтаж» под «Выполнено на»)
+ // подгонка одного листа объекта для окна «Журнал» — как в PDF: краткая характеристика, не вместившаяся на лист объекта,
+ // уходит на лист «Фото с объекта» и в окне тоже (инженер 27.11.2026 «краткая характеристика где? где теги добавляю»)
+ async function fitOne(o,i=0){const a=[{...o,layout:layoutOf(o,i)}];await dropTooLong(a,{services:false,map:false});
+  const r=a[0];return{sumMoved:!!r.sumMoved,fit:r.fit||0,wkMax:r.wkMax||0,galSmall:!!r.galSmall}}
  async function dropTooLong(objects,opts){
   const doc=root.document;if(!doc||!objects.length)return;
   for(let pass=0;pass<14;pass++){
@@ -782,6 +786,6 @@ ${screen?`<div class="pvn">Снаружи · клапан | задняя сто�
    if(!changed)return;
   }
  }
- const api={hasGallery,LAY_GONE,GAL_GONE,labelsLayer,pageHtml,FOLD_PH,FOLD_LAYOUTS,foldSketch,foldBuild,spreadHtml,SPREAD_LABELS,FOLD_OBJ,softMain,rowsOf,wkShown,wkRest,GALLERIES,galleryOf,layoutSketch,gallerySketch,MAX_PHOTOS,LAYOUT_MAX,capOf,clientList,mapPage,geoGroups,dropTooLong,build,make,preview,totals,doneOf,parties,COMPANY,LAYOUTS,layoutOf,thumb,read,pickDefault};
+ const api={fitOne,hasGallery,LAY_GONE,GAL_GONE,labelsLayer,pageHtml,FOLD_PH,FOLD_LAYOUTS,foldSketch,foldBuild,spreadHtml,SPREAD_LABELS,FOLD_OBJ,softMain,rowsOf,wkShown,wkRest,GALLERIES,galleryOf,layoutSketch,gallerySketch,MAX_PHOTOS,LAYOUT_MAX,capOf,clientList,mapPage,geoGroups,dropTooLong,build,make,preview,totals,doneOf,parties,COMPANY,LAYOUTS,layoutOf,thumb,read,pickDefault};
  if(typeof module!=="undefined"&&module.exports)module.exports=api;else root.irBooklet=api;
 })(typeof window!=="undefined"?window:globalThis);

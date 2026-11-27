@@ -600,7 +600,11 @@
     if(s0.drag){s0.dot.remove();st.pts[s0.t]=[+x.toFixed(4),+y.toFixed(4)];changed();return}
     ask(s0.t,x,y,px,py,r)}};
   const worksOfX=x=>[...new Set((x.data.works||[]).map(w=>String(w.name||"").trim()).filter(Boolean))].slice(0,10);
-  const jObj=x=>({...x.data,files:x.files,layout:x.layout,gallery:x.gallery||0,lbl:lbArr(x.lb),lbl2:lbArr(x.lb2),pictures:x.files.slice(0,irBooklet.capOf(x)).map(f=>thumbs.get(f)||"")});
+  const fitKey=x=>[x.layout,x.gallery||0,x.files.length,String(x.data.summary||"").length,(x.data.works||[]).length].join("|");
+  const jObj=x=>({...x.data,files:x.files,layout:x.layout,gallery:x.gallery||0,lbl:lbArr(x.lb),lbl2:lbArr(x.lb2),pictures:x.files.slice(0,irBooklet.capOf(x)).map(f=>thumbs.get(f)||""),...(x.fitted&&x.fitted.key===fitKey(x)?x.fitted.v:{})});
+  // лист в окне подгоняется как в PDF (краткая характеристика на лист «Фото с объекта», мельче шрифт) — один раз на набор
+  const fitLater=(x,id)=>{if(!irBooklet.fitOne||x.locked||FOLD)return;const k=fitKey(x);if(x.fitting===k||(x.fitted&&x.fitted.key===k))return;x.fitting=k;
+   const {fitted,fitting,...b}=jObj(x);irBooklet.fitOne(b,Math.max(0,chosen.indexOf(id))).then(v=>{if(x.fitting!==k)return;x.fitting=null;x.fitted={key:k,v};drawObj(id)}).catch(()=>{x.fitting=null})};
   const jPage=(x,id,page="")=>irBooklet.pageHtml(jObj(x),Math.max(0,chosen.indexOf(id)),{page});
   // теги и на листе «Фото с объекта» (инженер 26.11.2026 «почему теги только на одной странице?») — свои, x.lb2
   const jGal=(x,id)=>!!irBooklet.hasGallery&&irBooklet.hasGallery(jObj(x),Math.max(0,chosen.indexOf(id)));
@@ -633,6 +637,7 @@
     if(i>=0)a.splice(i,1);else if(a.length<irBooklet.FOLD_PH)a.push(f);else return;x.fpicks=a;drawObj(id)});return}
    box.querySelectorAll("[data-k]").forEach(b=>b.onclick=()=>{const f=x.all[Number(b.dataset.k)],i=x.files.indexOf(f);
     if(i>=0)x.files.splice(i,1);else if(x.files.length<irBooklet.capOf(x))x.files.push(f);else return;drawObj(id)});
+   fitLater(x,id);
    if(!x.locked){const w1=box.querySelector('[data-lw="1"]'),w2=box.querySelector('[data-lw="2"]');
     if(w1)lbBind(w1,x.lb,()=>worksOfX(x),()=>jPage(x,id),()=>{lbSave(id,x);drawObj(id)});
     if(w2)lbBind(w2,x.lb2,()=>worksOfX(x),()=>jPage(x,id,"gal"),()=>{lbSave(id,x);drawObj(id)})}};
