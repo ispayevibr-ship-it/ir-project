@@ -34,14 +34,16 @@
   // лист «Что мы делаем» — как раздел сайта a-ts.kz (server/pb_public/index.html #services; инженер 20.11.2026
  // «такую информацию еще можно добавить»)
  what:{lead:"Выполняем изготовление и монтаж металлоконструкций, установку технологического оборудования, демонтаж и другие строительно-монтажные работы на промышленных объектах Казахстана.",
-  items:[["Металлоконструкции","Монтаж каркасов зданий и цехов, эстакад, бункеров, площадок, лестниц и ограждений."],
-   ["Технологическое оборудование","Конвейеры, дозаторы, сушильное оборудование, мостовые краны, ёмкости, экстракторы, электролизные ванны."],
-   ["Ограждающие конструкции","Стеновые и кровельные сэндвич-панели, профнастил, нащельники, водосток, ворота, двери, зенитные фонари."],
-   ["Резервуары","Вертикальные стальные резервуары до 3 000 м³, противопожарные и кислотные резервуары, дымовые трубы."],
-   ["Изготовление","Изготовление металлоконструкций, регистров и опор трубопроводов, огрунтовка, окраска, огнезащита."],
-   ["Демонтаж и реконструкция","Демонтаж металлоконструкций, капитальный ремонт, перенос блочно-модульных зданий."],
-   ["Общестроительные работы","Фундаментные плиты, ФБС, бетонные колонны, приямки, подготовка строительной площадки."],
-   ["Документация","Полный пакет исполнительной документации по каждому объекту, закуп материалов."]]},
+  // тексты по выполненным работам объектов программы (инженер 27.11.2026 «доработай, а то выглядит будто мы кроме этого
+  // больше ничего не делаем»)
+  items:[["Металлоконструкции любой сложности","Каркасы цехов и зданий, эстакады, галереи, бункеры, площадки обслуживания, лестницы, ограждения — промышленные и гражданские объекты."],
+   ["Технологическое оборудование","Цеха электролиза, дробильно-сортировочные комплексы, насосы, конвейеры, ёмкости, сушильное оборудование; обвязка трубопроводами."],
+   ["Грузоподъёмные механизмы","Монтаж мостовых и подвесных кранов, кран-балок, подкрановых путей и упоров."],
+   ["Ограждающие конструкции","Стены и кровли из сэндвич-панелей и профнастила, фасонные элементы, водостоки, ворота, двери, входные группы, окна."],
+   ["Резервуары и трубы","Резервуарные парки, стальные резервуары до 3 000 м³, противопожарные и кислотные ёмкости, котельные и дымовые трубы."],
+   ["Изготовление и окраска","Металлоконструкции на своём производстве, опоры трубопроводов, огрунтовка, окраска, огнезащита."],
+   ["Строительство и отделка","Фундаменты, ФБС, кирпичные стены, перегородки из гипсокартона, ПВХ-блоки, подвесные потолки, отделка помещений."],
+   ["Демонтаж и документация","Демонтаж и реконструкция, перенос модульных зданий; полный пакет исполнительной документации, закуп материалов."]]},
  slogan:["Мы строим не просто объекты —","мы строим доверие."],
   trust:"Каждый из этих проектов стал подтверждением нашего <b>профессионализма, качества исполнения и соблюдения сроков</b>. Мы гордимся доверием, оказанным нашими партнёрами."
  };
@@ -610,14 +612,26 @@ ${(()=>{const pages=[["О компании",aboutPage(firm,co,logo)],...(service
 .tf .amap .dn{fill:#1d2228;font:900 17px Montserrat,sans-serif;text-anchor:middle;dominant-baseline:central}
 .tf .amap .of{fill:#1d2228}
 .tf .amap+.slg{margin-top:3mm}
+.tf .ab:has(.art) .adv{gap:1.6mm}.tf .ab:has(.art) .adv div{padding:1.8mm 2.6mm}.tf .ab:has(.art) .ld{margin-bottom:3mm}.tf .ab:has(.art) .lic{margin-bottom:3mm;padding:2.4mm 3mm}.tf .ab:has(.art) .alg{margin-bottom:3mm}
+.tf .ab .art{flex:1 1 0;min-height:30mm;display:flex;flex-direction:column;padding-top:3.5mm}
+.tf .ab .art .aimg{flex:1 1 0;min-height:18mm;border-radius:2.5mm;background:#e3e9f1 center/contain no-repeat;box-shadow:0 .6mm 2mm rgba(0,0,0,.12);margin-bottom:3mm}
+.tf .ab .art .kk{margin-bottom:1.2mm}
+.tf .ab .art p{font-size:6.9pt;line-height:1.5;color:#3a414a;margin:0}.tf .ab .art p b{color:var(--ink)}
+.tf .ab .art+.slg{margin-top:4mm}
+.tf .fr:has(.amap) .tot{grid-template-columns:1fr 1fr;gap:2mm 4mm;margin-bottom:3.5mm}
+.tf .fr:has(.amap) .tot div{display:block;padding-bottom:1.6mm}
+.tf .fr:has(.amap) .tot b{display:block;font-size:12.5pt;margin-bottom:.8mm}
+.tf .fr:has(.amap) .tot span{display:block;font-size:6pt}
+.tf .fr .amap{flex:0 0 44mm;min-height:0;padding-top:5mm}
+.tf .fr .cl+.amap{margin-top:0}
 .tf .slg{margin-top:auto;font-size:10.5pt;font-weight:900;line-height:1.25}.tf .slg span{color:var(--ord)}
 .tf .bk{left:97mm;width:100.3mm;background:#1d2228;color:#fff;padding:13mm 9mm 10mm;display:flex;flex-direction:column}.tf .bk .kk{color:var(--or)}
 .tf .bk svg{width:100%;height:auto;display:block;margin:1mm 0 2mm}.tf .bk .kz{fill:#2f363e;stroke:#4a535d;stroke-width:2}.tf .bk .dt{fill:var(--or)}.tf .bk .dn{fill:#1d2228;font:900 17px Montserrat,sans-serif;text-anchor:middle;dominant-baseline:central}.tf .bk .of{fill:#fff}
 .tf .bk .pl{font-size:6.6pt;color:#aab2bc;line-height:1.45;margin-bottom:6mm}.tf .bk .pl b{color:#fff}
 .tf .ct{display:flex;flex-direction:column;gap:2.4mm;margin-bottom:5mm}.tf .ct div{display:flex;justify-content:space-between;gap:3mm;font-size:7.6pt;border-bottom:1px solid rgba(255,255,255,.1);padding-bottom:2mm}.tf .ct small{color:#aab2bc;font-size:6.4pt;font-weight:700;letter-spacing:.5px}.tf .ct b{font-weight:800;white-space:nowrap}
 .tf .bk h2{font-size:14pt;margin-bottom:2mm}
-.tf .svd{margin-bottom:4mm}
-.tf .svd .it{display:grid;grid-template-columns:7mm 1fr;gap:0 2mm;padding:1.5mm 0;border-bottom:1px solid rgba(255,255,255,.1)}
+.tf .svd{margin-bottom:3mm}
+.tf .svd .it{display:grid;grid-template-columns:7mm 1fr;gap:0 2mm;padding:1.2mm 0;border-bottom:1px solid rgba(255,255,255,.1)}
 .tf .svd i{font-style:normal;font-size:8pt;font-weight:900;color:var(--or);grid-row:span 2}
 .tf .svd b{font-size:7pt;font-weight:900}
 .tf .svd p{margin:.4mm 0 0;font-size:5.9pt;line-height:1.3;color:#aab2bc}
@@ -637,6 +651,9 @@ svg.wa{width:3.4mm;height:3.4mm;flex:none;vertical-align:-.7mm;margin-right:1mm}
 .tf .ow{left:100mm;width:197mm;padding:14mm 12mm 12mm 11mm;display:flex;flex-direction:column}
 .tf .ow h2{font-size:18pt;margin-bottom:6mm}
 .tf .ow .wl{flex:1 1 0;min-height:0}
+.tf .ow .fin{flex:none;display:flex;align-items:center;gap:3.5mm;margin-top:3mm;background:#1d2228;color:#fff;border-radius:2.5mm;padding:3mm 4mm}
+.tf .ow .fin b{font-size:17pt;font-weight:900;color:var(--or);line-height:1}
+.tf .ow .fin span{font-size:6.8pt;font-weight:700;line-height:1.45;color:#e2e6ea}
 .tf .ow .wl.c2{column-count:2;column-gap:9mm}
 .tf .ow .wl div{break-inside:avoid;display:flex;justify-content:space-between;align-items:baseline;gap:4mm;border-bottom:1px solid var(--line);padding:3mm 0;font-size:10pt;font-weight:700;line-height:1.3}
 .tf .ow .wl b{font-size:14pt;font-weight:900;color:var(--or);white-space:nowrap}
@@ -755,15 +772,20 @@ svg.wa{width:3.4mm;height:3.4mm;flex:none;vertical-align:-.7mm;margin-right:1mm}
  // сторона о фирме (инженер 27.11.2026, лист с двух сторон в 3 сложения): клапан — о компании, логотип на всю ширину,
  // лицензия, преимущества, карта без списка городов | тёмная — что мы делаем, контакты, реквизиты | цифры за всё время и все
  // заказчики (без «и ещё», много — шрифт мельче, больше 24 — в две колонки). L — все объекты фирмы (firmOf).
+ // рисунок монтажной схемы на клапане (src/booklet-art.js), подпись про ИИ (инженер 27.11.2026)
+ const ART=()=>{try{return (typeof window!=="undefined"&&window.irBookletArt&&window.irBookletArt.scheme)||(typeof globalThis!=="undefined"&&globalThis.irBookletArt&&globalThis.irBookletArt.scheme)||""}catch(_){return""}};
+ // шрифт и колонки заказчиков по числу строк; с картой под ними места меньше
+ const clC2=(n,map)=>n>(map?14:24),clF=(n,map)=>{const rows=clC2(n,map)?Math.ceil(n/2):n;if(map)return clC2(n,map)?(n<=15?0:n<=19?1:n<=30?2:n<=40?3:4):(n<=9?0:n<=11?1:n<=13?2:3);return rows<=9?0:rows<=13?1:rows<=17?2:rows<=24?3:4};
  function firmSide(co,logo,L){const geo=geoGroups(L),tot=totals(L),cl=clientList(L,co),sv=(co.what||COMPANY.what).items.slice(0,8),mk=()=>"";
   return`<section class="tf"><div class="pn ab">${logo?`<div class="alg"><img src="${esc(logo)}" alt=""></div>`:`<div class="kk up">О компании</div><h2>${esc(co.name)}</h2>`}${(co.about||[]).map(t=>`<p class="ld">${esc(t)}</p>`).join("")}
    ${co.license?`<div class="lic"><em>${CHECK}</em>${esc(co.license)}</div>`:""}${`<div class="adv">${(co.adv||[]).map(([t,d])=>`<div><b>${esc(t)}</b><span>${esc(d)}</span></div>`).join("")}</div>`}
-   ${geo.length?`<div class="amap"><div class="kk up">География работ</div>${foldMap(L)}</div>`:""}<div class="slg">${esc(co.slogan[0])}<br><span>${esc(co.slogan[1])}</span></div></div>
+   ${ART()?`<div class="art"><div class="aimg"${bg(ART())}></div><div class="kk up">В ногу со временем</div><p>Своя программа <b>IR Project</b>: чертежи КМ и АР распознаёт искусственный интеллект, по ним строится 3D-монтажная схема с узлами, болтами и сэндвич-панелями. Ход монтажа и объёмы — онлайн по ссылке.</p></div>`:""}<div class="slg">${esc(co.slogan[0])}<br><span>${esc(co.slogan[1])}</span></div></div>
   <div class="pn bk"><div class="kk up">Услуги</div><h2>Что мы делаем</h2><div class="svd">${sv.map(([t,d],i)=>`<div class="it"><i>${String(i+1).padStart(2,"0")}</i><b>${esc(t)}</b><p>${esc(d)}</p></div>`).join("")}</div>
    <div class="kk up">Контакты</div><div class="ct">${co.phones.map(([t,v])=>`<div><small class="up">${esc(t)}</small><b class="ph">${WA}${esc(v)}</b></div>`).join("")}<div><small class="up">Почта</small><b class="ml">${(co.contactMail||co.mail).split(/\s*·\s*/).map(esc).join("<br>")}</b></div><div><small class="up">Сайт</small><b>${esc(co.site)}</b></div></div>
    <div class="rq"><b>${esc(co.full)}</b><br>БИН ${esc(co.bin)}<br>${esc(co.address)}<br>${co.bank.map(esc).join("<br>")}<br>Директор — ${esc(co.head)}</div></div>
   <div class="pn nm fr"><div class="kk up">В цифрах</div><h2>Что мы уже сделали</h2><div class="tot">${tot.slice(0,8).map(([b,t])=>`<div><b>${esc(b)}</b><span>${esc(t)}</span></div>`).join("")}</div>
-   ${cl.length?`<div class="cl ${cl.length>24?"c2 ":""}f${cl.length<=9?0:cl.length<=13?1:cl.length<=17?2:cl.length<=24?3:4}"><div class="kk up">Нам доверяют</div><div class="cg">${cl.map(t=>`<div>${esc(t)}</div>`).join("")}</div></div>`:""}</div>${mk([97,197])}</section>`}
+   ${cl.length?`<div class="cl ${clC2(cl.length,geo.length)?"c2 ":""}f${clF(cl.length,geo.length)}"><div class="kk up">Нам доверяют</div><div class="cg">${cl.map(t=>`<div>${esc(t)}</div>`).join("")}</div></div>`:""}
+   ${geo.length?`<div class="amap"><div class="kk up">География работ</div>${foldMap(L)}</div>`:""}</div>${mk([97,197])}</section>`}
  // сторона объекта: первая полоса — фото на всю полосу, логотип фирмы, внизу название, адрес, генподрядчик, заказчик;
  // вторая и третья — виды работ с объёмами (много работ — две колонки и шрифт мельче)
  function objSide(o,co,logo){const ps=(o.pictures||[]),cvp=ps[0]||"",score=o.mainPx&&o.mainPx[0]>0?Math.min(o.mainPx[0]/100,o.mainPx[1]/210):9;
@@ -773,7 +795,7 @@ svg.wa{width:3.4mm;height:3.4mm;flex:none;vertical-align:-.7mm;margin-right:1mm}
   const ws=(o.works||[]).filter(w=>String(w.name||"").trim()),ex=ps.slice(1,FOLD_PH_OBJ),n=ws.length,f=ex.length?(n<=6?0:n<=10?1:n<=15?2:n<=21?3:4):(n<=8?0:n<=14?1:n<=22?2:n<=30?3:4),c2=ex.length?n>24:n>8;
   return`<section class="tf"><div class="pn cv oq">${cover}<div class="lg">${lg}</div><div class="od">${o.years?`<span class="yr">${esc(o.years)}</span>`:""}<h2>${esc(o.name||"Объект")}</h2>${place?`<div class="pl">${esc(place)}</div>`:""}
    ${pt.map(([t,v])=>`<div class="pr"><small class="up">${t}</small><b>${esc(v)}</b></div>`).join("")}</div></div>
-  <div class="pn ow f${f}${ex.length?" nar":""}"><div class="kk up">Выполнено на объекте</div><h2>Виды работ и объёмы</h2><div class="wl${c2?" c2":""}">${ws.map(w=>`<div><span>${esc(w.name)}</span>${isSvc(w)||!(num(w.volume)>0)?"":`<b>${esc(fmt(num(w.volume)))} <s>${esc(unitOf(w.unit))}</s></b>`}</div>`).join("")}</div></div>${ex.length?`<div class="pn opx n${ex.length}"><div class="kk up">Фото с объекта</div><div class="gx">${ex.map((p,k)=>`<i style="grid-area:${"abcdef"[k]}${p?`;background-image:url('${String(p).replace(/'/g,"%27")}')`:""}"></i>`).join("")}</div></div>`:""}</section>`}
+  <div class="pn ow f${f}${ex.length?" nar":""}"><div class="kk up">Выполнено на объекте</div><h2>Виды работ и объёмы</h2><div class="wl${c2?" c2":""}">${ws.map(w=>`<div><span>${esc(w.name)}</span>${isSvc(w)||!(num(w.volume)>0)?"":`<b>${esc(fmt(num(w.volume)))} <s>${esc(unitOf(w.unit))}</s></b>`}</div>`).join("")}</div>${/заверш/i.test(String(o.status||""))?`<div class="fin"><b>100%</b><span>Работы выполнены полностью<br>Полный пакет исполнительной документации</span></div>`:""}</div>${ex.length?`<div class="pn opx n${ex.length}"><div class="kk up">Фото с объекта</div><div class="gx">${ex.map((p,k)=>`<i style="grid-area:${"abcdef"[k]}${p?`;background-image:url('${String(p).replace(/'/g,"%27")}')`:""}"></i>`).join("")}</div></div>`:""}</section>`}
  function foldBuild(objects,{logo="",company={},screen=false,spread=null,inside,all}={}){
   let IN=inside===undefined?(spread&&spread.src?0:1):Number(inside)||0;if(IN===0&&!(spread&&spread.src))IN=1;
   if(IN===4)return foldPerObject(objects,{logo,company,screen,all});
