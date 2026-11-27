@@ -675,7 +675,7 @@
     if(L)locks.set(id,L.date||"")}};
    await Promise.all([one(),one(),one(),one()]);if(locks.size&&d.isConnected)draw()}
   const services=()=>$("[data-svc]").checked,withMap=()=>$("[data-map]").checked,fold=()=>FOLD;
-  const foldPics=x=>x.fpicks||((x.locked?.files||x.files).length?(x.locked?.files||x.files):x.all).slice(0,fph());
+  const foldPics=x=>x.fpicks||(()=>{const own=(x.locked?.files||x.files)||[];return [...own,...(x.all||[]).filter(f=>!own.includes(f))].slice(0,fph())})();
   // евробуклет (инженер 24.11.2026 «чтобы в 3 раза сложить можно было»): листы «Что мы делаем» и «География» в нём всегда
   // разворот евробуклета — одно фото на весь разворот с подписями направлений работ (инженер 24.11.2026 прислал образец):
   // фото — из фото отмеченных объектов, точку каждой подписи ставит щелчок по фото. Помнится на этом компьютере.
