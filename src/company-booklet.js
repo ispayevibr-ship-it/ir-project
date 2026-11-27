@@ -638,11 +638,20 @@ ${(()=>{const pages=[["О компании",aboutPage(firm,co,logo)],...(service
 .tf .ow .wl div{break-inside:avoid;display:flex;justify-content:space-between;align-items:baseline;gap:4mm;border-bottom:1px solid var(--line);padding:3mm 0;font-size:10pt;font-weight:700;line-height:1.3}
 .tf .ow .wl b{font-size:14pt;font-weight:900;color:var(--or);white-space:nowrap}
 .tf .ow .wl s{text-decoration:none;font-size:.6em;color:var(--mut)}
-.tf .ow .xs{flex:none;height:62mm;display:grid;grid-auto-flow:column;grid-auto-columns:1fr;gap:2mm;margin-top:5mm}
-.tf .ow .xs.n4,.tf .ow .xs.n5,.tf .ow .xs.n6{grid-auto-flow:row;grid-template-columns:repeat(3,1fr);grid-auto-columns:auto;height:78mm}
-.tf .ow .xs.n4{grid-template-columns:repeat(2,1fr)}
-.tf .ow .xs.n5 i:first-child{grid-row:span 2}
-.tf .ow .xs i{border-radius:2mm;background:#3a4047 center/cover no-repeat}
+.tf .ow.nar{width:100.3mm;padding:14mm 9mm 10mm 10mm}
+.tf .ow.nar h2{font-size:15pt;margin-bottom:4mm}
+.tf .ow.nar .wl.c2{column-gap:5mm}
+.tf .opx{left:200mm;width:97mm;padding:14mm 9mm 10mm 2mm;display:flex;flex-direction:column}
+.tf .opx .gx{flex:1 1 0;min-height:0;display:grid;gap:2.2mm;grid-template-columns:1fr 1fr;margin-top:2mm}
+.tf .opx.n1 .gx{grid-template-areas:"a a"}
+.tf .opx.n2 .gx{grid-template-areas:"a a" "b b";grid-template-rows:1.3fr 1fr}
+.tf .opx.n3 .gx{grid-template-areas:"a a" "b c";grid-template-rows:1.5fr 1fr}
+.tf .opx.n4 .gx{grid-template-areas:"a a" "b c" "d d";grid-template-rows:1.35fr 1fr 1fr}
+.tf .opx.n5 .gx{grid-template-areas:"a a" "b c" "d e";grid-template-rows:1.35fr 1fr 1fr}
+.tf .opx.n6 .gx{grid-template-areas:"a a" "b c" "d e" "f f";grid-template-rows:1.3fr 1fr 1fr 1.05fr}
+.tf .opx i{border-radius:2.5mm;background:#3a4047 center/cover no-repeat;min-height:0;box-shadow:0 .6mm 2mm rgba(0,0,0,.18)}
+.tf .opx i:first-child{position:relative}
+.tf .opx i:first-child:after{content:"";position:absolute;left:4mm;bottom:4mm;width:14mm;height:1.4mm;background:var(--or);border-radius:1mm}
 .tf .ow.f1 .wl div{font-size:8.4pt;padding:2.2mm 0}.tf .ow.f1 .wl b{font-size:11pt}
 .tf .ow.f2 .wl div{font-size:7.4pt;padding:1.7mm 0}.tf .ow.f2 .wl b{font-size:9.5pt}
 .tf .ow.f3 .wl div{font-size:6.6pt;padding:1.3mm 0}.tf .ow.f3 .wl b{font-size:8.4pt}
@@ -760,10 +769,10 @@ ${(()=>{const pages=[["О компании",aboutPage(firm,co,logo)],...(service
   const cover=score<4?`<div class="ph soft"${bg(cvp)}><b${bg(cvp)}></b><i${bg(cvp)}></i></div>`:`<div class="ph"${bg(cvp)}></div>`;
   const lg=logo?`<img src="${esc(logo)}" alt="">`:`<b>${esc(co.name)}</b>`,place=String(o.address||"").trim();
   const pt=[["Генподрядчик",o.general_contractor],["Заказчик",o.customer]].filter(([,v])=>String(v||"").trim());
-  const ws=(o.works||[]).filter(w=>String(w.name||"").trim()),ex=ps.slice(1,FOLD_PH_OBJ),n=ws.length+(ex.length?6:0),f=n<=8?0:n<=14?1:n<=22?2:n<=30?3:4;
+  const ws=(o.works||[]).filter(w=>String(w.name||"").trim()),ex=ps.slice(1,FOLD_PH_OBJ),n=ws.length,f=ex.length?(n<=6?0:n<=10?1:n<=15?2:n<=21?3:4):(n<=8?0:n<=14?1:n<=22?2:n<=30?3:4),c2=ex.length?n>24:n>8;
   return`<section class="tf"><div class="pn cv oq">${cover}<div class="lg">${lg}</div><div class="od">${o.years?`<span class="yr">${esc(o.years)}</span>`:""}<h2>${esc(o.name||"Объект")}</h2>${place?`<div class="pl">${esc(place)}</div>`:""}
    ${pt.map(([t,v])=>`<div class="pr"><small class="up">${t}</small><b>${esc(v)}</b></div>`).join("")}</div></div>
-  <div class="pn ow f${f}"><div class="kk up">Выполнено на объекте</div><h2>Виды работ и объёмы</h2><div class="wl${ws.length>(ex.length?5:8)?" c2":""}">${ws.map(w=>`<div><span>${esc(w.name)}</span>${isSvc(w)||!(num(w.volume)>0)?"":`<b>${esc(fmt(num(w.volume)))} <s>${esc(unitOf(w.unit))}</s></b>`}</div>`).join("")}</div>${ex.length?`<div class="xs n${ex.length}">${ex.map(p=>`<i${bg(p)}></i>`).join("")}</div>`:""}</div></section>`}
+  <div class="pn ow f${f}${ex.length?" nar":""}"><div class="kk up">Выполнено на объекте</div><h2>Виды работ и объёмы</h2><div class="wl${c2?" c2":""}">${ws.map(w=>`<div><span>${esc(w.name)}</span>${isSvc(w)||!(num(w.volume)>0)?"":`<b>${esc(fmt(num(w.volume)))} <s>${esc(unitOf(w.unit))}</s></b>`}</div>`).join("")}</div></div>${ex.length?`<div class="pn opx n${ex.length}"><div class="kk up">Фото с объекта</div><div class="gx">${ex.map((p,k)=>`<i style="grid-area:${"abcdef"[k]}${p?`;background-image:url('${String(p).replace(/'/g,"%27")}')`:""}"></i>`).join("")}</div></div>`:""}</section>`}
  function foldBuild(objects,{logo="",company={},screen=false,spread=null,inside,all}={}){
   let IN=inside===undefined?(spread&&spread.src?0:1):Number(inside)||0;if(IN===0&&!(spread&&spread.src))IN=1;
   if(IN===4)return foldPerObject(objects,{logo,company,screen,all});
