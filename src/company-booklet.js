@@ -21,7 +21,7 @@
   head:"Саргаскаев Аслан Каскенович",
   bank:["ИИК KZ20601A371002289201","АО «Народный Банк Казахстана»","БИК HSBKKZKX · КБе 17"],
   title:"Изготовление и монтаж металлоконструкций",
-  about:["Мы стремимся к постоянному развитию, внедряем современные строительные технологии и применяем передовые материалы. Это позволяет повышать эффективность работ и обеспечивать высокое качество на всех этапах строительства."],
+  about:["ТОО «А-Темир Строй» — строительно-монтажная компания, специализирующаяся на изготовлении и монтаже металлоконструкций, монтаже технологического оборудования, общестроительных, демонтажных и специальных работах на промышленных объектах Казахстана."],
   // преимущества, заказчики, принципы — из буклета фирмы в Canva (инженер 24.11.2026 «текста с канвы еще возьми,
   // добавь, а то пустовато первая и вторая страница»)
   adv:[["Собственный штат","Инженеры, прорабы, сварщики, монтажники, рабочие"],["Своя строительная техника","Работаем оперативно, без зависимости от подрядчиков"],["Комплексный подход","От проекта и смет до сдачи объекта «под ключ»"],["Сроки и качество","Строгое соответствие нормам и требованиям заказчика"]],
@@ -36,14 +36,15 @@
  what:{lead:"Выполняем изготовление и монтаж металлоконструкций, установку технологического оборудования, демонтаж и другие строительно-монтажные работы на промышленных объектах Казахстана.",
   // тексты по выполненным работам объектов программы (инженер 27.11.2026 «доработай, а то выглядит будто мы кроме этого
   // больше ничего не делаем»)
-  items:[["Металлоконструкции любой сложности","Каркасы цехов и зданий, эстакады, галереи, бункеры, площадки обслуживания, лестницы, ограждения — промышленные и гражданские объекты."],
-   ["Технологическое оборудование","Цеха электролиза, дробильно-сортировочные комплексы, насосы, конвейеры, ёмкости, сушильное оборудование; обвязка трубопроводами."],
-   ["Грузоподъёмные механизмы","Монтаж мостовых и подвесных кранов, кран-балок, подкрановых путей и упоров."],
-   ["Ограждающие конструкции","Стены и кровли из сэндвич-панелей и профнастила, фасонные элементы, водостоки, ворота, двери, входные группы, окна."],
-   ["Резервуары и трубы","Резервуарные парки, стальные резервуары до 3 000 м³, противопожарные и кислотные ёмкости, котельные и дымовые трубы."],
-   ["Изготовление и окраска","Металлоконструкции на своём производстве, опоры трубопроводов, огрунтовка, окраска, огнезащита."],
-   ["Строительство и отделка","Фундаменты, ФБС, кирпичные стены, перегородки из гипсокартона, ПВХ-блоки, подвесные потолки, отделка помещений."],
-   ["Демонтаж и документация","Демонтаж и реконструкция, перенос модульных зданий; полный пакет исполнительной документации, закуп материалов."]]},
+  items:[["Металлоконструкции любой сложности","Изготовление и монтаж металлоконструкций для промышленных и гражданских объектов, включая несущие каркасы, инженерные сооружения и вспомогательные конструкции."],
+   ["Монтаж технологического оборудования","Комплексный монтаж промышленного и технологического оборудования, производственных линий, инженерных систем и сопутствующих конструкций."],
+   ["Грузоподъёмные механизмы","Монтаж грузоподъёмного оборудования, крановых систем, подкрановых конструкций и сопутствующих элементов."],
+   ["Ограждающие конструкции","Монтаж стеновых и кровельных конструкций, фасадных систем, ограждающих элементов и комплектующих зданий и сооружений."],
+   ["Резервуары и трубные конструкции","Строительство и монтаж резервуаров и ёмкостей любого назначения и объёма, резервуарных парков, котельных, дымовых труб и трубных конструкций."],
+   ["Изготовление, окраска и огнезащита","Изготовление металлоконструкций и металлических изделий, подготовка и обработка поверхностей, грунтование, окраска и нанесение защитных покрытий."],
+   ["Общестроительные и отделочные работы","Выполнение общестроительных, монтажных и отделочных работ, устройство фундаментов, возведение конструкций и комплексное обустройство помещений."],
+   ["Демонтаж и реконструкция","Выполнение демонтажных работ любой сложности, разборка металлоконструкций и строительных сооружений, демонтаж технологического оборудования, реконструкция и перепланировка существующих объектов."],
+   ["Исполнительная документация и снабжение","Подготовка и оформление полного комплекта исполнительной документации, ведение технической документации, комплектация объектов, закупка и поставка строительных материалов и оборудования."]]},
  slogan:["Мы строим не просто объекты —","мы строим доверие."],
   trust:"Каждый из этих проектов стал подтверждением нашего <b>профессионализма, качества исполнения и соблюдения сроков</b>. Мы гордимся доверием, оказанным нашими партнёрами."
  };
@@ -118,15 +119,15 @@
 .svcp:before{content:"";position:absolute;left:0;top:0;width:70mm;height:52mm;background:linear-gradient(135deg,var(--or2),var(--or));clip-path:polygon(0 0,100% 0,0 100%)}
 .svcp .sh{position:absolute;left:16mm;top:20mm;width:190mm}.svcp .sh .kick{font-size:7.5pt;font-weight:800;letter-spacing:1.4px;color:var(--ink);margin-bottom:2mm}
 .svcp h2{margin:0;font-size:34pt;font-weight:900;line-height:1;text-transform:uppercase;letter-spacing:-.5px}
-.svcp .ld{margin:5mm 0 0;font-size:10pt;line-height:1.55;color:#4b525c}
+.svcp .ld{margin:3.5mm 0 0;font-size:10pt;line-height:1.55;color:#4b525c}
 .svcp .lg{position:absolute;right:14mm;top:13mm;height:20mm;width:60mm;display:flex;justify-content:flex-end;align-items:flex-start}.svcp .lg img{max-height:20mm;max-width:60mm;object-fit:contain}.svcp .lg b{font-size:11pt;font-weight:900}
-.svcp .sg{position:absolute;left:16mm;right:16mm;top:58mm;bottom:58mm;display:grid;grid-template-columns:repeat(4,1fr);grid-template-rows:1fr 1fr;border-top:.35mm solid var(--ink);border-bottom:.35mm solid var(--ink)}
-.svcp .sc{padding:4mm 6mm 3mm 0;border-left:.35mm solid var(--ink);padding-left:6mm;overflow:hidden}.svcp .sc:nth-child(4n+1){border-left:0;padding-left:0}.svcp .sc:nth-child(n+5){border-top:.35mm solid var(--ink)}
-.svcp .sc i{display:block;font-style:normal;font-size:9pt;font-weight:800;color:var(--ord);letter-spacing:.6px;margin-bottom:2mm}
-.svcp .pr{position:absolute;left:16mm;right:16mm;top:157mm;bottom:14mm;display:grid;grid-template-columns:1.25fr repeat(4,1fr);gap:4mm}
+.svcp .sg{position:absolute;left:16mm;right:16mm;top:54mm;bottom:47mm;display:grid;grid-template-columns:repeat(3,1fr);grid-template-rows:repeat(3,1fr);border-top:.35mm solid var(--ink);border-bottom:.35mm solid var(--ink)}
+.svcp .sc{padding:2.4mm 6mm 1.5mm 0;border-left:.35mm solid var(--ink);padding-left:6mm;overflow:hidden}.svcp .sc:nth-child(3n+1){border-left:0;padding-left:0}.svcp .sc:nth-child(n+4){border-top:.35mm solid var(--ink)}
+.svcp .sc i{display:block;font-style:normal;font-size:9pt;font-weight:800;color:var(--ord);letter-spacing:.6px;margin-bottom:1mm}
+.svcp .pr{position:absolute;left:16mm;right:16mm;top:167mm;bottom:9mm;display:grid;grid-template-columns:1.25fr repeat(4,1fr);gap:4mm}
 .svcp .ph .kick{font-size:7.5pt;font-weight:800;letter-spacing:1.4px;color:var(--ord);margin-bottom:2mm}.svcp .ph h3{margin:0;font-size:15pt;font-weight:900;line-height:1.15}
-.svcp .pi{background:#faf6ee;border-radius:2.5mm;padding:3.2mm 3.6mm;border-top:1.2mm solid var(--or);overflow:hidden}.svcp .pi b{display:block;font-size:9.5pt;font-weight:800;line-height:1.2;margin-bottom:2mm}.svcp .pi p{margin:0;font-size:7.8pt;line-height:1.45;color:var(--mut)}
-.svcp .sc b{display:block;font-size:11.5pt;font-weight:800;line-height:1.15;margin-bottom:2mm}.svcp .sc p{margin:0;font-size:7.9pt;line-height:1.45;color:var(--mut)}
+.svcp .pi{background:#faf6ee;border-radius:2.5mm;padding:2.6mm 3.6mm;border-top:1.2mm solid var(--or);overflow:hidden}.svcp .pi b{display:block;font-size:9pt;font-weight:800;line-height:1.2;margin-bottom:1.2mm}.svcp .pi p{margin:0;font-size:7.4pt;line-height:1.38;color:var(--mut)}
+.svcp .sc b{display:block;font-size:10pt;font-weight:800;line-height:1.15;margin-bottom:1.2mm}.svcp .sc p{margin:0;font-size:7pt;line-height:1.36;color:var(--mut)}
 .svcp .bd{position:absolute;left:0;right:0;bottom:0;height:20mm;background:#1d2228;color:#fff;display:flex;align-items:center;padding:0 16mm;gap:8mm}
 .svcp .bd .sl{font-size:11pt;font-weight:800;line-height:1.25}.svcp .bd .sl i{font-style:normal;color:var(--or)}.svcp .bd .ct{margin-left:auto;text-align:right;font-size:8pt;line-height:1.6;color:#d6d9dd}
 .svcp .bd:before{content:"";position:absolute;left:0;top:0;width:6mm;bottom:0;background:var(--or)}
@@ -159,7 +160,7 @@
 .R .ph{position:absolute;inset:0 0 25mm 0;background:#3a4047 center 40%/cover no-repeat}
 .R .ph:after{content:"";position:absolute;inset:0;background:linear-gradient(180deg,rgba(0,0,0,.12),rgba(0,0,0,0) 30%,rgba(0,0,0,0) 55%,rgba(0,0,0,.35))}
 .logo{position:absolute;top:9mm;right:10mm;background:rgba(255,255,255,.95);border-radius:3mm;padding:2.5mm 4mm;box-shadow:0 2mm 6mm rgba(0,0,0,.18);z-index:3}
-.logo img{height:12mm;max-width:60mm;object-fit:contain;display:block}.logo b{display:block;font-size:11pt;font-weight:900}
+.logo img{width:auto;height:auto;max-height:12mm;max-width:60mm;display:block}.logo b{display:block;font-size:11pt;font-weight:900}
 .band{position:absolute;left:0;right:0;bottom:25mm;height:62mm;background:linear-gradient(100deg,var(--or),var(--or2));clip-path:polygon(0 30%,100% 0,100% 100%,0 100%);z-index:1}
 .circles{position:absolute;left:10mm;bottom:31mm;display:flex;z-index:3}
 .c{width:31mm;height:31mm;border-radius:50%;border:1.4mm solid #fff;background:#ddd center/cover no-repeat;box-shadow:0 2mm 5mm rgba(0,0,0,.25);margin-right:-5mm}
@@ -303,7 +304,7 @@
  function servicesPage(co,logo){const w=co.what||COMPANY.what;
   return`<section class="page svcp"><div class="lg">${logo?`<img src="${esc(logo)}" alt="">`:`<b>${esc(co.name)}</b>`}</div>
   <div class="sh"><div class="kick up">Услуги</div><h2>Что мы делаем</h2><p class="ld">${esc(w.lead)}</p></div>
-  <div class="sg">${w.items.slice(0,8).map(([t,d],i)=>`<div class="sc"><i>${String(i+1).padStart(2,"0")}</i><b>${esc(t)}</b><p>${esc(d)}</p></div>`).join("")}</div>
+  <div class="sg">${w.items.slice(0,9).map(([t,d],i)=>`<div class="sc"><i>${String(i+1).padStart(2,"0")}</i><b>${esc(t)}</b><p>${esc(d)}</p></div>`).join("")}</div>
   ${(()=>{const pr=co.principles||COMPANY.principles;return`<div class="pr"><div class="ph"><div class="kick up">Наши принципы</div><h3>Работаем так, чтобы нам доверяли</h3></div>${pr.items.map(([t,d])=>`<div class="pi"><b>${esc(t)}</b><p>${esc(d)}</p></div>`).join("")}</div>`})()}
 </section>`}
  // лист «География работ» — последний лист буклета, как раздел сайта a-ts.kz (server/pb_public/index.html #geo:
@@ -602,7 +603,7 @@ ${(()=>{const pages=[["О компании",aboutPage(firm,co,logo)],...(service
 .tf .lic em{flex:none;width:8mm;height:8mm;border-radius:2mm;background:var(--or);display:grid;place-items:center}.tf .lic em svg{width:5mm;height:5mm}
 .tf .adv{display:flex;flex-direction:column;gap:3mm}.tf .adv div{border-left:1mm solid var(--or);padding-left:3mm}.tf .adv b{display:block;font-size:7.6pt;font-weight:900}.tf .adv span{display:block;font-size:6.6pt;color:var(--mut);line-height:1.35;margin-top:.6mm}
 .tf .alg{margin:0 0 4mm}
-.tf .alg img{display:block;width:100%;max-height:30mm;object-fit:contain;object-position:center}
+.tf .alg img{display:block;width:auto;height:auto;max-width:64mm;max-height:20mm;margin:0 auto}
 .tf .amap{flex:1 1 0;min-height:22mm;padding-top:7mm;display:flex;flex-direction:column}
 .tf .ab:has(.amap) .adv{gap:2mm}
 .tf .ab:has(.amap) .ld{margin-bottom:3mm}
@@ -642,12 +643,13 @@ ${(()=>{const pages=[["О компании",aboutPage(firm,co,logo)],...(service
 .tf .svd i{font-style:normal;font-size:8pt;font-weight:900;color:var(--or);grid-row:span 2}
 .tf .svd b{font-size:7pt;font-weight:900}
 .tf .svd p{margin:.4mm 0 0;font-size:5.9pt;line-height:1.3;color:#aab2bc}
+.tf .bk h2{margin-bottom:3mm}.tf .svd.n9 .it{padding:.9mm 0}.tf .svd.n9 b{font-size:6.6pt}.tf .svd.n9 p{font-size:5.3pt;line-height:1.28;margin-top:.2mm}.tf .svd.n9 i{font-size:7.4pt}
 .tf .bk .ct{gap:1.2mm;margin-bottom:3mm}
 .tf .bk .ct div{padding-bottom:1.1mm;font-size:7pt}
 .tf .ct .ph{display:inline-flex;align-items:center;gap:1.4mm;white-space:nowrap}.tf .ct .ml{text-align:right;line-height:1.35}
 svg.wa{width:3.4mm;height:3.4mm;flex:none;vertical-align:-.7mm;margin-right:1mm}svg.wa{width:3.4mm!important;height:3.4mm!important}.tf .ct svg.wa{margin:0}
 .tf .cv.oq{left:0;width:100.3mm}
-.tf .oq .lg img{height:16mm;max-width:76mm}
+.tf .oq .lg img{width:auto;height:auto;max-height:16mm;max-width:76mm}
 .tf .oq .od{position:absolute;left:9mm;right:9mm;bottom:11mm;z-index:2}
 .tf .oq .yr{display:inline-block;background:var(--or);color:var(--ink);font-size:7pt;font-weight:900;padding:.8mm 2.4mm;border-radius:1mm;margin-bottom:2.5mm}
 .tf .oq h2{font-size:16pt;line-height:1.12;margin:0 0 2mm;color:#fff}
@@ -695,7 +697,7 @@ svg.wa{width:3.4mm;height:3.4mm;flex:none;vertical-align:-.7mm;margin-right:1mm}
 .tf .rq{margin-top:auto;font-size:6pt;line-height:1.5;color:#aab2bc}.tf .rq b{color:#fff;font-size:6.6pt}
 .tf .cv{left:196.7mm;width:100.3mm;background:#2b3036;color:#fff}.tf .cv .ph{position:absolute;inset:0;background:#3a4047 center/cover no-repeat}
 .tf .cv .ph:after{content:"";position:absolute;inset:0;background:linear-gradient(180deg,rgba(0,0,0,.25),rgba(0,0,0,0) 30%,rgba(0,0,0,.15) 50%,rgba(0,0,0,.82))}
-.tf .cv .lg{position:absolute;left:9mm;top:10mm;background:#fff;border-radius:2.5mm;padding:2.5mm 3.5mm;z-index:2}.tf .cv .lg img{height:12mm;max-width:60mm;object-fit:contain;display:block}.tf .cv .lg b{font-size:10pt;font-weight:900;color:var(--ink)}
+.tf .cv .lg{position:absolute;left:9mm;top:10mm;background:#fff;border-radius:2.5mm;padding:2.5mm 3.5mm;z-index:2}.tf .cv .lg img{width:auto;height:auto;max-height:12mm;max-width:60mm;display:block}.tf .cv .lg b{font-size:10pt;font-weight:900;color:var(--ink)}
 .tf .cv .tt{position:absolute;left:9mm;right:9mm;bottom:14mm;z-index:2}.tf .cv .tt:before{content:"";display:block;width:20mm;height:1.6mm;background:var(--or);margin-bottom:5mm}
 .tf .cv h1{margin:0;font-size:20pt;font-weight:900;line-height:1.1}.tf .cv .tt p{margin:4mm 0 0;font-size:8pt;font-weight:700;color:var(--or2);letter-spacing:.6px}
 .tf .cv .cut{position:absolute;right:0;top:0;width:34mm;height:40mm;background:linear-gradient(225deg,var(--or2),var(--or));clip-path:polygon(0 0,100% 0,100% 100%);z-index:1}
@@ -814,11 +816,11 @@ svg.wa{width:3.4mm;height:3.4mm;flex:none;vertical-align:-.7mm;margin-right:1mm}
   return`<svg class="asvg" viewBox="-38 58 336 250" preserveAspectRatio="xMidYMid meet" aria-hidden="true">${g}${pn}${st}</svg>`};
  // шрифт и колонки заказчиков по числу строк; с картой под ними места меньше
  const clC2=(n,map)=>n>(map?14:24),clF=(n,map)=>{const rows=clC2(n,map)?Math.ceil(n/2):n;if(map)return clC2(n,map)?(n<=15?0:n<=19?1:n<=30?2:n<=40?3:4):(n<=9?0:n<=11?1:n<=13?2:3);return rows<=9?0:rows<=13?1:rows<=17?2:rows<=24?3:4};
- function firmSide(co,logo,L){const geo=geoGroups(L),tot=totals(L),cl=clientList(L,co),sv=(co.what||COMPANY.what).items.slice(0,8),mk=()=>"";
+ function firmSide(co,logo,L){const geo=geoGroups(L),tot=totals(L),cl=clientList(L,co),sv=(co.what||COMPANY.what).items.slice(0,9),mk=()=>"";
   return`<section class="tf"><div class="pn ab">${logo?`<div class="alg"><img src="${esc(logo)}" alt=""></div>`:`<div class="kk up">О компании</div><h2>${esc(co.name)}</h2>`}${(co.about||[]).map(t=>`<p class="ld">${esc(t)}</p>`).join("")}
    ${co.license?`<div class="lic"><em>${CHECK}</em>${esc(co.license)}</div>`:""}${`<div class="adv">${(co.adv||[]).map(([t,d])=>`<div><b>${esc(t)}</b><span>${esc(d)}</span></div>`).join("")}</div>`}
    ${`<div class="art"><div class="aimg">${ART()}</div><div class="kk up">В ногу со временем</div><p>Своя программа <b>IR Project</b>: чертежи КМ и АР распознаёт искусственный интеллект, по ним строится 3D-монтажная схема с узлами, болтами и сэндвич-панелями. Ход монтажа и объёмы — онлайн по ссылке.</p></div>`}<div class="slg">${esc(co.slogan[0])}<br><span>${esc(co.slogan[1])}</span></div></div>
-  <div class="pn bk"><div class="kk up">Услуги</div><h2>Что мы делаем</h2><div class="svd">${sv.map(([t,d],i)=>`<div class="it"><i>${String(i+1).padStart(2,"0")}</i><b>${esc(t)}</b><p>${esc(d)}</p></div>`).join("")}</div>
+  <div class="pn bk"><div class="kk up">Услуги</div><h2>Что мы делаем</h2><div class="svd n${sv.length}">${sv.map(([t,d],i)=>`<div class="it"><i>${String(i+1).padStart(2,"0")}</i><b>${esc(t)}</b><p>${esc(d)}</p></div>`).join("")}</div>
    <div class="kk up">Контакты</div><div class="ct">${co.phones.map(([t,v])=>`<div><small class="up">${esc(t)}</small><b class="ph">${WA}${esc(v)}</b></div>`).join("")}<div><small class="up">Почта</small><b class="ml">${(co.contactMail||co.mail).split(/\s*·\s*/).map(esc).join("<br>")}</b></div><div><small class="up">Сайт</small><b>${esc(co.site)}</b></div></div>
    <div class="rq"><b>${esc(co.full)}</b><br>БИН ${esc(co.bin)}<br>${esc(co.address)}<br>${co.bank.map(esc).join("<br>")}<br>Директор — ${esc(co.head)}</div></div>
   <div class="pn nm fr"><div class="kk up">В цифрах</div><h2>Что мы уже сделали</h2><div class="tot">${tot.slice(0,8).map(([b,t])=>`<div><b>${esc(b)}</b><span>${esc(t)}</span></div>`).join("")}</div>
@@ -861,7 +863,7 @@ ${screen?`<div class="pvn">Снаружи · клапан | задняя сто�
  // файл на объект), all — все отмеченные, по ним общий объём.
  function foldPerObject(objects,{logo="",company={},screen=false,all}={}){
   const co={...COMPANY,...company},list=Array.isArray(objects)?objects:[],every=Array.isArray(all)&&all.length?all:list,lg=logo?`<img src="${esc(logo)}" alt="">`:`<b>${esc(co.name)}</b>`;
-  const tot=totals(liveOf(every)),sv=(co.what||COMPANY.what).items.slice(0,8);
+  const tot=totals(liveOf(every)),sv=(co.what||COMPANY.what).items.slice(0,9);
   const side=o=>{const ps=(o.pictures||[]).slice(0,FOLD_PH),score=o.mainPx&&o.mainPx[0]>0?Math.min(o.mainPx[0]/100,o.mainPx[1]/210):9,cvp=ps[0]||"";
    const cover=score<4?`<div class="ph soft"${bg(cvp)}><b${bg(cvp)}></b><i${bg(cvp)}></i></div>`:`<div class="ph"${bg(cvp)}></div>`;
    const place=String(o.address||"").trim(),ws=(o.works||[]).filter(w=>String(w.name||"").trim()).slice(0,16),sum=sumHtml(o.summary);
