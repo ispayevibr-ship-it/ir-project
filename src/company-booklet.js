@@ -48,6 +48,18 @@
  slogan:["Мы строим не просто объекты —","мы строим доверие."],
   trust:"Каждый из этих проектов стал подтверждением нашего <b>профессионализма, качества исполнения и соблюдения сроков</b>. Мы гордимся доверием, оказанным нашими партнёрами."
  };
+
+ // журнал — свои тексты, буклет — свои (инженер 27.11.2026 «буклет и журнал это разные вещи … раздели их»)
+ const JOURNAL={about:["Мы стремимся к постоянному развитию, внедряем современные строительные технологии и применяем передовые материалы. Это позволяет повышать эффективность работ и обеспечивать высокое качество на всех этапах строительства."],
+  what:{lead:"Выполняем изготовление и монтаж металлоконструкций, установку технологического оборудования, демонтаж и другие строительно-монтажные работы на промышленных объектах Казахстана.",
+  items:[["Металлоконструкции","Монтаж каркасов зданий и цехов, эстакад, бункеров, площадок, лестниц и ограждений."],
+   ["Технологическое оборудование","Конвейеры, дозаторы, сушильное оборудование, мостовые краны, ёмкости, экстракторы, электролизные ванны."],
+   ["Ограждающие конструкции","Стеновые и кровельные сэндвич-панели, профнастил, нащельники, водосток, ворота, двери, зенитные фонари."],
+   ["Резервуары","Вертикальные стальные резервуары до 3 000 м³, противопожарные и кислотные резервуары, дымовые трубы."],
+   ["Изготовление","Изготовление металлоконструкций, регистров и опор трубопроводов, огрунтовка, окраска, огнезащита."],
+   ["Демонтаж и реконструкция","Демонтаж металлоконструкций, капитальный ремонт, перенос блочно-модульных зданий."],
+   ["Общестроительные работы","Фундаментные плиты, ФБС, бетонные колонны, приямки, подготовка строительной площадки."],
+   ["Документация","Полный пакет исполнительной документации по каждому объекту, закуп материалов."]]}};
  const esc=v=>String(v??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
  const num=v=>{const n=Number(String(v??"").replace(/\s/g,"").replace(",","."));return Number.isFinite(n)?n:0};
  const fmt=(v,d)=>{const n=num(v),k=d??3;
@@ -119,15 +131,17 @@
 .svcp:before{content:"";position:absolute;left:0;top:0;width:70mm;height:52mm;background:linear-gradient(135deg,var(--or2),var(--or));clip-path:polygon(0 0,100% 0,0 100%)}
 .svcp .sh{position:absolute;left:16mm;top:20mm;width:190mm}.svcp .sh .kick{font-size:7.5pt;font-weight:800;letter-spacing:1.4px;color:var(--ink);margin-bottom:2mm}
 .svcp h2{margin:0;font-size:34pt;font-weight:900;line-height:1;text-transform:uppercase;letter-spacing:-.5px}
-.svcp .ld{margin:3.5mm 0 0;font-size:10pt;line-height:1.55;color:#4b525c}
+.svcp .ld{margin:5mm 0 0;font-size:10pt;line-height:1.55;color:#4b525c}
 .svcp .lg{position:absolute;right:14mm;top:13mm;height:20mm;width:60mm;display:flex;justify-content:flex-end;align-items:flex-start}.svcp .lg img{max-height:20mm;max-width:60mm;object-fit:contain}.svcp .lg b{font-size:11pt;font-weight:900}
-.svcp .sg{position:absolute;left:16mm;right:16mm;top:54mm;bottom:47mm;display:grid;grid-template-columns:repeat(3,1fr);grid-template-rows:repeat(3,1fr);border-top:.35mm solid var(--ink);border-bottom:.35mm solid var(--ink)}
-.svcp .sc{padding:2.4mm 6mm 1.5mm 0;border-left:.35mm solid var(--ink);padding-left:6mm;overflow:hidden}.svcp .sc:nth-child(3n+1){border-left:0;padding-left:0}.svcp .sc:nth-child(n+4){border-top:.35mm solid var(--ink)}
-.svcp .sc i{display:block;font-style:normal;font-size:9pt;font-weight:800;color:var(--ord);letter-spacing:.6px;margin-bottom:1mm}
-.svcp .pr{position:absolute;left:16mm;right:16mm;top:167mm;bottom:9mm;display:grid;grid-template-columns:1.25fr repeat(4,1fr);gap:4mm}
+.svcp .sg{position:absolute;left:16mm;right:16mm;top:58mm;bottom:58mm;display:grid;grid-template-columns:repeat(4,1fr);grid-template-rows:1fr 1fr;border-top:.35mm solid var(--ink);border-bottom:.35mm solid var(--ink)}
+.svcp .sc{padding:4mm 6mm 3mm 0;border-left:.35mm solid var(--ink);padding-left:6mm;overflow:hidden}
+.svcp .sc:nth-child(4n+1){border-left:0;padding-left:0}
+.svcp .sc:nth-child(n+5){border-top:.35mm solid var(--ink)}
+.svcp .sc i{display:block;font-style:normal;font-size:9pt;font-weight:800;color:var(--ord);letter-spacing:.6px;margin-bottom:2mm}
+.svcp .pr{position:absolute;left:16mm;right:16mm;top:157mm;bottom:14mm;display:grid;grid-template-columns:1.25fr repeat(4,1fr);gap:4mm}
 .svcp .ph .kick{font-size:7.5pt;font-weight:800;letter-spacing:1.4px;color:var(--ord);margin-bottom:2mm}.svcp .ph h3{margin:0;font-size:15pt;font-weight:900;line-height:1.15}
-.svcp .pi{background:#faf6ee;border-radius:2.5mm;padding:2.6mm 3.6mm;border-top:1.2mm solid var(--or);overflow:hidden}.svcp .pi b{display:block;font-size:9pt;font-weight:800;line-height:1.2;margin-bottom:1.2mm}.svcp .pi p{margin:0;font-size:7.4pt;line-height:1.38;color:var(--mut)}
-.svcp .sc b{display:block;font-size:10pt;font-weight:800;line-height:1.15;margin-bottom:1.2mm}.svcp .sc p{margin:0;font-size:7pt;line-height:1.36;color:var(--mut)}
+.svcp .pi{background:#faf6ee;border-radius:2.5mm;padding:3.2mm 3.6mm;border-top:1.2mm solid var(--or);overflow:hidden}.svcp .pi b{display:block;font-size:9.5pt;font-weight:800;line-height:1.2;margin-bottom:2mm}.svcp .pi p{margin:0;font-size:7.8pt;line-height:1.45;color:var(--mut)}
+.svcp .sc b{display:block;font-size:11.5pt;font-weight:800;line-height:1.15;margin-bottom:2mm}.svcp .sc p{margin:0;font-size:7.9pt;line-height:1.45;color:var(--mut)}
 .svcp .bd{position:absolute;left:0;right:0;bottom:0;height:20mm;background:#1d2228;color:#fff;display:flex;align-items:center;padding:0 16mm;gap:8mm}
 .svcp .bd .sl{font-size:11pt;font-weight:800;line-height:1.25}.svcp .bd .sl i{font-style:normal;color:var(--or)}.svcp .bd .ct{margin-left:auto;text-align:right;font-size:8pt;line-height:1.6;color:#d6d9dd}
 .svcp .bd:before{content:"";position:absolute;left:0;top:0;width:6mm;bottom:0;background:var(--or)}
@@ -301,10 +315,10 @@
  const CAL='<svg viewBox="0 0 24 24" fill="none" stroke="#1d2228" stroke-width="2.4" stroke-linecap="round"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/></svg>';
  const bg=src=>src?` style="background-image:url('${String(src).replace(/'/g,"%27")}')"`:"";
 
- function servicesPage(co,logo){const w=co.what||COMPANY.what;
+ function servicesPage(co,logo){const w=co.jwhat||JOURNAL.what;
   return`<section class="page svcp"><div class="lg">${logo?`<img src="${esc(logo)}" alt="">`:`<b>${esc(co.name)}</b>`}</div>
   <div class="sh"><div class="kick up">Услуги</div><h2>Что мы делаем</h2><p class="ld">${esc(w.lead)}</p></div>
-  <div class="sg">${w.items.slice(0,9).map(([t,d],i)=>`<div class="sc"><i>${String(i+1).padStart(2,"0")}</i><b>${esc(t)}</b><p>${esc(d)}</p></div>`).join("")}</div>
+  <div class="sg">${w.items.slice(0,8).map(([t,d],i)=>`<div class="sc"><i>${String(i+1).padStart(2,"0")}</i><b>${esc(t)}</b><p>${esc(d)}</p></div>`).join("")}</div>
   ${(()=>{const pr=co.principles||COMPANY.principles;return`<div class="pr"><div class="ph"><div class="kick up">Наши принципы</div><h3>Работаем так, чтобы нам доверяли</h3></div>${pr.items.map(([t,d])=>`<div class="pi"><b>${esc(t)}</b><p>${esc(d)}</p></div>`).join("")}</div>`})()}
 </section>`}
  // лист «География работ» — последний лист буклета, как раздел сайта a-ts.kz (server/pb_public/index.html #geo:
@@ -368,13 +382,13 @@
   return`<section class="page"><div class="A1"><div class="lg">${logo?`<img src="${esc(logo)}" alt="">`:`<b>${esc(co.name)}</b>`}</div>
   <h3 class="up">${esc(co.full)}</h3><div class="bin">БИН ${esc(co.bin)}</div>
   <div class="kv"><small class="up">Юридический адрес</small>${esc(co.address)}</div>
-  <div class="kv"><small class="up">Телефоны</small>${co.phones.map(([k,v])=>esc(k)+": "+WA+esc(v)).join("<br>")}</div>
+  <div class="kv"><small class="up">Телефоны</small>${co.phones.map(([k,v])=>esc(k)+": "+esc(v)).join("<br>")}</div>
   <div class="kv"><small class="up">Почта и сайт</small>${esc(co.mail)}<br>${esc(co.site)}</div>
   <div class="kv"><small class="up">Директор</small>${esc(co.head)}</div>
   <div class="kv"><small class="up">Банковские реквизиты</small>${co.bank.map(esc).join("<br>")}</div>
   ${co.license?`<div class="lic"><small class="up">Лицензия</small>${esc(co.license)}</div>`:""}
   <div class="gar">${(co.pledges||COMPANY.pledges).map(([b,t])=>`<div><b>${esc(b)}</b>${esc(t)}</div>`).join("")}</div></div>
-  <div class="A2"><div class="kick up">О компании</div><h2>${esc(co.title)}</h2>${co.about.map(p=>`<p>${esc(p)}</p>`).join("")}
+  <div class="A2"><div class="kick up">О компании</div><h2>${esc(co.title)}</h2>${(co.jabout||JOURNAL.about).map(p=>`<p>${esc(p)}</p>`).join("")}
   <div class="nums${totals(objects).length>6?" many":""}">${totals(objects).map(([b,s])=>`<div><b>${esc(b)}</b><span>${esc(s)}</span></div>`).join("")}</div>
   <div class="adv">${co.adv.map(([b,s])=>`<div><b>${esc(b)}</b>${esc(s)}</div>`).join("")}</div>
   <div class="slogan">${esc(co.slogan[0])}<br><i>${esc(co.slogan[1])}</i></div></div>
@@ -513,7 +527,7 @@
    if(rows.length>maxR)continue;let tot=g*(rows.length-1),pen=0;const hs=rows.map(r=>{const sa=r.reduce((t,i)=>t+a[i],0),h=(W-g*(r.length-1))/sa;if(r.length===1&&n>2)pen+=.25;if(h<H*.18)pen+=1;return h});
    tot+=hs.reduce((t,h)=>t+h,0);const sc=Math.abs(Math.log(tot/H))+pen+.02*Math.abs(rows[0].length-Math.min(...rows.map(r=>r.length)));
    if(!best||sc<best.sc)best={sc,rows,hs}}return best}
- const ratioOk=x=>Number(x)>0.3&&Number(x)<4?Number(x):4/3;
+ const ratioOk=x=>Number(x)>0.3&&Number(x)<4?Math.round(Number(x)*100)/100:4/3; // до 0,01 — окно (малые фото), предпросмотр и PDF раскладывают одинаково
  function bigOf(a,W,H,g=3){const a0=a[0],Hb=Math.min(H*.72,W*.6/a0),bw=Hb*a0,rest=a.slice(1);let best=null;
   for(let k=0;k<=rest.length;k++){const R=k?rowsOf(rest.slice(0,k),W-bw-g,Hb,g,3):null,D=k<rest.length?rowsOf(rest.slice(k),W,H-Hb-g,g,2):null;
    if(k&&!R||k<rest.length&&!D)continue;const sc=(R?R.sc:(W-bw-g>20?.6:0))+(D?D.sc:(H-Hb-g>20?.6:0));if(!best||sc<best.sc)best={sc,k,R,D,bw,Hb}}return best}

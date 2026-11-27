@@ -548,7 +548,9 @@
   const $=q=>d.querySelector(q),st=$("[data-st]"),list=$("[data-list]"),go=$("[data-go]"),prog=$("[data-prog]"),pv=$("[data-pv]");
   const bad=e=>{st.className="ir-acc-st err";st.textContent=errText(e)};
   if(!window.irBooklet){bad(Error("Буклет не загружен — перезапустите программу"));go.disabled=true}
-  let objects=[],chosen=[],tab="done",q="";const info=new Map(),thumbs=new Map(),SHOW=60;
+  let objects=[],chosen=[],tab="done",q="";const info=new Map(),thumbs=new Map(),rats=new Map(),SHOW=60;
+  // пропорции фото для раскладки листа в окне — как в предпросмотре и PDF (инженер 27.11.2026 «фото разное строение … в журнале, в выгруженном и в предпросмотре»)
+  const ratOf=src=>new Promise(ok=>{if(!src)return ok(0);const i=new Image();i.onload=()=>ok(i.naturalWidth/Math.max(1,i.naturalHeight));i.onerror=()=>ok(0);i.src=src});
   // сохранённые листы видны в общем списке (инженер 24.11.2026 «сохраненные как то в общем списке пометь») — id → дата
   const locks=new Map(),flocks=new Map();
   const TABS=[["all","Все"],["done","Завершённые"],["work","В работе"],["prep","Подготовка"]];
@@ -608,7 +610,7 @@
     ask(s0.t,x,y,px,py,r)}};
   const worksOfX=x=>[...new Set((x.data.works||[]).map(w=>String(w.name||"").trim()).filter(Boolean))].slice(0,10);
   const fitKey=x=>[x.layout,x.gallery||0,x.files.length,String(x.data.summary||"").length,(x.data.works||[]).length].join("|");
-  const jObj=x=>({...x.data,files:x.files,layout:x.layout,gallery:x.gallery||0,lbl:lbArr(x.lb),lbl2:lbArr(x.lb2),pictures:x.files.slice(0,irBooklet.capOf(x)).map(f=>thumbs.get(f)||""),...(x.fitted&&x.fitted.key===fitKey(x)?x.fitted.v:{})});
+  const jObj=x=>({...x.data,files:x.files,layout:x.layout,gallery:x.gallery||0,lbl:lbArr(x.lb),lbl2:lbArr(x.lb2),pictures:x.files.slice(0,irBooklet.capOf(x)).map(f=>thumbs.get(f)||""),ratios:x.files.slice(0,irBooklet.capOf(x)).map(f=>rats.get(f)||0),...(x.fitted&&x.fitted.key===fitKey(x)?x.fitted.v:{})});
   // лист в окне подгоняется как в PDF (краткая характеристика на лист «Фото с объекта», мельче шрифт) — один раз на набор
   // макет «Буклет на объект» (инженер 27.11.2026): фото выбираются у каждого отмеченного объекта, не только у первых трёх
   const perObj=()=>{try{return Number(sp.inside)===4}catch(_){return false}};
@@ -667,7 +669,7 @@
    const o=objects.find(x=>Number(x.id)===id);let data;try{data=await siteObjectData(o,0)}catch(e){bad(e);return}
    const p=irBooklet.pickDefault(data),B=data.booklet||{};
    const x0={data,...p,locked:B.locked||null,flock:B.fold||null};if(FOLD&&fpPend[id])x0.fpicks=fpPend[id].slice();if(FOLD&&fxPend[id])x0.fno=fxPend[id].slice();x0.lb={labels:Array.isArray(B.labels)?B.labels:[],pts:B.pts&&typeof B.pts==="object"?B.pts:{},cur:""};x0.lb2={labels:Array.isArray(B.labels2)?B.labels2:[],pts:B.pts2&&typeof B.pts2==="object"?B.pts2:{}};info.set(id,x0);drawObj(id);
-   for(const f of [...new Set([...(data.booklet?.locked?.files||[]),...(data.booklet?.fold?.files||[]),...p.all.slice(0,SHOW)])]){if(thumbs.has(f))continue;thumbs.set(f,await irBooklet.thumb(await irBooklet.read(f)));if(d.isConnected){drawObj(id);d._sp?.()}}}
+   for(const f of [...new Set([...(data.booklet?.locked?.files||[]),...(data.booklet?.fold?.files||[]),...p.all.slice(0,SHOW)])]){if(thumbs.has(f))continue;thumbs.set(f,await irBooklet.thumb(await irBooklet.read(f)));rats.set(f,await ratOf(thumbs.get(f)));if(d.isConnected){drawObj(id);d._sp?.()}}}
   const draw=()=>{
    $("[data-tabs]").innerHTML=TABS.map(([k,t])=>{const n=k==="all"?objects.length:objects.filter(o=>STATUS_TAG(o.status||"")===k).length;
     return n||k==="all"||k===tab?`<button type="button" class="${k===tab?"on":""}" data-tab="${k}">${t}<span>${n}</span></button>`:""}).join("");
