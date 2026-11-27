@@ -388,14 +388,16 @@
  const worksOf=o=>(o.works||[]).filter(w=>num(w.volume)>0||num(w.plan)>0);
  // объём — смонтировано по программе на день выгрузки буклета, план — «из N», пока не выполнено (инженер 20.11.2026
  // «объемы должны также браться с программы, на день выгрузки буклета»)
- const planOf=w=>num(w.plan)>num(w.volume)?`<u>из ${esc(fmt(w.plan))}</u>`:"";
+ // работа в услугах — без числа и слова «услуга»: «Монтаж ворот», а не «Монтаж ворот — 1 услуга» (инженер 27.11.2026)
+ const isSvc=w=>/^услуг/i.test(String(w&&w.unit||"").trim());
+ const planOf=w=>!isSvc(w)&&num(w.plan)>num(w.volume)?`<u>из ${esc(fmt(w.plan))}</u>`:"";
  // сколько видов работ на листе объекта: у макета свой предел (Обложка 4, Тёмный 8, остальные 12) и wkMax после подгонки;
  // остальные — на листе «Фото с объекта» колонкой без заголовка (инженер 26.11.2026 «ВИДЫ РАБОТ (ПРОДОЛЖЕНИЕ) убери»; 24.11.2026 «если часть верхняя
  // работы не вмещаются, можно их перенести на вторую страницу?»)
  const WK_CAP={3:4,6:8,9:9,10:8};
  const wkShown=(o,i)=>{const l0=layoutOf(o,i),l=l0===7?1:l0===8?4:l0,cap=WK_CAP[l]||12;return Math.min(cap,o.wkMax||cap)};
  const wkRest=(o,i)=>worksOf(o).slice(wkShown(o,i));
- const wkRows=ws=>ws.map(w=>`<div class="wk"><b class="up">${esc(w.name)}</b><div class="vol"><i>${esc(fmt(num(w.volume)))}</i><s>${esc(unitOf(w.unit))}</s>${planOf(w)}</div></div>`).join("");
+ const wkRows=ws=>ws.map(w=>`<div class="wk"><b class="up">${esc(w.name)}</b>${isSvc(w)?"":`<div class="vol"><i>${esc(fmt(num(w.volume)))}</i><s>${esc(unitOf(w.unit))}</s>${planOf(w)}</div>`}</div>`).join("");
  const ringOf=p=>`<div class="ring" style="--p:${p}"><div><b>${p}%</b><span class="up">выполнено</span></div></div>`;
  const docOf=()=>`<div class="doc up"><em>${CHECK}</em>Полный пакет<br>исполнительной<br>документации</div>`;
  const logoOf=(co,logo,cls="")=>`<div class="logo${cls}">${logo?`<img src="${esc(logo)}" alt="">`:`<b>${esc(co.name)}</b>`}</div>`;
@@ -449,7 +451,7 @@
    <div class="hd"><div class="kick up">${esc(o.years?String(o.years):"Объект")}${place?" · "+esc(place):""}</div><h1 class="ttl up${titleCls(name)}">${esc(name)}</h1>
    ${o.summary&&!o.sumMoved?`<div class="sm">${sumHtml(o.summary)}</div>`:""}</div>
    ${rest.length?`<div class="thumbs">${rest.slice(0,3).map(s=>`<div${bg(s)}></div>`).join("")}</div>`:""}
-   <div class="tiles"><div class="tw">${ws.map(w=>`<div class="tl"><i>${esc(fmt(num(w.volume)))}<s>${esc(unitOf(w.unit))}</s></i>${planOf(w)}<b class="up">${esc(w.name)}</b></div>`).join("")}</div>
+   <div class="tiles"><div class="tw">${ws.map(w=>`<div class="tl">${isSvc(w)?"":`<i>${esc(fmt(num(w.volume)))}<s>${esc(unitOf(w.unit))}</s></i>`}${planOf(w)}<b class="up">${esc(w.name)}</b></div>`).join("")}</div>
    <div class="tr">${ringOf(p)}</div></div>
    <div class="strip"><div><small class="up">Генеральный подрядчик</small>${nmOf(o.general_contractor)}</div><div><small class="up">Заказчик</small>${nmOf(o.customer)}</div><div class="doc up"><em>${CHECK}</em>Полный пакет исполнительной документации</div></div></section>`}
   if(lay===5){const name=String(o.name||"Объект"),ws=worksOf(o).slice(0,12),p=doneOf(o);
@@ -464,11 +466,11 @@
    <div class="wks">${wkRows(worksOf(o).slice(0,Math.min(8,o.wkMax||8)))}</div><div class="badges">${ringOf(p)}<div class="meta">${yearOf(o)}<p>${esc(o.address||"")}</p></div></div>
    <div class="gp"><small class="up">Генподрядчик</small>${esc(o.general_contractor||"—")}<small class="up">Заказчик</small>${esc(o.customer||"—")}</div></div></section>`}
   // «Журнал» — фото слева во всю высоту, справа как разворот журнала: главный объём крупно оранжевым, остальные списком
-  if(lay===9){const name=String(o.name||"Объект"),ws=worksOf(o),cap=Math.min(9,o.wkMax||9),h=ws[0],p=doneOf(o),place=String(o.address||"").trim(),hv=h?fmt(num(h.volume)):"";
+  if(lay===9){const name=String(o.name||"Объект"),ws=worksOf(o),cap=Math.min(9,o.wkMax||9),h=ws[0],p=doneOf(o),place=String(o.address||"").trim(),hv=h&&!isSvc(h)?fmt(num(h.volume)):"";
    return`<section class="page lay9">${phOf(o,9,main)}<div class="bar"></div>${logoOf(co,logo," l9")}
    ${rest.length?`<div class="th">${rest.map(s=>`<div${bg(s)}></div>`).join("")}</div>`:""}
    <div class="in"><div class="kick up">${esc(o.years?String(o.years):"Объект")}${place?" · "+esc(place):""}</div><h1 class="ttl up${titleCls(name)}">${esc(name)}</h1>
-   ${h?`<div class="hero${hv.length>7?" s":""}"><i>${esc(hv)}<s>${esc(unitOf(h.unit))}</s></i><b class="up">${esc(h.name)}</b>${planOf(h)}</div>`:""}
+   ${h?`<div class="hero${hv.length>7?" s":""}">${hv?`<i>${esc(hv)}<s>${esc(unitOf(h.unit))}</s></i>`:""}<b class="up">${esc(h.name)}</b>${planOf(h)}</div>`:""}
    <div class="wks">${wkRows(ws.slice(1,cap))}</div>${o.summary&&!o.sumMoved?`<div class="sum">${sumHtml(o.summary)}</div>`:""}
    <div class="badges">${ringOf(p)}${docOf()}</div>
    <div class="gp"><div><small class="up">Генподрядчик</small>${esc(o.general_contractor||"—")}</div><div><small class="up">Заказчик</small>${esc(o.customer||"—")}</div></div></div></section>`}
@@ -687,14 +689,14 @@ ${IN===0?spreadHtml(spread)+mk([100,200])+"</section>":IN===2?foldThree(shown)+m
   <div class="pn sv"><div class="kk up">Услуги</div><h2>Что мы делаем</h2>${sv.map(([t,d],i)=>`<div class="it"><i>${String(i+1).padStart(2,"0")}</i><b>${esc(t)}</b><p>${esc(d)}</p></div>`).join("")}</div>
   <div class="pn ob"><div class="kk up">Объекты</div><h2>Наши объекты</h2>${shown.map(o=>{const ws=worksOf(o).slice(0,2),place=String(o.address||"").trim();
     const ps=(o.pictures||[]).slice(0,FOLD_PH),op=`<div class="op"${bg(ps[0])}>${o.years?`<span>${esc(o.years)}</span>`:""}</div>`;
-    return`<div class="oc">${ps.length>1?`<div class="og n${ps.length}">${op}${ps.slice(1).map(p=>`<i${bg(p)}></i>`).join("")}</div>`:op}<b>${esc(o.name||"Объект")}</b>${place?`<small>${esc(place)}</small>`:""}<div class="ov">${ws.map(w=>`<em>${esc(fmt(num(w.volume)))}<s>${esc(unitOf(w.unit))}</s></em>`).join("")}</div></div>`}).join("")}
+    return`<div class="oc">${ps.length>1?`<div class="og n${ps.length}">${op}${ps.slice(1).map(p=>`<i${bg(p)}></i>`).join("")}</div>`:op}<b>${esc(o.name||"Объект")}</b>${place?`<small>${esc(place)}</small>`:""}<div class="ov">${ws.filter(w=>!isSvc(w)).map(w=>`<em>${esc(fmt(num(w.volume)))}<s>${esc(unitOf(w.unit))}</s></em>`).join("")}</div></div>`}).join("")}
    ${list.length>shown.length?`<div class="om">и ещё ${list.length-shown.length} ${objWord(list.length-shown.length)} — на сайте ${esc(co.site)}</div>`:""}</div>${mk([100,200])}${inLb}</section>`}`;
   return`<!doctype html><html lang="ru"><head><meta charset="utf-8"><title>Буклет ${esc(co.name)}</title>
 <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800;900&display=swap" rel="stylesheet"><style>${CSS}${FOLD_CSS}${screen?SCREEN.replace(/\.page\{/g,".tf{")+".tf{margin:0 auto 10mm}":""}</style></head><body>
 ${screen?`<div class="pvn">Снаружи · клапан | задняя сторона | обложка</div>`:""}${screen?out.replace(/<\/section>(\s*)<section class="tf/,`</section><div class="pvn">Внутри · ${["фото на весь разворот с подписями","цифры | услуги | объекты","три объекта","фотоколлаж"][IN]}</div><section class="tf`):out}</body></html>`}
  function foldThree(list){return`<section class="tf">${list.slice(0,3).map((o,k)=>{const ps=(o.pictures||[]).slice(0,FOLD_PH),place=String(o.address||"").trim(),ws=worksOf(o).slice(0,4);
    return`<div class="pn o3 k${k}"><div class="no">${String(k+1).padStart(2,"0")}</div><div class="m"${bg(ps[0])}>${o.years?`<span>${esc(o.years)}</span>`:""}</div>${ps.length>1?`<div class="s n${ps.length-1}">${ps.slice(1).map(p=>`<i${bg(p)}></i>`).join("")}</div>`:""}
-    <h3>${esc(o.name||"Объект")}</h3>${place?`<small>${esc(place)}</small>`:""}${o.customer?`<small>Заказчик — ${esc(o.customer)}</small>`:""}<div class="w">${ws.map(w=>`<div><span>${esc(w.name||"")}</span><b>${esc(fmt(num(w.volume)))} ${esc(unitOf(w.unit))}</b></div>`).join("")}</div></div>`}).join("")}`}
+    <h3>${esc(o.name||"Объект")}</h3>${place?`<small>${esc(place)}</small>`:""}${o.customer?`<small>Заказчик — ${esc(o.customer)}</small>`:""}<div class="w">${ws.map(w=>`<div><span>${esc(w.name||"")}</span>${isSvc(w)?"":`<b>${esc(fmt(num(w.volume)))} ${esc(unitOf(w.unit))}</b>`}</div>`).join("")}</div></div>`}).join("")}`}
  function foldCollage(list){const ps=[];list.slice(0,FOLD_OBJ).forEach(o=>(o.pictures||[]).slice(0,FOLD_PH).forEach((p,k)=>ps.push([p,k?"":o.name||""])));
   const n=Math.min(9,ps.length);if(!n)return`<section class="tf co">`;const [c,r,big]=COLLAGE[n];
   return`<section class="tf co"><div class="cg" style="grid-template-columns:repeat(${c},1fr);grid-template-rows:repeat(${r},1fr)">${ps.slice(0,n).map(([p,t],k)=>`<i class="${big&&!k?"big":""}"${bg(p)}>${t?`<span>${esc(t)}</span>`:""}</i>`).join("")}</div>`}
