@@ -520,8 +520,15 @@
  async function saveBooklet(id,files,layout,locked,gallery=0,lb={}){
   const api=irProject.data.forObject(id).section("object-meta"),rows=await api.list().catch(()=>[]),r=rows.find(x=>x.record_type===BOOKLET);
   const was=r?.data?.locked||null,lk=locked===undefined?was:locked;
-  const body={record_type:BOOKLET,title:"Фото для буклета",data:{entity_type:BOOKLET,files:lk?lk.files:files,layout:lk?lk.layout:layout,gallery:Number(lk?lk.gallery:gallery)||0,labels:(lk?lk.labels:lb.labels)||null,pts:(lk?lk.pts:lb.pts)||{},labels2:(lk?lk.labels2:lb.labels2)||null,pts2:(lk?lk.pts2:lb.pts2)||{},...(lk?{locked:lk}:{})}};
+  const body={record_type:BOOKLET,title:"Фото для буклета",data:{entity_type:BOOKLET,files:lk?lk.files:files,layout:lk?lk.layout:layout,gallery:Number(lk?lk.gallery:gallery)||0,labels:(lk?lk.labels:lb.labels)||null,pts:(lk?lk.pts:lb.pts)||{},labels2:(lk?lk.labels2:lb.labels2)||null,pts2:(lk?lk.pts2:lb.pts2)||{},...(lk?{locked:lk}:{}),...(r?.data?.fold?{fold:r.data.fold}:{})}};
   if(!r)await api.create(body);else await api.update(r.id,body)
+ }
+ // «Сохранить лист» в буклете (инженер 27.11.2026 «буклеты тоже сделай сохранить», «и редактировать»): фото и сведения
+ // объекта на день сохранения — поле fold записи «Фото для буклета», журнал его не трогает
+ async function saveFold(id,F){
+  const api=irProject.data.forObject(id).section("object-meta"),rows=await api.list().catch(()=>[]),r=rows.find(x=>x.record_type===BOOKLET);
+  const data={...(r?.data||{entity_type:BOOKLET,files:[],layout:0})};if(F)data.fold=F;else delete data.fold;
+  const body={record_type:BOOKLET,title:"Фото для буклета",data};if(!r)await api.create(body);else await api.update(r.id,body)
  }
  // инженер 24.11.2026 «переименуй Буклет в Журнал, а для ЕвроБуклета сделай отдельную (как сейчас Буклет) и переименуй в
  // Буклет»: одно окно, два вида — «Журнал» (многостраничный PDF) и «Буклет» ({fold:true}, в 3 сложения)
@@ -543,7 +550,7 @@
   if(!window.irBooklet){bad(Error("Буклет не загружен — перезапустите программу"));go.disabled=true}
   let objects=[],chosen=[],tab="done",q="";const info=new Map(),thumbs=new Map(),SHOW=60;
   // сохранённые листы видны в общем списке (инженер 24.11.2026 «сохраненные как то в общем списке пометь») — id → дата
-  const locks=new Map();
+  const locks=new Map(),flocks=new Map();
   const TABS=[["all","Все"],["done","Завершённые"],["work","В работе"],["prep","Подготовка"]];
   const match=o=>(tab==="all"||STATUS_TAG(o.status||"")===tab)&&(!q||[o.name,o.customer,o.address].join(" ").toLowerCase().includes(q));
   const setProg=(pct,title,sub,cls="")=>{prog.hidden=false;prog.className="ir-so-prog"+(cls?" "+cls:"");$("[data-pb]").style.width=Math.max(0,Math.min(100,pct)).toFixed(1)+"%";
@@ -617,8 +624,12 @@
   const lbSave=(id,x)=>saveBooklet(id,x.files,x.layout,undefined,x.gallery,{labels:x.lb.labels,pts:x.lb.pts,labels2:x.lb2.labels,pts2:x.lb2.pts}).catch(()=>{});
   const photosHtml=id=>{const x=info.get(id);if(!x)return`<div class="ir-so-empty">Загружаем фото…</div>`;
    if(FOLD){const fs=foldPics(x),PH=fph(),k=objSheets()?0:chosen.indexOf(id);
-    if(!x.all.length)return`<div class="ir-so-empty">У объекта нет фото</div>`;
-    return`<div class="ir-bk-tools"><span>${k<irBooklet.FOLD_OBJ?`Фото объекта в буклете — щёлкайте по порядку: <b>1</b> — главное, ещё до ${PH-1} — рядом. Выбрано: ${fs.length} из ${PH}`:`В буклет идут первые ${irBooklet.FOLD_OBJ} отмеченных объекта — этот даёт только место на карте`}</span></div>
+    if(x.flock){const F=x.flock;
+     return`<div class="ir-bk-tools ir-bk-lk"><span>🔒 <b>Лист сохранён ${esc(F.date||"")}</b> — объёмы, сведения и фото (${(F.files||[]).length}) объекта больше не меняются; о фирме — по нынешним данным</span><span class="grow"></span><button type="button" class="ir-acc-btn small" data-fedit>Редактировать</button></div>
+     <div class="ir-bk-ph ir-bk-closed">${(F.files||[]).map((f,k)=>{const t=thumbs.get(f);return`<span class="ir-bk-t on">${t?`<img src="${esc(t)}" alt="">`:'<span class="ir-hero-no">…</span>'}<b>${k+1}</b></span>`}).join("")}</div>`}
+    const fsv=`<span class="grow"></span><button type="button" class="ir-acc-btn small main" data-flock title="Лист объекта в буклете больше не меняется — объёмы, сведения и фото на сегодня, пока не нажать «Редактировать»">Сохранить лист</button>`;
+    if(!x.all.length)return`<div class="ir-so-empty">У объекта нет фото</div><div class="ir-bk-tools">${fsv}</div>`;
+    return`<div class="ir-bk-tools"><span>${k<irBooklet.FOLD_OBJ?`Фото объекта в буклете — щёлкайте по порядку: <b>1</b> — главное, ещё до ${PH-1} — рядом. Выбрано: ${fs.length} из ${PH}`:`В буклет идут первые ${irBooklet.FOLD_OBJ} отмеченных объекта — этот даёт только место на карте`}</span>${fsv}</div>
     ${k<irBooklet.FOLD_OBJ?`<div class="ir-bk-ph">${x.all.slice(0,SHOW).map((f,i)=>{const t=thumbs.get(f);const n=fs.indexOf(f)+1;return`<button type="button" class="ir-bk-t${n?" on":""}" data-k="${i}">${t?`<img src="${esc(t)}" alt="">`:'<span class="ir-hero-no">…</span>'}${n?`<b>${n}</b>`:""}</button>`}).join("")}</div>`:""}`}
    if(x.locked){const L=x.locked,lay=["Авто",...irBooklet.LAYOUTS][Number(L.layout)||0]||"Авто";
     return`<div class="ir-bk-tools ir-bk-lk"><span>🔒 <b>Лист сохранён ${esc(L.date||"")}</b> — объёмы, текст, фото (${(L.files||[]).length}), подписи (${Object.keys(L.pts||{}).length}) и макет «${esc(lay)}» больше не меняются</span><span class="grow"></span><button type="button" class="ir-acc-btn small" data-edit>Редактировать</button></div>
@@ -639,6 +650,11 @@
     try{await saveBooklet(id,L.files,L.layout,L);x.locked=L;locks.set(id,L.date||"")}catch(err){bad(err)}draw()});
    box.querySelector("[data-edit]")?.addEventListener("click",async e=>{busy(e.target);
     try{const lb={labels:x.locked.labels||x.lb.labels,pts:x.locked.pts||{},labels2:x.locked.labels2||x.lb2.labels,pts2:x.locked.pts2||{}};await saveBooklet(id,x.locked.files,x.locked.layout,null,x.locked.gallery,lb);x.lb={...x.lb,labels:lb.labels,pts:lb.pts};x.lb2={labels:lb.labels2||[],pts:lb.pts2};x.files=[...x.locked.files];x.layout=Number(x.locked.layout)||0;x.gallery=Number(x.locked.gallery)||0;x.locked=null;locks.delete(id)}catch(err){bad(err)}draw()});
+   box.querySelector("[data-flock]")?.addEventListener("click",async e=>{busy(e.target);
+    const F={at:new Date().toISOString(),date:today(),files:foldPics(x),data:Object.fromEntries(LOCK_KEYS.map(k=>[k,x.data[k]]))};
+    try{await saveFold(id,F);x.flock=F;flocks.set(id,F.date||"")}catch(err){bad(err)}draw()});
+   box.querySelector("[data-fedit]")?.addEventListener("click",async e=>{busy(e.target);
+    try{const fs=(x.flock.files||[]).slice();await saveFold(id,null);x.flock=null;x.fpicks=fs;flocks.delete(id)}catch(err){bad(err)}draw()});
    if(FOLD){box.querySelectorAll("[data-k]").forEach(b=>b.onclick=()=>{const f=x.all[Number(b.dataset.k)],a=foldPics(x).slice(),i=a.indexOf(f);
     const no=new Set(x.fno||[]);if(i>=0){a.splice(i,1);no.add(f)}else{no.delete(f);if(a.length>=fph())a.pop();a.push(f)}x.fpicks=a;x.fno=[...no];drawObj(id)});return}
    box.querySelectorAll("[data-k]").forEach(b=>b.onclick=()=>{const f=x.all[Number(b.dataset.k)],i=x.files.indexOf(f);
@@ -650,15 +666,15 @@
   async function load(id){if(info.has(id))return drawObj(id);
    const o=objects.find(x=>Number(x.id)===id);let data;try{data=await siteObjectData(o,0)}catch(e){bad(e);return}
    const p=irBooklet.pickDefault(data),B=data.booklet||{};
-   const x0={data,...p,locked:B.locked||null};if(FOLD&&fpPend[id])x0.fpicks=fpPend[id].slice();if(FOLD&&fxPend[id])x0.fno=fxPend[id].slice();x0.lb={labels:Array.isArray(B.labels)?B.labels:[],pts:B.pts&&typeof B.pts==="object"?B.pts:{},cur:""};x0.lb2={labels:Array.isArray(B.labels2)?B.labels2:[],pts:B.pts2&&typeof B.pts2==="object"?B.pts2:{}};info.set(id,x0);drawObj(id);
-   for(const f of [...new Set([...(data.booklet?.locked?.files||[]),...p.all.slice(0,SHOW)])]){if(thumbs.has(f))continue;thumbs.set(f,await irBooklet.thumb(await irBooklet.read(f)));if(d.isConnected){drawObj(id);d._sp?.()}}}
+   const x0={data,...p,locked:B.locked||null,flock:B.fold||null};if(FOLD&&fpPend[id])x0.fpicks=fpPend[id].slice();if(FOLD&&fxPend[id])x0.fno=fxPend[id].slice();x0.lb={labels:Array.isArray(B.labels)?B.labels:[],pts:B.pts&&typeof B.pts==="object"?B.pts:{},cur:""};x0.lb2={labels:Array.isArray(B.labels2)?B.labels2:[],pts:B.pts2&&typeof B.pts2==="object"?B.pts2:{}};info.set(id,x0);drawObj(id);
+   for(const f of [...new Set([...(data.booklet?.locked?.files||[]),...(data.booklet?.fold?.files||[]),...p.all.slice(0,SHOW)])]){if(thumbs.has(f))continue;thumbs.set(f,await irBooklet.thumb(await irBooklet.read(f)));if(d.isConnected){drawObj(id);d._sp?.()}}}
   const draw=()=>{
    $("[data-tabs]").innerHTML=TABS.map(([k,t])=>{const n=k==="all"?objects.length:objects.filter(o=>STATUS_TAG(o.status||"")===k).length;
     return n||k==="all"||k===tab?`<button type="button" class="${k===tab?"on":""}" data-tab="${k}">${t}<span>${n}</span></button>`:""}).join("");
    const rows=objects.filter(o=>match(o)||chosen.includes(Number(o.id)));drawN();
    list.innerHTML=rows.map(o=>{const id=Number(o.id),on=chosen.includes(id),tag=STATUS_TAG(o.status||"");
-    const lk=!FOLD&&locks.has(id);
-    return`<div class="ir-bk-obj${on?" on":""}${lk?" lk":""}"><label class="ir-so-obj${on?" on":""}" data-id="${id}"><input type="checkbox" ${on?"checked":""}><span class="t"><b>${esc(o.name)}</b><small>${esc([o.customer,o.address].filter(Boolean).join(" · ")||"—")}</small></span><span class="ir-so-tags">${lk?`<span class="ir-so-tag lk" title="Лист объекта сохранён и не меняется, пока не нажать «Редактировать»">🔒 Сохранён${locks.get(id)?" "+esc(locks.get(id)):""}</span>`:""}<span class="ir-so-tag ${tag}">${esc(o.status||"—")}</span></span></label>${on?`<div class="ir-bk-box" data-box="${id}"></div>`:""}</div>`}).join("")||
+    const lkm=FOLD?flocks:locks,lk=lkm.has(id);
+    return`<div class="ir-bk-obj${on?" on":""}${lk?" lk":""}"><label class="ir-so-obj${on?" on":""}" data-id="${id}"><input type="checkbox" ${on?"checked":""}><span class="t"><b>${esc(o.name)}</b><small>${esc([o.customer,o.address].filter(Boolean).join(" · ")||"—")}</small></span><span class="ir-so-tags">${lk?`<span class="ir-so-tag lk" title="Лист объекта сохранён и не меняется, пока не нажать «Редактировать»">🔒 Сохранён${lkm.get(id)?" "+esc(lkm.get(id)):""}</span>`:""}<span class="ir-so-tag ${tag}">${esc(o.status||"—")}</span></span></label>${on?`<div class="ir-bk-box" data-box="${id}"></div>`:""}</div>`}).join("")||
     `<div class="ir-so-empty">${objects.length?"Ничего не найдено":"В программе пока нет объектов"}</div>`;
    list.querySelectorAll(".ir-so-obj").forEach(l=>{const i=l.querySelector("input");i.onchange=()=>{const id=Number(l.dataset.id);chosen=chosen.filter(x=>x!==id);if(i.checked)chosen.push(id);draw()}});
    for(const id of chosen)load(id);d._sp?.()
@@ -669,13 +685,13 @@
   $("[data-all]").onclick=()=>{objects.filter(match).forEach(o=>{const id=Number(o.id);if(!chosen.includes(id))chosen.push(id)});draw()};
   $("[data-none]").onclick=()=>{chosen=[];draw()};
   try{objects=sarr(await irProject.data.objects.list());if(!objects.some(o=>STATUS_TAG(o.status||"")==="done"))tab="all";draw()}catch(e){bad(e)}
-  if(!FOLD){const ids=objects.map(o=>Number(o.id));let k=0;
+  {const ids=objects.map(o=>Number(o.id)),lkm=FOLD?flocks:locks;let k=0;
    const one=async()=>{while(k<ids.length){const id=ids[k++];
-    const rows=await irProject.data.forObject(id).section("object-meta").list().catch(()=>[]);const L=sarr(rows).find(x=>x.record_type===BOOKLET)?.data?.locked;
-    if(L)locks.set(id,L.date||"")}};
-   await Promise.all([one(),one(),one(),one()]);if(locks.size&&d.isConnected)draw()}
+    const rows=await irProject.data.forObject(id).section("object-meta").list().catch(()=>[]);const D=sarr(rows).find(x=>x.record_type===BOOKLET)?.data,L=FOLD?D?.fold:D?.locked;
+    if(L)lkm.set(id,L.date||"")}};
+   await Promise.all([one(),one(),one(),one()]);if(lkm.size&&d.isConnected)draw()}
   const services=()=>$("[data-svc]").checked,withMap=()=>$("[data-map]").checked,fold=()=>FOLD;
-  const foldPics=x=>{const no=new Set(x.fno||[]),out=[];for(const f of [...(x.fpicks||[]),...((x.locked?.files||x.files)||[]),...(x.all||[])])if(!no.has(f)&&!out.includes(f))out.push(f);return out.slice(0,fph())};
+  const foldPics=x=>{if(x.flock)return (x.flock.files||[]).slice(0,fph());const no=new Set(x.fno||[]),out=[];for(const f of [...(x.fpicks||[]),...((x.locked?.files||x.files)||[]),...(x.all||[])])if(!no.has(f)&&!out.includes(f))out.push(f);return out.slice(0,fph())};
   // евробуклет (инженер 24.11.2026 «чтобы в 3 раза сложить можно было»): листы «Что мы делаем» и «География» в нём всегда
   // разворот евробуклета — одно фото на весь разворот с подписями направлений работ (инженер 24.11.2026 прислал образец):
   // фото — из фото отмеченных объектов, точку каждой подписи ставит щелчок по фото. Помнится на этом компьютере.
@@ -695,7 +711,7 @@
    if(IN!==4)lbBind(box,st,()=>DEF,()=>foldIn(IN,st),()=>{sp.labels=LBL=st.labels;if(IN)sp.pk[IN]=st.pts;else sp.pts=st.pts;spSave();drawSp()})};
   // при других макетах разворота — свои точки у каждого макета, подписи общие
   const spSt=IN=>({labels:LBL,pts:IN?(sp.pk[IN]||(sp.pk[IN]={})):sp.pts});
-  const foldObjs=()=>chosen.map((id,k)=>{const x=info.get(id);if(!x)return null;return{...x.data,...(x.locked?.data||{}),pictures:k<irBooklet.FOLD_OBJ||objSheets()?foldPics(x).map(f=>thumbs.get(f)||""):[]}}).filter(Boolean);
+  const foldObjs=()=>chosen.map((id,k)=>{const x=info.get(id);if(!x)return null;return{...x.data,...((x.flock||x.locked)?.data||{}),pictures:k<irBooklet.FOLD_OBJ||objSheets()?foldPics(x).map(f=>thumbs.get(f)||""):[]}}).filter(Boolean);
   const foldIn=(IN,st)=>irBooklet.foldBuild(foldObjs(),{inside:IN,spread:{pts:lbArr(st),...(IN?{}:{...spCap(),src:thumbs.get(sp.file)||""})}}).replace("</style>","section.tf:first-of-type{display:none}body{margin:0;overflow:hidden}</style>");
   const spreadOpt=()=>{const IN=Number(sp.inside)||0;if(fold()&&IN)return{labels:LBL.slice(),pts:lbArr(spSt(IN))};if(!fold()||!sp.file)return null;
    return{file:sp.file,labels:LBL.slice(),pts:lbArr({labels:LBL,pts:sp.pts}),...spCap()}};
@@ -746,7 +762,7 @@
   async function collect(save){await firmAll();const data=[];for(const [i,id] of chosen.entries()){const o=objects.find(x=>Number(x.id)===id);setProg(i/chosen.length*20,"Собираем объекты…",(i+1)+" из "+chosen.length+" — "+(o?.name||""));
     if(!info.has(id))await load(id);const x=info.get(id);if(!x)continue;
     const live=x.locked?{live:Object.fromEntries(LOCK_KEYS.map(k=>[k,x.data[k]]))}:{};
-    if(FOLD){data.push({...x.data,...(x.locked?.data||{}),...live,files:foldPics(x),layout:0,gallery:0});continue}
+    if(FOLD){const fl=x.flock,lv=fl||x.locked?{live:Object.fromEntries(LOCK_KEYS.map(k=>[k,x.data[k]]))}:{};data.push({...x.data,...((fl||x.locked)?.data||{}),...lv,files:foldPics(x),layout:0,gallery:0});continue}
     if(x.locked){const L=x.locked;data.push({...x.data,...L.data,...live,asOf:L.date,files:L.files||[],layout:Number(L.layout)||0,gallery:Number(L.gallery)||0,lbl:lbArr({labels:L.labels||[],pts:L.pts||{}}),lbl2:lbArr({labels:L.labels2||[],pts:L.pts2||{}})});continue}
     if(save)await lbSave(id,x);data.push({...x.data,files:x.files,layout:x.layout,gallery:x.gallery||0,lbl:lbArr(x.lb),lbl2:lbArr(x.lb2)})}return data}
   // предпросмотр — те же листы, что уйдут в PDF, уменьшенными, с малыми фото (инженер 20.11.2026 «сделать
