@@ -570,12 +570,17 @@
  // сохранённый лист объекта (live — то, что сейчас в программе): лист объекта остаётся на день сохранения, а сведения о
  // фирме — общий объём, заказчики, география — всегда по нынешним данным (инженер 27.11.2026 «при выгрузке (сохраненных)
  // обновляется только информация о компании - объемы и тд, а об объекте остается»)
+ // сведения о фирме — по всем объектам фирмы, как на сайте (инженер 27.11.2026 «где вся инфа и объемы компании за
+ // все время по всем объектам?», «на передней стороне вся инфа о компании, на задней объект»): all — все объекты из
+ // окна, отмеченные в буклете берутся своими данными (rid), остальные — как есть
+ const firmOf=(all,data)=>{if(!Array.isArray(all)||!all.length)return null;const mine=new Map((data||[]).filter(o=>o&&o.rid).map(o=>[Number(o.rid),o]));
+  const out=all.map(o=>mine.get(Number(o?.rid))||o);for(const o of data||[])if(!o?.rid||!all.some(a=>Number(a?.rid)===Number(o.rid)))out.push(o);return out};
  const liveOf=list=>(Array.isArray(list)?list:[]).map(o=>o&&o.live?{...o,...o.live}:o);
- function build(objects,{logo="",company={},services=true,map=true,screen=false}={}){
-  const d=new Date(),co={date:String(d.getDate()).padStart(2,"0")+"."+String(d.getMonth()+1).padStart(2,"0")+"."+d.getFullYear(),...COMPANY,...company},list=(Array.isArray(objects)?objects:[]).map((o,i)=>{const m=LAYOUT_MAX[layoutOf(o,i)];return(o.pictures||[]).length>m?{...o,pictures:o.pictures.slice(0,m)}:o});
+ function build(objects,{logo="",company={},services=true,map=true,screen=false,all}={}){
+  const d=new Date(),co={date:String(d.getDate()).padStart(2,"0")+"."+String(d.getMonth()+1).padStart(2,"0")+"."+d.getFullYear(),...COMPANY,...company},list=(Array.isArray(objects)?objects:[]).map((o,i)=>{const m=LAYOUT_MAX[layoutOf(o,i)];return(o.pictures||[]).length>m?{...o,pictures:o.pictures.slice(0,m)}:o}),firm=liveOf(Array.isArray(all)&&all.length?all:list);
   return`<!doctype html><html lang="ru"><head><meta charset="utf-8"><title>Журнал ${esc(co.name)}</title>
 <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800;900&display=swap" rel="stylesheet"><style>${CSS}${screen?SCREEN:""}</style></head><body>
-${(()=>{const pages=[["О компании",aboutPage(liveOf(list),co,logo)],...(services?[["Что мы делаем",servicesPage(co,logo)]]:[]),...list.flatMap((o,i)=>{const g=galleryPage(o,co,logo,i),n=String(o.name||"Объект");return[[n,objectPage(o,co,logo,i)],...(g?[[n+" — фото",g]]:[])]})];const mp=map&&mapPage(liveOf(list),co,logo);if(mp)pages.push(["География работ",mp]);
+${(()=>{const pages=[["О компании",aboutPage(firm,co,logo)],...(services?[["Что мы делаем",servicesPage(co,logo)]]:[]),...list.flatMap((o,i)=>{const g=galleryPage(o,co,logo,i),n=String(o.name||"Объект");return[[n,objectPage(o,co,logo,i)],...(g?[[n+" — фото",g]]:[])]})];const mp=map&&mapPage(firm,co,logo);if(mp)pages.push(["География работ",mp]);
  return pages.map(([t,h],i)=>(screen?`<div class="pvn">Лист ${i+1} · ${esc(t)}</div>`:"")+h).join("")})()}</body></html>`
  }
 
@@ -681,9 +686,9 @@ ${(()=>{const pages=[["О компании",aboutPage(liveOf(list),co,logo)],...
   const row=pts.length?"":`<div class="row">${(sp.labels||SPREAD_LABELS()).map(t=>`<div class="lb up">${esc(t)}</div>`).join("")}</div>`;
   const cap=sp.cap&&sp.cap.name?`<div class="cap"><small class="up">На фото</small><b>${esc(sp.cap.name)}</b>${sp.cap.place?`<span>${esc(sp.cap.place)}</span>`:""}</div>`:"";
   return`<section class="tf sp">${ph}<div class="sh"></div><svg class="ld" viewBox="0 0 297 210">${svg}</svg>${lbs}${row}${cap}`}
- function foldBuild(objects,{logo="",company={},screen=false,spread=null,inside}={}){
+ function foldBuild(objects,{logo="",company={},screen=false,spread=null,inside,all}={}){
   let IN=inside===undefined?(spread&&spread.src?0:1):Number(inside)||0;if(IN===0&&!(spread&&spread.src))IN=1;
-  if(IN===4)return foldPerObject(objects,{logo,company,screen});
+  if(IN===4)return foldPerObject(objects,{logo,company,screen,all});
   const spOn=IN!==1,inLb=IN?labelsLayer(spread?.pts):"";
   const co={...COMPANY,...company},list=Array.isArray(objects)?objects:[],lg=logo?`<img src="${esc(logo)}" alt="">`:`<b>${esc(co.name)}</b>`;
   // метки сгиба убраны (инженер 27.11.2026 «что за белые полосы между фото сверху»): светлые черточки 4 мм у сгибов
@@ -692,7 +697,7 @@ ${(()=>{const pages=[["О компании",aboutPage(liveOf(list),co,logo)],...
   // обложка — фото с лучшим разрешением для полосы 100×210 мм; мало точек — целиком, вокруг размыто (как softMain)
   const withPic=list.filter(o=>(o.pictures||[])[0]),score=o=>{const d=o.mainPx;return d&&d[0]>0?Math.min(d[0]/100,d[1]/210):1},cvo=withPic.slice().sort((a,b)=>score(b)-score(a))[0],cvp=cvo?.pictures[0]||"";
   const cover=cvo&&cvo.mainPx&&score(cvo)<4?`<div class="ph soft"${bg(cvp)}><b${bg(cvp)}></b><i${bg(cvp)}></i></div>`:`<div class="ph"${bg(cvp)}></div>`;
-  const L=liveOf(list),geo=geoGroups(L),tot=totals(L),cl=clientList(L,co),sv=(co.what||COMPANY.what).items.slice(0,8),shown=list.slice(0,FOLD_OBJ);
+  const L=liveOf(Array.isArray(all)&&all.length?all:list),geo=geoGroups(L),tot=totals(L),cl=clientList(L,co),sv=(co.what||COMPANY.what).items.slice(0,8),shown=list.slice(0,FOLD_OBJ);
   const out=`<section class="tf"><div class="pn ab"><div class="kk up">О компании</div><h2>${esc(co.name)}</h2>${(co.about||[]).map(t=>`<p class="ld">${esc(t)}</p>`).join("")}
    ${co.license?`<div class="lic"><em>${CHECK}</em>${esc(co.license)}</div>`:""}${spOn?`<div class="kk up">В цифрах</div><div class="nb">${tot.slice(0,8).map(([b,t])=>`<div><b>${esc(b)}</b><span>${esc(t)}</span></div>`).join("")}</div>`:`<div class="adv">${(co.adv||[]).map(([t,d])=>`<div><b>${esc(t)}</b><span>${esc(d)}</span></div>`).join("")}</div>`}
    <div class="slg">${esc(co.slogan[0])}<br><span>${esc(co.slogan[1])}</span></div></div>
@@ -768,7 +773,7 @@ ${screen?`<div class="pvn">Снаружи · клапан | задняя сто�
  const pickDefault=o=>{const all=allFiles(o),saved=(o.booklet?.files||[]).filter(f=>all.includes(f));return{all,files:saved.length?saved:all.slice(0,7),layout:Number(o.booklet?.layout)||0,gallery:Number(o.booklet?.gallery)||0}};
  // data: объекты так, как их собирает окно «Сайт» (siteObjectData) — cover, cover_full, photos, hero; files — выбранные
  // фото (первое — главное), layout — номер макета (0 — авто)
- async function make(data,{onProgress,services=true,map=true,fold=false,spread=null,inside,title=""}={}){
+ async function make(data,{onProgress,services=true,map=true,fold=false,spread=null,inside,title="",all}={}){
   const profile=await root.irProject.company.get().catch(()=>({}));
   const logo=await small(await read(profile?.logo||""),1200);
   const objects=[];
@@ -778,12 +783,12 @@ ${screen?`<div class="pvn">Снаружи · клапан | задняя сто�
    for(const f of files){const s=await read(f);if(s)pictures.push(await small(s,pictures.length?1400:2800))}
    objects.push({...o,pictures,ratios:await ratios(pictures),mainPx:await dims(pictures[0])})
   }
-  const opts={logo,company:profile?.name?{name:profile.name}:{},services,map,inside};
+  const opts={logo,company:profile?.name?{name:profile.name}:{},services,map,inside,all:firmOf(all,data)};
   if(fold&&spread?.file){const s=await read(spread.file);if(s){const src=await small(s,3500);opts.spread={...spread,src,px:await dims(s)}}}
   if(!fold)await dropTooLong(objects,opts);
   if(fold&&spread&&!opts.spread)opts.spread=spread;
   const clean=t=>String(t||"").replace(/[\\/:*?"<>|«»]/g,"").trim();
-  if(fold&&Number(inside)===4){let r=null;for(const o of objects){const html=foldPerObject([o],{...opts,all:objects});
+  if(fold&&Number(inside)===4){let r=null;for(const o of objects){const html=foldPerObject([o],{...opts,all:opts.all||objects});
     r=await root.irProject.ai.invoke("ai-documents:exec-export",{format:"pdf",name:"Буклет — "+clean(o.name||"объект").slice(0,80)+" "+new Date().toLocaleDateString("ru-RU"),html});if(!r)break}return r}
   const html=fold?foldBuild(objects,opts):build(objects,opts);
   const name=(fold?"Буклет ":"Журнал ")+String(profile?.name||COMPANY.name).replace(/[«»"]/g,"")+(title?" — "+String(title).replace(/[\\/:*?"<>|«»]/g,"").trim():"")+" "+new Date().toLocaleDateString("ru-RU");
@@ -791,12 +796,12 @@ ${screen?`<div class="pvn">Снаружи · клапан | задняя сто�
  }
  // предпросмотр (инженер 20.11.2026 «сделать предпросмотр как каждая страница выглядеть будет»): те же листы, что уйдут
  // в PDF, с малыми фото (pic(f) — готовая маленькая картинка из окна), краткая характеристика — по той же проверке
- async function preview(data,{pic,services=true,map=true,fold=false,spread=null,inside}={}){
+ async function preview(data,{pic,services=true,map=true,fold=false,spread=null,inside,all}={}){
   const profile=await root.irProject.company.get().catch(()=>({}));
   const logo=await small(await read(profile?.logo||""),600);
   const objects=[];
   for(const [i,o] of data.entries()){const pictures=[];for(const f of (o.files||pickDefault(o).files).slice(0,fold?(i<FOLD_OBJ||Number(inside)===4?FOLD_PH:0):capOf(o))){const s=(pic&&await pic(f))||await small(await read(f),900,.8);if(s)pictures.push(s)}const f0=(o.files||pickDefault(o).files)[0];objects.push({...o,pictures,ratios:await ratios(pictures),mainPx:await dims(await read(f0))})}
-  const opts={logo,company:profile?.name?{name:profile.name}:{},services,map,inside};
+  const opts={logo,company:profile?.name?{name:profile.name}:{},services,map,inside,all:firmOf(all,data)};
   if(fold){if(spread?.file){const s=await read(spread.file);if(s)opts.spread={...spread,src:await small(s,1400,.82),px:await dims(s)}}if(spread&&!opts.spread)opts.spread=spread;return foldBuild(objects,{...opts,screen:true})}
   await dropTooLong(objects,opts);
   return build(objects,{...opts,screen:true})
@@ -835,6 +840,6 @@ ${screen?`<div class="pvn">Снаружи · клапан | задняя сто�
    if(!changed)return;
   }
  }
- const api={liveOf,foldPerObject,fitOne,hasGallery,LAY_GONE,GAL_GONE,labelsLayer,pageHtml,FOLD_PH,FOLD_LAYOUTS,foldSketch,foldBuild,spreadHtml,SPREAD_LABELS,FOLD_OBJ,softMain,rowsOf,wkShown,wkRest,GALLERIES,galleryOf,layoutSketch,gallerySketch,MAX_PHOTOS,LAYOUT_MAX,capOf,clientList,mapPage,geoGroups,dropTooLong,build,make,preview,totals,doneOf,parties,COMPANY,LAYOUTS,layoutOf,thumb,read,pickDefault};
+ const api={firmOf,liveOf,foldPerObject,fitOne,hasGallery,LAY_GONE,GAL_GONE,labelsLayer,pageHtml,FOLD_PH,FOLD_LAYOUTS,foldSketch,foldBuild,spreadHtml,SPREAD_LABELS,FOLD_OBJ,softMain,rowsOf,wkShown,wkRest,GALLERIES,galleryOf,layoutSketch,gallerySketch,MAX_PHOTOS,LAYOUT_MAX,capOf,clientList,mapPage,geoGroups,dropTooLong,build,make,preview,totals,doneOf,parties,COMPANY,LAYOUTS,layoutOf,thumb,read,pickDefault};
  if(typeof module!=="undefined"&&module.exports)module.exports=api;else root.irBooklet=api;
 })(typeof window!=="undefined"?window:globalThis);

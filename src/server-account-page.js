@@ -724,14 +724,22 @@
   async function makeAll(){go.disabled=pv.disabled=true;st.textContent="";const keep=vSnap(vcur),done=[];
    try{for(const [k,v] of vars.entries()){vcur=v.name;vApply(v);if(!chosen.length)continue;
      const data=await collect(true);setProg(k/vars.length*100,"Вариант "+(k+1)+" из "+vars.length+" — "+v.name,"");
-     const r=await irBooklet.make(data,{title:v.name,services:services(),map:withMap(),fold:fold(),spread:spreadOpt(),inside:fold()?Number(sp.inside)||0:undefined,onProgress:(i,n,name)=>setProg((k+(i+1)/n*.9)/vars.length*100,"Вариант "+(k+1)+" из "+vars.length+" — "+v.name,"фото "+(i+1)+" из "+n+" — "+(name||""))});
+     const r=await irBooklet.make(data,{title:v.name,services:services(),map:withMap(),fold:fold(),spread:spreadOpt(),inside:fold()?Number(sp.inside)||0:undefined,all:firm||undefined,onProgress:(i,n,name)=>setProg((k+(i+1)/n*.9)/vars.length*100,"Вариант "+(k+1)+" из "+vars.length+" — "+v.name,"фото "+(i+1)+" из "+n+" — "+(name||""))});
      if(r)done.push(r.path||v.name)}
     setProg(100,"Готово PDF: "+done.length+" из "+vars.length,done.join(" · "),"ok")}
    catch(e){setProg(100,"Варианты не получились",errText(e),"err")}
    vcur=keep.name;vApply(keep.name?vars.find(x=>x.name===keep.name)||keep:keep);drawN()}
   drawVar();
 
-  async function collect(save){const data=[];for(const [i,id] of chosen.entries()){const o=objects.find(x=>Number(x.id)===id);setProg(i/chosen.length*20,"Собираем объекты…",(i+1)+" из "+chosen.length+" — "+(o?.name||""));
+ // сведения о фирме на передней стороне и в «О компании» — по всем объектам фирмы, как на сайте a-ts.kz (инженер
+  // 27.11.2026 «где вся инфа и объемы компании за все время по всем объектам?»): объекты, выложенные на сайт; нет связи
+  // с сайтом или там пусто — все объекты программы. Считается один раз за открытие окна.
+  let firm=null;
+  async function firmAll(){if(firm)return firm;let rids=[];try{const site=await call("ai-settings:server-site-objects");rids=sarr(site?.objects).map(x=>Number(x.rid))}catch(_){}
+   let list=objects.filter(o=>rids.includes(Number(o.id)));if(!list.length)list=objects.slice();const out=[];
+   for(const [i,o] of list.entries()){setProg(i/list.length*15,"Объём фирмы по всем объектам…",(i+1)+" из "+list.length+" — "+(o?.name||""));try{out.push(await siteObjectData(o,0))}catch(_){}}
+   firm=out;return firm}
+  async function collect(save){await firmAll();const data=[];for(const [i,id] of chosen.entries()){const o=objects.find(x=>Number(x.id)===id);setProg(i/chosen.length*20,"Собираем объекты…",(i+1)+" из "+chosen.length+" — "+(o?.name||""));
     if(!info.has(id))await load(id);const x=info.get(id);if(!x)continue;
     const live=x.locked?{live:Object.fromEntries(LOCK_KEYS.map(k=>[k,x.data[k]]))}:{};
     if(FOLD){data.push({...x.data,...(x.locked?.data||{}),...live,files:foldPics(x),layout:0,gallery:0});continue}
@@ -742,7 +750,7 @@
   pv.onclick=async()=>{pv.disabled=go.disabled=true;st.textContent="";
    try{const data=await collect(false);setProg(60,"Собираем листы…","");
     const pic=async f=>thumbs.get(f)||"";
-    const html=await irBooklet.preview(data,{pic,services:services(),map:withMap(),fold:fold(),spread:spreadOpt(),inside:fold()?Number(sp.inside)||0:undefined});prog.hidden=true;
+    const html=await irBooklet.preview(data,{pic,services:services(),map:withMap(),fold:fold(),spread:spreadOpt(),inside:fold()?Number(sp.inside)||0:undefined,all:firm||undefined});prog.hidden=true;
     const w=dialog(doc,"wide ir-bk-pvd",head("Предпросмотр — "+KIND.toLowerCase(),"Так будут выглядеть листы PDF. Фото здесь уменьшены — в PDF они в полном качестве.")+
      `<div class="ir-bk-pvb"><iframe data-fr title="Предпросмотр"></iframe></div><div class="ir-acc-foot"><span class="grow"></span><button type="button" class="ir-acc-btn" data-close>Закрыть</button><button type="button" class="ir-acc-btn main" data-make>Сделать PDF</button></div>`);
     const fr=w.querySelector("[data-fr]");
@@ -754,7 +762,7 @@
   go.onclick=async()=>{
    go.disabled=pv.disabled=true;st.textContent="";
    try{const data=await collect(true);
-    const r=await irBooklet.make(data,{title:vcur,services:services(),map:withMap(),fold:fold(),spread:spreadOpt(),inside:fold()?Number(sp.inside)||0:undefined,onProgress:(i,n,name)=>setProg(20+i/n*75,"Фото объектов…",(i+1)+" из "+n+" — "+(name||""))});
+    const r=await irBooklet.make(data,{title:vcur,services:services(),map:withMap(),fold:fold(),spread:spreadOpt(),inside:fold()?Number(sp.inside)||0:undefined,all:firm||undefined,onProgress:(i,n,name)=>setProg(20+i/n*75,"Фото объектов…",(i+1)+" из "+n+" — "+(name||""))});
     setProg(100,KIND+(r?" сохранён":" не сохранён"),r?.path||"","ok")}
    catch(e){setProg(100,KIND+" не получился",errText(e),"err")}
    drawN()};
