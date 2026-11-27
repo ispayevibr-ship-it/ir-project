@@ -567,11 +567,15 @@
    if(!big)return`<div class="gg jr">${rowsH(jr,0)}</div>`;const H0=176;
    return`<div class="gg jr jb"><div class="top" style="flex:${big.Hb.toFixed(1)} 1 0"><div class="big" style="flex:${big.bw.toFixed(1)} 1 0;${cellImg(ps[0])}">${cnt}</div>${big.R?`<div class="jc" style="flex:${(W0-big.bw-3).toFixed(1)} 1 0">${rowsH(big.R,1)}</div>`:""}</div>${big.D?`<div class="jc" style="flex:${(H0-big.Hb-3).toFixed(1)} 1 0">${rowsH(big.D,1+big.k)}</div>`:""}</div>`})():ps.length?`<div class="gg n${gn}${gst?.big?" bento":""}"${gst?` style="${gst.st}"`:""}>${ps.slice(0,12).map((s,k)=>gst?`<div style="${gst.cell(k)}${s?`;background-image:url('${String(s).replace(/'/g,"%27")}')`:""}">${gst.big&&k===0?`<span class="cnt"><b>${gn}</b> фото</span>`:""}</div>`:`<div${bg(s)}></div>`).join("")}</div>`:""}</section>`}
  // objects: [{name, customer, general_contractor, address, status, years, summary, works:[{name,unit,volume,plan}], pictures:[src…]}]
+ // сохранённый лист объекта (live — то, что сейчас в программе): лист объекта остаётся на день сохранения, а сведения о
+ // фирме — общий объём, заказчики, география — всегда по нынешним данным (инженер 27.11.2026 «при выгрузке (сохраненных)
+ // обновляется только информация о компании - объемы и тд, а об объекте остается»)
+ const liveOf=list=>(Array.isArray(list)?list:[]).map(o=>o&&o.live?{...o,...o.live}:o);
  function build(objects,{logo="",company={},services=true,map=true,screen=false}={}){
   const d=new Date(),co={date:String(d.getDate()).padStart(2,"0")+"."+String(d.getMonth()+1).padStart(2,"0")+"."+d.getFullYear(),...COMPANY,...company},list=(Array.isArray(objects)?objects:[]).map((o,i)=>{const m=LAYOUT_MAX[layoutOf(o,i)];return(o.pictures||[]).length>m?{...o,pictures:o.pictures.slice(0,m)}:o});
   return`<!doctype html><html lang="ru"><head><meta charset="utf-8"><title>Журнал ${esc(co.name)}</title>
 <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800;900&display=swap" rel="stylesheet"><style>${CSS}${screen?SCREEN:""}</style></head><body>
-${(()=>{const pages=[["О компании",aboutPage(list,co,logo)],...(services?[["Что мы делаем",servicesPage(co,logo)]]:[]),...list.flatMap((o,i)=>{const g=galleryPage(o,co,logo,i),n=String(o.name||"Объект");return[[n,objectPage(o,co,logo,i)],...(g?[[n+" — фото",g]]:[])]})];const mp=map&&mapPage(list,co,logo);if(mp)pages.push(["География работ",mp]);
+${(()=>{const pages=[["О компании",aboutPage(liveOf(list),co,logo)],...(services?[["Что мы делаем",servicesPage(co,logo)]]:[]),...list.flatMap((o,i)=>{const g=galleryPage(o,co,logo,i),n=String(o.name||"Объект");return[[n,objectPage(o,co,logo,i)],...(g?[[n+" — фото",g]]:[])]})];const mp=map&&mapPage(liveOf(list),co,logo);if(mp)pages.push(["География работ",mp]);
  return pages.map(([t,h],i)=>(screen?`<div class="pvn">Лист ${i+1} · ${esc(t)}</div>`:"")+h).join("")})()}</body></html>`
  }
 
@@ -589,12 +593,12 @@ ${(()=>{const pages=[["О компании",aboutPage(list,co,logo)],...(service
 .tf .lic em{flex:none;width:8mm;height:8mm;border-radius:2mm;background:var(--or);display:grid;place-items:center}.tf .lic em svg{width:5mm;height:5mm}
 .tf .adv{display:flex;flex-direction:column;gap:3mm}.tf .adv div{border-left:1mm solid var(--or);padding-left:3mm}.tf .adv b{display:block;font-size:7.6pt;font-weight:900}.tf .adv span{display:block;font-size:6.6pt;color:var(--mut);line-height:1.35;margin-top:.6mm}
 .tf .slg{margin-top:auto;font-size:10.5pt;font-weight:900;line-height:1.25}.tf .slg span{color:var(--ord)}
-.tf .bk{left:97mm;width:100mm;background:#1d2228;color:#fff;padding:13mm 9mm 10mm;display:flex;flex-direction:column}.tf .bk .kk{color:var(--or)}
+.tf .bk{left:97mm;width:100.3mm;background:#1d2228;color:#fff;padding:13mm 9mm 10mm;display:flex;flex-direction:column}.tf .bk .kk{color:var(--or)}
 .tf .bk svg{width:100%;height:auto;display:block;margin:1mm 0 2mm}.tf .bk .kz{fill:#2f363e;stroke:#4a535d;stroke-width:2}.tf .bk .dt{fill:var(--or)}.tf .bk .dn{fill:#1d2228;font:900 17px Montserrat,sans-serif;text-anchor:middle;dominant-baseline:central}.tf .bk .of{fill:#fff}
 .tf .bk .pl{font-size:6.6pt;color:#aab2bc;line-height:1.45;margin-bottom:6mm}.tf .bk .pl b{color:#fff}
 .tf .ct{display:flex;flex-direction:column;gap:2.4mm;margin-bottom:5mm}.tf .ct div{display:flex;justify-content:space-between;gap:3mm;font-size:7.6pt;border-bottom:1px solid rgba(255,255,255,.1);padding-bottom:2mm}.tf .ct small{color:#aab2bc;font-size:6.4pt;font-weight:700;letter-spacing:.5px}.tf .ct b{font-weight:800;white-space:nowrap}
 .tf .rq{margin-top:auto;font-size:6pt;line-height:1.5;color:#aab2bc}.tf .rq b{color:#fff;font-size:6.6pt}
-.tf .cv{left:197mm;width:100mm;background:#2b3036;color:#fff}.tf .cv .ph{position:absolute;inset:0;background:#3a4047 center/cover no-repeat}
+.tf .cv{left:196.7mm;width:100.3mm;background:#2b3036;color:#fff}.tf .cv .ph{position:absolute;inset:0;background:#3a4047 center/cover no-repeat}
 .tf .cv .ph:after{content:"";position:absolute;inset:0;background:linear-gradient(180deg,rgba(0,0,0,.25),rgba(0,0,0,0) 30%,rgba(0,0,0,.15) 50%,rgba(0,0,0,.82))}
 .tf .cv .lg{position:absolute;left:9mm;top:10mm;background:#fff;border-radius:2.5mm;padding:2.5mm 3.5mm;z-index:2}.tf .cv .lg img{height:12mm;max-width:60mm;object-fit:contain;display:block}.tf .cv .lg b{font-size:10pt;font-weight:900;color:var(--ink)}
 .tf .cv .tt{position:absolute;left:9mm;right:9mm;bottom:14mm;z-index:2}.tf .cv .tt:before{content:"";display:block;width:20mm;height:1.6mm;background:var(--or);margin-bottom:5mm}
@@ -603,7 +607,7 @@ ${(()=>{const pages=[["О компании",aboutPage(list,co,logo)],...(service
 .tf .nm{left:0;width:100mm;padding:14mm 9mm 10mm 10mm;display:flex;flex-direction:column}.tf .tot{display:grid;grid-template-columns:1fr;gap:2.6mm;margin-bottom:6mm}
 .tf .tot div{display:grid;grid-template-columns:38mm 1fr;align-items:baseline;gap:3mm;border-bottom:1px solid var(--line);padding-bottom:2.2mm}.tf .tot b{font-size:14pt;font-weight:900;color:var(--or);white-space:nowrap;line-height:1}.tf .tot span{font-size:6.6pt;font-weight:700;color:var(--mut);line-height:1.3}
 .tf .cl{background:#f6f3ec;border-radius:2mm;padding:4mm 4.5mm;margin-top:auto}.tf .cl .kk{margin-bottom:2.4mm}.tf .cl div{font-size:6.8pt;font-weight:700;line-height:1.3;padding:1.1mm 0;border-bottom:1px solid #e6e0d3}.tf .cl div:last-child{border:0}
-.tf .sv{left:100mm;width:100mm;background:linear-gradient(170deg,var(--or2),var(--or) 55%,var(--ord));padding:14mm 9mm 10mm;display:flex;flex-direction:column}.tf .sv .kk{color:#4a3500}
+.tf .sv{left:99.8mm;width:100.4mm;background:linear-gradient(170deg,var(--or2),var(--or) 55%,var(--ord));padding:14mm 9mm 10mm;display:flex;flex-direction:column}.tf .sv .kk{color:#4a3500}
 .tf .sv .it{display:grid;grid-template-columns:8mm 1fr;gap:0 2.5mm;padding:2.2mm 0;border-bottom:1px solid rgba(0,0,0,.12)}.tf .sv i{font-style:normal;font-size:9pt;font-weight:900;color:#1d2228;opacity:.55;grid-row:span 2}.tf .sv b{font-size:7.6pt;font-weight:900}.tf .sv p{margin:.6mm 0 0;font-size:6.4pt;line-height:1.35;color:#3a2a00}
 .tf .ob{left:200mm;width:97mm;padding:14mm 9mm 10mm;display:flex;flex-direction:column}.tf .oc{flex:1 1 0;min-height:0;display:flex;flex-direction:column;margin-bottom:4mm}.tf .oc:last-of-type{margin-bottom:0}
 .tf .oc .op{flex:1 1 0;min-height:16mm;border-radius:2mm;background:#3a4047 center/cover no-repeat;position:relative}.tf .oc .op span{position:absolute;left:2mm;bottom:2mm;background:var(--or);color:var(--ink);font-size:6pt;font-weight:900;padding:.6mm 2mm;border-radius:1mm}
@@ -617,26 +621,35 @@ ${(()=>{const pages=[["О компании",aboutPage(list,co,logo)],...(service
 .tf.sp .cap{position:absolute;left:10mm;top:9mm;z-index:3;background:rgba(29,34,40,.82);color:#fff;border-left:1.4mm solid var(--or);border-radius:1.5mm;padding:2.4mm 4mm;max-width:120mm}
 .tf.sp .cap small{display:block;font-size:5.8pt;font-weight:800;letter-spacing:1.4px;color:var(--or2)}.tf.sp .cap b{display:block;font-size:8pt;font-weight:800;line-height:1.25;margin-top:.6mm}.tf.sp .cap span{display:block;font-size:6.4pt;color:#c9ced5;margin-top:.4mm}
 .tf .oc .og{flex:1 1 0;min-height:16mm;display:grid;grid-template-columns:2fr 1fr;grid-template-rows:1fr 1fr;gap:1.2mm}.tf .oc .og .op{min-height:0;grid-row:span 2}.tf .oc .og.n2 .op{grid-row:span 2}.tf .oc .og i{border-radius:1.5mm;background:#3a4047 center/cover no-repeat}.tf .oc .og.n2 i{grid-row:span 2}
-.tf .o3{width:99mm;padding:9mm 7mm 8mm;display:flex;flex-direction:column}.tf .o3.k0{left:0}.tf .o3.k1{left:99mm;background:#f6f3ec}.tf .o3.k2{left:198mm}.tf .o3 .no{font-size:24pt;font-weight:900;color:var(--or);line-height:1;margin-bottom:2mm}
+.tf .o3{width:99mm;padding:9mm 7mm 8mm;display:flex;flex-direction:column}.tf .o3.k0{left:0}.tf .o3.k1{left:98.8mm;width:99.4mm;background:#f6f3ec}.tf .o3.k2{left:198mm}.tf .o3 .no{font-size:24pt;font-weight:900;color:var(--or);line-height:1;margin-bottom:2mm}
 .tf .o3 .m{flex:1 1 0;min-height:30mm;border-radius:2mm;background:#3a4047 center/cover no-repeat;position:relative}.tf .o3 .m span{position:absolute;left:2mm;top:2mm;background:var(--or);color:var(--ink);font-size:6.4pt;font-weight:900;padding:.6mm 2mm;border-radius:1mm}
 .tf .o3 .s{display:grid;grid-template-columns:1fr 1fr;gap:1.6mm;height:30mm;margin-top:1.6mm}.tf .o3 .s i{border-radius:2mm;background:#3a4047 center/cover no-repeat}.tf .o3 .s.n1{grid-template-columns:1fr}
 .tf .o3 h3{margin:3.5mm 0 0;font-size:10pt;font-weight:900;line-height:1.2;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}.tf .o3 small{display:block;font-size:6.6pt;color:var(--mut);font-weight:600;margin-top:1mm}
 .tf .o3 .w{margin-top:2.5mm;display:flex;flex-direction:column;gap:1.2mm}.tf .o3 .w div{display:flex;justify-content:space-between;gap:3mm;font-size:6.8pt;border-bottom:1px solid var(--line);padding-bottom:1.1mm}.tf .o3 .w b{font-weight:900;color:var(--ord);white-space:nowrap}
 .tf.co{background:#1d2228}.tf.co .cg{position:absolute;inset:0;display:grid;gap:1.4mm;padding:1.4mm}.tf.co .cg i{position:relative;background:#3a4047 center/cover no-repeat;border-radius:1mm}.tf.co .cg i.big{grid-column:span 2;grid-row:span 2}
 .tf.co .cg i span{position:absolute;left:2mm;bottom:2mm;max-width:80%;background:rgba(29,34,40,.85);color:#fff;border-left:1mm solid var(--or);font-style:normal;font-size:6.4pt;font-weight:800;padding:1mm 2mm;border-radius:1mm;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tf .q1{left:0;width:100.3mm;display:flex;flex-direction:column}.tf .q1 .m{height:112mm;flex:none;background:#3a4047 center/cover no-repeat;position:relative}.tf .q1 .m span{position:absolute;left:9mm;bottom:4mm;background:var(--or);color:var(--ink);font-size:7pt;font-weight:900;padding:.8mm 2.4mm;border-radius:1mm}
+.tf .q1 .tx{padding:7mm 9mm 10mm 10mm;display:flex;flex-direction:column;flex:1 1 0;min-height:0}.tf .q1 h2{font-size:15pt;margin-bottom:2.5mm;overflow:hidden;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical}.tf .q1 .pl{font-size:7.4pt;font-weight:700;color:var(--mut);margin-bottom:4mm}
+.tf .q1 .pt{margin-top:auto;display:flex;flex-direction:column;gap:2.2mm}.tf .q1 .pt div{border-left:1mm solid var(--or);padding-left:3mm}.tf .q1 .pt small{display:block;font-size:5.8pt;font-weight:800;letter-spacing:1.2px;color:var(--mut)}.tf .q1 .pt b{display:block;font-size:7.6pt;font-weight:800;line-height:1.3}
+.tf .q2{left:100mm;width:100.3mm;background:#f6f3ec;padding:14mm 9mm 10mm;display:flex;flex-direction:column}.tf .q2 .w{display:flex;flex-direction:column}.tf .q2 .w div{display:flex;justify-content:space-between;align-items:baseline;gap:3mm;font-size:7.2pt;font-weight:600;line-height:1.3;border-bottom:1px solid #e6e0d3;padding:1.7mm 0}.tf .q2 .w b{font-weight:900;color:var(--ord);white-space:nowrap}
+.tf .q2 .s{margin-top:auto;display:grid;grid-template-columns:1fr 1fr;gap:1.6mm;height:44mm;flex:none;padding-top:4mm}.tf .q2 .s.n1{grid-template-columns:1fr}.tf .q2 .s i{border-radius:2mm;background:#3a4047 center/cover no-repeat}
+.tf .q3{left:200mm;width:97mm;background:#1d2228;color:#fff;padding:14mm 9mm 10mm;display:flex;flex-direction:column}.tf .q3 .kk{color:var(--or)}.tf .q3 .sm{flex:1 1 0;min-height:0;overflow:hidden;font-size:7.2pt;line-height:1.5;color:#d5dae0;-webkit-mask-image:linear-gradient(180deg,#000 88%,transparent)}
+.tf .q3 .sm p{margin:0 0 2mm}.tf .q3 .sm h5{margin:2mm 0 1mm;font-size:7.6pt;color:#fff}.tf .q3 .sm ul,.tf .q3 .sm ol{margin:0 0 2mm;padding-left:4mm}.tf .q3 .sm b,.tf .q3 .sm strong{color:#fff}
+.tf .q3 .ct{margin:5mm 0 0}.tf .q3 .lg2{font-size:9pt;font-weight:900;margin-top:2mm}.tf .q3 .lg2 span{color:var(--or)}
 .tf .nb{display:grid;grid-template-columns:1fr 1fr;gap:3mm;margin-bottom:4mm}.tf .nb div{border-top:1mm solid var(--or);padding-top:1.8mm}.tf .nb b{display:block;font-size:11.5pt;font-weight:900;line-height:1.05;white-space:nowrap}.tf .nb span{display:block;font-size:6pt;font-weight:700;color:var(--mut);line-height:1.25;margin-top:.8mm}`;
  const FOLD_OBJ=3,FOLD_PH=3;
  // макеты разворота внутри евробуклета (инженер 24.11.2026 «в буклете выбор нескольких фото и макетов сделай»):
  // 0 — одно фото на весь разворот с подписями, 1 — цифры, услуги, объекты, 2 — три объекта по полосе с фото,
  // 3 — фотоколлаж из фото отмеченных объектов. У каждого из первых трёх объектов до 3 фото, первое — главное.
- const FOLD_LAYOUTS=["Фото с подписями","Цифры, услуги, объекты","Три объекта","Фотоколлаж"];
+ const FOLD_LAYOUTS=["Фото с подписями","Цифры, услуги, объекты","Три объекта","Фотоколлаж","Буклет на объект"];
  // коллаж: число фото → [столбцов, рядов, крупное 2×2]
  const COLLAGE={1:[1,1,0],2:[2,1,0],3:[3,1,0],4:[2,2,0],5:[4,2,1],6:[3,2,0],7:[5,2,1],8:[4,2,0],9:[4,3,1]};
  function foldSketch(k){const r=(x,y,w,h,c="#cfd5db")=>`<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="1" fill="${c}"/>`,O="#f5a700",fm=`<line x1="20" y1="2" x2="20" y2="40" stroke="#fff" stroke-dasharray="2 2"/><line x1="40" y1="2" x2="40" y2="40" stroke="#fff" stroke-dasharray="2 2"/>`;
   const b=[r(1,1,58,40,"#7d8790")+`<line x1="12" y1="14" x2="22" y2="20" stroke="${O}"/><line x1="44" y1="10" x2="36" y2="22" stroke="${O}"/>`+r(4,12,8,2,"#fff")+r(44,8,10,2,"#fff"),
    r(1,1,19,40,"#fff")+r(4,6,13,3,O)+r(4,12,13,2)+r(4,16,13,2)+r(4,20,13,2)+r(20,1,20,40,O)+r(40,1,19,40,"#fff")+r(43,5,13,9)+r(43,17,13,9)+r(43,29,13,9),
    r(1,1,19,40,"#fff")+r(3,4,15,20)+r(3,25,7,6)+r(11,25,7,6)+r(3,33,12,2,O)+r(20,1,20,40,"#f6f3ec")+r(22,4,16,20)+r(22,25,8,6)+r(31,25,7,6)+r(22,33,12,2,O)+r(40,1,19,40,"#fff")+r(42,4,15,20)+r(42,25,7,6)+r(50,25,7,6)+r(42,33,12,2,O),
-   r(1,1,58,40,"#1d2228")+r(2,2,28,25)+r(31,2,13,12)+r(45,2,13,12)+r(31,15,13,12)+r(45,15,13,12)+r(2,28,13,12)+r(16,28,14,12)+r(31,28,13,12)+r(45,28,13,12)];
+   r(1,1,58,40,"#1d2228")+r(2,2,28,25)+r(31,2,13,12)+r(45,2,13,12)+r(31,15,13,12)+r(45,15,13,12)+r(2,28,13,12)+r(16,28,14,12)+r(31,28,13,12)+r(45,28,13,12),
+   r(1,1,20,40,"#fff")+r(1,1,20,20,"#7d8790")+r(3,24,14,3,O)+r(3,29,12,2)+r(3,33,12,2)+r(21,1,19,40,"#f6f3ec")+r(23,5,14,3,O)+r(23,11,15,2)+r(23,15,15,2)+r(23,19,15,2)+r(23,30,7,8)+r(31,30,7,8)+r(40,1,19,40,"#1d2228")+r(42,5,13,2,O)+r(42,10,15,2,"#59626b")+r(42,14,15,2,"#59626b")+r(42,33,15,4,"#59626b")];
   return skSvg((b[Number(k)||0]||b[0])+fm)}
  function foldMap(objects){const all=geoGroups(objects),f=v=>v.toFixed(1),[ox,oy]=gxy(50.06,72.96);
   return`<svg viewBox="0 0 1000 546"><path class="kz" d="${KZ_PATH}"/>${all.map(g=>{const [x,y]=gxy(g.lat,g.lon),r=Math.min(30,16+g.list.length*2.5);return`<circle class="dt" cx="${f(x)}" cy="${f(y)}" r="${r}"/><text class="dn" x="${f(x)}" y="${f(y)}">${g.list.length}</text>`}).join("")}<circle class="of" cx="${f(ox)}" cy="${f(oy)}" r="9"/></svg>`}
@@ -670,17 +683,20 @@ ${(()=>{const pages=[["О компании",aboutPage(list,co,logo)],...(service
   return`<section class="tf sp">${ph}<div class="sh"></div><svg class="ld" viewBox="0 0 297 210">${svg}</svg>${lbs}${row}${cap}`}
  function foldBuild(objects,{logo="",company={},screen=false,spread=null,inside}={}){
   let IN=inside===undefined?(spread&&spread.src?0:1):Number(inside)||0;if(IN===0&&!(spread&&spread.src))IN=1;
+  if(IN===4)return foldPerObject(objects,{logo,company,screen});
   const spOn=IN!==1,inLb=IN?labelsLayer(spread?.pts):"";
   const co={...COMPANY,...company},list=Array.isArray(objects)?objects:[],lg=logo?`<img src="${esc(logo)}" alt="">`:`<b>${esc(co.name)}</b>`;
-  const mk=xs=>xs.map(x=>`<i class="mk t" style="left:${x}mm"></i><i class="mk b" style="left:${x}mm"></i>`).join("");
+  // метки сгиба убраны (инженер 27.11.2026 «что за белые полосы между фото сверху»): светлые черточки 4 мм у сгибов
+  // на тёмной полосе и фото были видны белыми полосами; полосы на 0,3 мм заходят друг под друга — без белого шва
+  const mk=()=>"";
   // обложка — фото с лучшим разрешением для полосы 100×210 мм; мало точек — целиком, вокруг размыто (как softMain)
   const withPic=list.filter(o=>(o.pictures||[])[0]),score=o=>{const d=o.mainPx;return d&&d[0]>0?Math.min(d[0]/100,d[1]/210):1},cvo=withPic.slice().sort((a,b)=>score(b)-score(a))[0],cvp=cvo?.pictures[0]||"";
   const cover=cvo&&cvo.mainPx&&score(cvo)<4?`<div class="ph soft"${bg(cvp)}><b${bg(cvp)}></b><i${bg(cvp)}></i></div>`:`<div class="ph"${bg(cvp)}></div>`;
-  const geo=geoGroups(list),tot=totals(list),cl=clientList(list,co),sv=(co.what||COMPANY.what).items.slice(0,8),shown=list.slice(0,FOLD_OBJ);
+  const L=liveOf(list),geo=geoGroups(L),tot=totals(L),cl=clientList(L,co),sv=(co.what||COMPANY.what).items.slice(0,8),shown=list.slice(0,FOLD_OBJ);
   const out=`<section class="tf"><div class="pn ab"><div class="kk up">О компании</div><h2>${esc(co.name)}</h2>${(co.about||[]).map(t=>`<p class="ld">${esc(t)}</p>`).join("")}
    ${co.license?`<div class="lic"><em>${CHECK}</em>${esc(co.license)}</div>`:""}${spOn?`<div class="kk up">В цифрах</div><div class="nb">${tot.slice(0,8).map(([b,t])=>`<div><b>${esc(b)}</b><span>${esc(t)}</span></div>`).join("")}</div>`:`<div class="adv">${(co.adv||[]).map(([t,d])=>`<div><b>${esc(t)}</b><span>${esc(d)}</span></div>`).join("")}</div>`}
    <div class="slg">${esc(co.slogan[0])}<br><span>${esc(co.slogan[1])}</span></div></div>
-  <div class="pn bk"><div class="kk up">География работ</div>${geo.length?foldMap(list)+`<div class="pl">${geo.slice(0,8).map(g=>`<b>${esc(g.name)}</b> ${g.list.length}`).join(" · ")} · офис — <b>Темиртау</b></div>`:""}
+  <div class="pn bk"><div class="kk up">География работ</div>${geo.length?foldMap(L)+`<div class="pl">${geo.slice(0,8).map(g=>`<b>${esc(g.name)}</b> ${g.list.length}`).join(" · ")} · офис — <b>Темиртау</b></div>`:""}
    <div class="kk up">Контакты</div><div class="ct">${co.phones.map(([t,v])=>`<div><small class="up">${esc(t)}</small><b>${esc(v)}</b></div>`).join("")}<div><small class="up">Почта</small><b>${esc(co.contactMail||co.mail)}</b></div><div><small class="up">Сайт</small><b>${esc(co.site)}</b></div></div>
    <div class="rq"><b>${esc(co.full)}</b><br>БИН ${esc(co.bin)}<br>${esc(co.address)}<br>${co.bank.map(esc).join("<br>")}<br>Директор — ${esc(co.head)}</div></div>
   <div class="pn cv">${cover}<div class="cut"></div><div class="lg">${lg}</div><div class="tt"><h1>${esc(co.title)}</h1>${(co.pledges||[])[0]?`<p class="up">${esc(co.pledges[0][1])}</p>`:""}</div></div>${mk([97,197])}</section>
@@ -694,6 +710,34 @@ ${IN===0?spreadHtml(spread)+mk([100,200])+"</section>":IN===2?foldThree(shown)+m
   return`<!doctype html><html lang="ru"><head><meta charset="utf-8"><title>Буклет ${esc(co.name)}</title>
 <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800;900&display=swap" rel="stylesheet"><style>${CSS}${FOLD_CSS}${screen?SCREEN.replace(/\.page\{/g,".tf{")+".tf{margin:0 auto 10mm}":""}</style></head><body>
 ${screen?`<div class="pvn">Снаружи · клапан | задняя сторона | обложка</div>`:""}${screen?out.replace(/<\/section>(\s*)<section class="tf/,`</section><div class="pvn">Внутри · ${["фото на весь разворот с подписями","цифры | услуги | объекты","три объекта","фотоколлаж"][IN]}</div><section class="tf`):out}</body></html>`}
+ // буклет на каждый объект (инженер 27.11.2026 «на каждый объект будет свой буклет … первый лист идет общий со всей
+ // информацией об фирме, общий объем работ, виды работ и тд, а второй лист (задняя сторона) объект и информация об
+ // объекте»): лист с двух сторон, в 3 сложения. Первая сторона — о фирме: о компании, лицензия, общий объём по всем
+ // отмеченным объектам | что мы делаем | обложка с главным фото объекта. Вторая — объект: фото, место, годы, генподрядчик
+ // и заказчик | виды работ с объёмами и ещё фото | краткая характеристика и контакты. one — один объект (в PDF — свой
+ // файл на объект), all — все отмеченные, по ним общий объём.
+ function foldPerObject(objects,{logo="",company={},screen=false,all}={}){
+  const co={...COMPANY,...company},list=Array.isArray(objects)?objects:[],every=Array.isArray(all)&&all.length?all:list,lg=logo?`<img src="${esc(logo)}" alt="">`:`<b>${esc(co.name)}</b>`;
+  const tot=totals(liveOf(every)),sv=(co.what||COMPANY.what).items.slice(0,8);
+  const side=o=>{const ps=(o.pictures||[]).slice(0,FOLD_PH),score=o.mainPx&&o.mainPx[0]>0?Math.min(o.mainPx[0]/100,o.mainPx[1]/210):9,cvp=ps[0]||"";
+   const cover=score<4?`<div class="ph soft"${bg(cvp)}><b${bg(cvp)}></b><i${bg(cvp)}></i></div>`:`<div class="ph"${bg(cvp)}></div>`;
+   const place=String(o.address||"").trim(),ws=(o.works||[]).filter(w=>String(w.name||"").trim()).slice(0,16),sum=sumHtml(o.summary);
+   const pt=[["Генподрядчик",o.general_contractor],["Заказчик",o.customer]].filter(([,v])=>String(v||"").trim());
+   return`<section class="tf"><div class="pn ab"><div class="kk up">О компании</div><h2>${esc(co.name)}</h2>${(co.about||[]).map(t=>`<p class="ld">${esc(t)}</p>`).join("")}
+   ${co.license?`<div class="lic"><em>${CHECK}</em>${esc(co.license)}</div>`:""}<div class="kk up">Общий объём работ</div><div class="nb">${tot.slice(0,8).map(([b,t])=>`<div><b>${esc(b)}</b><span>${esc(t)}</span></div>`).join("")}</div>
+   <div class="slg">${esc(co.slogan[0])}<br><span>${esc(co.slogan[1])}</span></div></div>
+  <div class="pn sv"><div class="kk up">Виды работ</div><h2>Что мы делаем</h2>${sv.map(([t,d],i)=>`<div class="it"><i>${String(i+1).padStart(2,"0")}</i><b>${esc(t)}</b><p>${esc(d)}</p></div>`).join("")}</div>
+  <div class="pn cv">${cover}<div class="cut"></div><div class="lg">${lg}</div><div class="tt"><h1>${esc(co.title)}</h1>${(co.pledges||[])[0]?`<p class="up">${esc(co.pledges[0][1])}</p>`:""}</div></div></section>
+<section class="tf"><div class="pn q1"><div class="m"${bg(ps[0])}>${o.years?`<span>${esc(o.years)}</span>`:""}</div><div class="tx"><div class="kk up">Объект</div><h2>${esc(o.name||"Объект")}</h2>${place?`<div class="pl">${esc(place)}</div>`:""}
+   ${pt.length?`<div class="pt">${pt.map(([t,v])=>`<div><small class="up">${t}</small><b>${esc(v)}</b></div>`).join("")}</div>`:""}</div></div>
+  <div class="pn q2"><div class="kk up">Выполнено на объекте</div><h2>Виды работ</h2><div class="w">${ws.map(w=>`<div><span>${esc(w.name)}</span>${isSvc(w)||!(num(w.volume)>0)?"":`<b>${esc(fmt(num(w.volume)))} ${esc(unitOf(w.unit))}</b>`}</div>`).join("")}</div>
+   ${ps.length>1?`<div class="s n${ps.length-1}">${ps.slice(1).map(p=>`<i${bg(p)}></i>`).join("")}</div>`:""}</div>
+  <div class="pn q3">${sum?`<div class="kk up">Об объекте</div><div class="sm">${sum}</div>`:`<div class="kk up">Реквизиты</div><div class="sm"><div class="rq"><b>${esc(co.full)}</b><br>БИН ${esc(co.bin)}<br>${esc(co.address)}<br>${co.bank.map(esc).join("<br>")}</div></div>`}
+   <div class="kk up">Контакты</div><div class="ct">${co.phones.map(([t,v])=>`<div><small class="up">${esc(t)}</small><b>${esc(v)}</b></div>`).join("")}<div><small class="up">Почта</small><b>${esc(co.contactMail||co.mail)}</b></div><div><small class="up">Сайт</small><b>${esc(co.site)}</b></div></div>
+   <div class="lg2">${esc(co.name)}<br><span>${esc(co.title)}</span></div></div></section>`};
+  const body=list.map(o=>screen?`<div class="pvn">${esc(o.name||"Объект")} · о фирме | виды работ | обложка</div>`+side(o).replace(/<\/section>\s*<section class="tf">/,`</section><div class="pvn">${esc(o.name||"Объект")} · объект | виды работ | об объекте</div><section class="tf">`):side(o)).join("\n");
+  return`<!doctype html><html lang="ru"><head><meta charset="utf-8"><title>Буклет ${esc(co.name)}</title>
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800;900&display=swap" rel="stylesheet"><style>${CSS}${FOLD_CSS}${screen?SCREEN.replace(/\.page\{/g,".tf{")+".tf{margin:0 auto 10mm}":""}</style></head><body>${body}</body></html>`}
  function foldThree(list){return`<section class="tf">${list.slice(0,3).map((o,k)=>{const ps=(o.pictures||[]).slice(0,FOLD_PH),place=String(o.address||"").trim(),ws=worksOf(o).slice(0,4);
    return`<div class="pn o3 k${k}"><div class="no">${String(k+1).padStart(2,"0")}</div><div class="m"${bg(ps[0])}>${o.years?`<span>${esc(o.years)}</span>`:""}</div>${ps.length>1?`<div class="s n${ps.length-1}">${ps.slice(1).map(p=>`<i${bg(p)}></i>`).join("")}</div>`:""}
     <h3>${esc(o.name||"Объект")}</h3>${place?`<small>${esc(place)}</small>`:""}${o.customer?`<small>Заказчик — ${esc(o.customer)}</small>`:""}<div class="w">${ws.map(w=>`<div><span>${esc(w.name||"")}</span>${isSvc(w)?"":`<b>${esc(fmt(num(w.volume)))} ${esc(unitOf(w.unit))}</b>`}</div>`).join("")}</div></div>`}).join("")}`}
@@ -730,7 +774,7 @@ ${screen?`<div class="pvn">Снаружи · клапан | задняя сто�
   const objects=[];
   for(const [i,o] of data.entries()){
    onProgress?.(i,data.length,o.name);
-   const files=(o.files||pickDefault(o).files).slice(0,fold?(i<FOLD_OBJ?FOLD_PH:0):capOf(o)),pictures=[];
+   const files=(o.files||pickDefault(o).files).slice(0,fold?(i<FOLD_OBJ||Number(inside)===4?FOLD_PH:0):capOf(o)),pictures=[];
    for(const f of files){const s=await read(f);if(s)pictures.push(await small(s,pictures.length?1400:2800))}
    objects.push({...o,pictures,ratios:await ratios(pictures),mainPx:await dims(pictures[0])})
   }
@@ -738,6 +782,9 @@ ${screen?`<div class="pvn">Снаружи · клапан | задняя сто�
   if(fold&&spread?.file){const s=await read(spread.file);if(s){const src=await small(s,3500);opts.spread={...spread,src,px:await dims(s)}}}
   if(!fold)await dropTooLong(objects,opts);
   if(fold&&spread&&!opts.spread)opts.spread=spread;
+  const clean=t=>String(t||"").replace(/[\\/:*?"<>|«»]/g,"").trim();
+  if(fold&&Number(inside)===4){let r=null;for(const o of objects){const html=foldPerObject([o],{...opts,all:objects});
+    r=await root.irProject.ai.invoke("ai-documents:exec-export",{format:"pdf",name:"Буклет — "+clean(o.name||"объект").slice(0,80)+" "+new Date().toLocaleDateString("ru-RU"),html});if(!r)break}return r}
   const html=fold?foldBuild(objects,opts):build(objects,opts);
   const name=(fold?"Буклет ":"Журнал ")+String(profile?.name||COMPANY.name).replace(/[«»"]/g,"")+(title?" — "+String(title).replace(/[\\/:*?"<>|«»]/g,"").trim():"")+" "+new Date().toLocaleDateString("ru-RU");
   return root.irProject.ai.invoke("ai-documents:exec-export",{format:"pdf",name,html})
@@ -748,7 +795,7 @@ ${screen?`<div class="pvn">Снаружи · клапан | задняя сто�
   const profile=await root.irProject.company.get().catch(()=>({}));
   const logo=await small(await read(profile?.logo||""),600);
   const objects=[];
-  for(const [i,o] of data.entries()){const pictures=[];for(const f of (o.files||pickDefault(o).files).slice(0,fold?(i<FOLD_OBJ?FOLD_PH:0):capOf(o))){const s=(pic&&await pic(f))||await small(await read(f),900,.8);if(s)pictures.push(s)}const f0=(o.files||pickDefault(o).files)[0];objects.push({...o,pictures,ratios:await ratios(pictures),mainPx:await dims(await read(f0))})}
+  for(const [i,o] of data.entries()){const pictures=[];for(const f of (o.files||pickDefault(o).files).slice(0,fold?(i<FOLD_OBJ||Number(inside)===4?FOLD_PH:0):capOf(o))){const s=(pic&&await pic(f))||await small(await read(f),900,.8);if(s)pictures.push(s)}const f0=(o.files||pickDefault(o).files)[0];objects.push({...o,pictures,ratios:await ratios(pictures),mainPx:await dims(await read(f0))})}
   const opts={logo,company:profile?.name?{name:profile.name}:{},services,map,inside};
   if(fold){if(spread?.file){const s=await read(spread.file);if(s)opts.spread={...spread,src:await small(s,1400,.82),px:await dims(s)}}if(spread&&!opts.spread)opts.spread=spread;return foldBuild(objects,{...opts,screen:true})}
   await dropTooLong(objects,opts);
@@ -788,6 +835,6 @@ ${screen?`<div class="pvn">Снаружи · клапан | задняя сто�
    if(!changed)return;
   }
  }
- const api={fitOne,hasGallery,LAY_GONE,GAL_GONE,labelsLayer,pageHtml,FOLD_PH,FOLD_LAYOUTS,foldSketch,foldBuild,spreadHtml,SPREAD_LABELS,FOLD_OBJ,softMain,rowsOf,wkShown,wkRest,GALLERIES,galleryOf,layoutSketch,gallerySketch,MAX_PHOTOS,LAYOUT_MAX,capOf,clientList,mapPage,geoGroups,dropTooLong,build,make,preview,totals,doneOf,parties,COMPANY,LAYOUTS,layoutOf,thumb,read,pickDefault};
+ const api={liveOf,foldPerObject,fitOne,hasGallery,LAY_GONE,GAL_GONE,labelsLayer,pageHtml,FOLD_PH,FOLD_LAYOUTS,foldSketch,foldBuild,spreadHtml,SPREAD_LABELS,FOLD_OBJ,softMain,rowsOf,wkShown,wkRest,GALLERIES,galleryOf,layoutSketch,gallerySketch,MAX_PHOTOS,LAYOUT_MAX,capOf,clientList,mapPage,geoGroups,dropTooLong,build,make,preview,totals,doneOf,parties,COMPANY,LAYOUTS,layoutOf,thumb,read,pickDefault};
  if(typeof module!=="undefined"&&module.exports)module.exports=api;else root.irBooklet=api;
 })(typeof window!=="undefined"?window:globalThis);

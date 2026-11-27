@@ -603,6 +603,8 @@
   const fitKey=x=>[x.layout,x.gallery||0,x.files.length,String(x.data.summary||"").length,(x.data.works||[]).length].join("|");
   const jObj=x=>({...x.data,files:x.files,layout:x.layout,gallery:x.gallery||0,lbl:lbArr(x.lb),lbl2:lbArr(x.lb2),pictures:x.files.slice(0,irBooklet.capOf(x)).map(f=>thumbs.get(f)||""),...(x.fitted&&x.fitted.key===fitKey(x)?x.fitted.v:{})});
   // лист в окне подгоняется как в PDF (краткая характеристика на лист «Фото с объекта», мельче шрифт) — один раз на набор
+  // макет «Буклет на объект» (инженер 27.11.2026): фото выбираются у каждого отмеченного объекта, не только у первых трёх
+  const perObj=()=>{try{return Number(sp.inside)===4}catch(_){return false}};
   const fitLater=(x,id)=>{if(!irBooklet.fitOne||x.locked||FOLD)return;const k=fitKey(x);if(x.fitting===k||(x.fitted&&x.fitted.key===k))return;x.fitting=k;
    const {fitted,fitting,...b}=jObj(x);irBooklet.fitOne(b,Math.max(0,chosen.indexOf(id))).then(v=>{if(x.fitting!==k)return;x.fitting=null;x.fitted={key:k,v};drawObj(id)}).catch(()=>{x.fitting=null})};
   const jPage=(x,id,page="")=>irBooklet.pageHtml(jObj(x),Math.max(0,chosen.indexOf(id)),{page});
@@ -610,7 +612,7 @@
   const jGal=(x,id)=>!!irBooklet.hasGallery&&irBooklet.hasGallery(jObj(x),Math.max(0,chosen.indexOf(id)));
   const lbSave=(id,x)=>saveBooklet(id,x.files,x.layout,undefined,x.gallery,{labels:x.lb.labels,pts:x.lb.pts,labels2:x.lb2.labels,pts2:x.lb2.pts}).catch(()=>{});
   const photosHtml=id=>{const x=info.get(id);if(!x)return`<div class="ir-so-empty">Загружаем фото…</div>`;
-   if(FOLD){const fs=foldPics(x),k=chosen.indexOf(id),PH=irBooklet.FOLD_PH;
+   if(FOLD){const fs=foldPics(x),PH=irBooklet.FOLD_PH,k=perObj()?0:chosen.indexOf(id);
     if(!x.all.length)return`<div class="ir-so-empty">У объекта нет фото</div>`;
     return`<div class="ir-bk-tools"><span>${k<irBooklet.FOLD_OBJ?`Фото объекта в буклете — щёлкайте по порядку: <b>1</b> — главное, ещё до ${PH-1} — рядом. Выбрано: ${fs.length} из ${PH}`:`В буклет идут первые ${irBooklet.FOLD_OBJ} отмеченных объекта — этот даёт только место на карте`}</span></div>
     ${k<irBooklet.FOLD_OBJ?`<div class="ir-bk-ph">${x.all.slice(0,SHOW).map((f,i)=>{const t=thumbs.get(f);const n=fs.indexOf(f)+1;return`<button type="button" class="ir-bk-t${n?" on":""}" data-k="${i}">${t?`<img src="${esc(t)}" alt="">`:'<span class="ir-hero-no">…</span>'}${n?`<b>${n}</b>`:""}</button>`}).join("")}</div>`:""}`}
@@ -682,14 +684,14 @@
   const drawSp=()=>{const box=$("[data-sp]");box.hidden=!fold();if(box.hidden)return;
    const IN=Number(sp.inside)||0,ph=spPhotos(),t=sp.file&&thumbs.get(sp.file),st=spSt(IN);
    box.innerHTML=`<div class="ir-bk-lh">Макет разворота внутри <small>— фото каждого объекта выбираются ниже, в списке объектов</small></div><div class="ir-bk-lts">${irBooklet.FOLD_LAYOUTS.map((n,i)=>tile(`data-in="${i}"`,IN===i,irBooklet.foldSketch(i),n,"")).join("")}</div>
-    ${IN===0&&!t?`<div class="ir-bk-lh">Фото на весь разворот <small>— выберите фото ниже, потом ставьте на нём теги</small></div>`:lbHtml(st,()=>DEF)}
+    ${IN===4?`<div class="ir-acc-help">У каждого отмеченного объекта — свой буклет: первая сторона о фирме (общий объём по всем отмеченным объектам, виды работ, обложка с фото объекта), вторая — объект, его работы, фото и краткая характеристика. В PDF — отдельный файл на каждый объект. Фото выбираются ниже, у каждого объекта до ${irBooklet.FOLD_PH}.</div>`:IN===0&&!t?`<div class="ir-bk-lh">Фото на весь разворот <small>— выберите фото ниже, потом ставьте на нём теги</small></div>`:lbHtml(st,()=>DEF)}
     ${IN!==0?"":`<div class="ir-bk-lh">Фото разворота</div><div class="ir-bk-ph ir-bk-spp">${ph.length?ph.map(([id,f],k)=>{const th=thumbs.get(f);return`<button type="button" class="ir-bk-t${f===sp.file?" on":""}" data-spf="${k}">${th?`<img src="${esc(th)}" alt="">`:'<span class="ir-hero-no">…</span>'}</button>`}).join(""):`<div class="ir-so-empty">Отметьте объекты — здесь появятся их фото</div>`}</div>`}`;
-   box.querySelectorAll("[data-in]").forEach(b=>b.onclick=()=>{sp.inside=Number(b.dataset.in)||0;spSave();drawSp()});
+   box.querySelectorAll("[data-in]").forEach(b=>b.onclick=()=>{const was=perObj();sp.inside=Number(b.dataset.in)||0;spSave();if(was!==perObj())draw();else drawSp()});
    box.querySelectorAll("[data-spf]").forEach(b=>b.onclick=()=>{const [id,f]=ph[Number(b.dataset.spf)];if(sp.file!==f)sp.pts={};sp.file=f;sp.obj=id;spSave();drawSp()});
-   lbBind(box,st,()=>DEF,()=>foldIn(IN,st),()=>{sp.labels=LBL=st.labels;if(IN)sp.pk[IN]=st.pts;else sp.pts=st.pts;spSave();drawSp()})};
+   if(IN!==4)lbBind(box,st,()=>DEF,()=>foldIn(IN,st),()=>{sp.labels=LBL=st.labels;if(IN)sp.pk[IN]=st.pts;else sp.pts=st.pts;spSave();drawSp()})};
   // при других макетах разворота — свои точки у каждого макета, подписи общие
   const spSt=IN=>({labels:LBL,pts:IN?(sp.pk[IN]||(sp.pk[IN]={})):sp.pts});
-  const foldObjs=()=>chosen.map((id,k)=>{const x=info.get(id);if(!x)return null;return{...x.data,...(x.locked?.data||{}),pictures:k<irBooklet.FOLD_OBJ?foldPics(x).map(f=>thumbs.get(f)||""):[]}}).filter(Boolean);
+  const foldObjs=()=>chosen.map((id,k)=>{const x=info.get(id);if(!x)return null;return{...x.data,...(x.locked?.data||{}),pictures:k<irBooklet.FOLD_OBJ||perObj()?foldPics(x).map(f=>thumbs.get(f)||""):[]}}).filter(Boolean);
   const foldIn=(IN,st)=>irBooklet.foldBuild(foldObjs(),{inside:IN,spread:{pts:lbArr(st),...(IN?{}:{...spCap(),src:thumbs.get(sp.file)||""})}}).replace("</style>","section.tf:first-of-type{display:none}body{margin:0;overflow:hidden}</style>");
   const spreadOpt=()=>{const IN=Number(sp.inside)||0;if(fold()&&IN)return{labels:LBL.slice(),pts:lbArr(spSt(IN))};if(!fold()||!sp.file)return null;
    return{file:sp.file,labels:LBL.slice(),pts:lbArr({labels:LBL,pts:sp.pts}),...spCap()}};
@@ -731,8 +733,9 @@
 
   async function collect(save){const data=[];for(const [i,id] of chosen.entries()){const o=objects.find(x=>Number(x.id)===id);setProg(i/chosen.length*20,"Собираем объекты…",(i+1)+" из "+chosen.length+" — "+(o?.name||""));
     if(!info.has(id))await load(id);const x=info.get(id);if(!x)continue;
-    if(FOLD){data.push({...x.data,...(x.locked?.data||{}),files:foldPics(x),layout:0,gallery:0});continue}
-    if(x.locked){const L=x.locked;data.push({...x.data,...L.data,asOf:L.date,files:L.files||[],layout:Number(L.layout)||0,gallery:Number(L.gallery)||0,lbl:lbArr({labels:L.labels||[],pts:L.pts||{}}),lbl2:lbArr({labels:L.labels2||[],pts:L.pts2||{}})});continue}
+    const live=x.locked?{live:Object.fromEntries(LOCK_KEYS.map(k=>[k,x.data[k]]))}:{};
+    if(FOLD){data.push({...x.data,...(x.locked?.data||{}),...live,files:foldPics(x),layout:0,gallery:0});continue}
+    if(x.locked){const L=x.locked;data.push({...x.data,...L.data,...live,asOf:L.date,files:L.files||[],layout:Number(L.layout)||0,gallery:Number(L.gallery)||0,lbl:lbArr({labels:L.labels||[],pts:L.pts||{}}),lbl2:lbArr({labels:L.labels2||[],pts:L.pts2||{}})});continue}
     if(save)await lbSave(id,x);data.push({...x.data,files:x.files,layout:x.layout,gallery:x.gallery||0,lbl:lbArr(x.lb),lbl2:lbArr(x.lb2)})}return data}
   // предпросмотр — те же листы, что уйдут в PDF, уменьшенными, с малыми фото (инженер 20.11.2026 «сделать
   // предомостр как каждая страница выглядеть будет»)
