@@ -517,19 +517,29 @@
  // locked — сохранённый лист объекта {at, date, files, layout, data}: объёмы, текст, фото и макет на день сохранения, лист
  // больше не меняется, пока не нажать «Редактировать» (инженер 20.11.2026 «если страница устраивает, то нажимаю сохранить
  // и она больше не меняется … пока не нажму редактировать»); undefined — оставить как было, null — снять
- async function saveBooklet(id,files,layout,locked,gallery=0,lb={}){
+ // запись «Фото для буклета» объекта меняется по очереди — выбор фото щелчками и «Сохранить лист» не затирают друг друга
+ const bkQ=new Map();
+ const bkQueue=(id,fn)=>{const p=(bkQ.get(id)||Promise.resolve()).catch(()=>{}).then(fn);bkQ.set(id,p);return p};
+ function saveBooklet(id,files,layout,locked,gallery=0,lb={}){return bkQueue(id,async()=>{
   const api=irProject.data.forObject(id).section("object-meta"),rows=await api.list().catch(()=>[]),r=rows.find(x=>x.record_type===BOOKLET);
   const was=r?.data?.locked||null,lk=locked===undefined?was:locked;
-  const body={record_type:BOOKLET,title:"Фото для буклета",data:{entity_type:BOOKLET,files:lk?lk.files:files,layout:lk?lk.layout:layout,gallery:Number(lk?lk.gallery:gallery)||0,labels:(lk?lk.labels:lb.labels)||null,pts:(lk?lk.pts:lb.pts)||{},labels2:(lk?lk.labels2:lb.labels2)||null,pts2:(lk?lk.pts2:lb.pts2)||{},...(lk?{locked:lk}:{}),...(r?.data?.fold?{fold:r.data.fold}:{})}};
+  const body={record_type:BOOKLET,title:"Фото для буклета",data:{entity_type:BOOKLET,files:lk?lk.files:files,layout:lk?lk.layout:layout,gallery:Number(lk?lk.gallery:gallery)||0,labels:(lk?lk.labels:lb.labels)||null,pts:(lk?lk.pts:lb.pts)||{},labels2:(lk?lk.labels2:lb.labels2)||null,pts2:(lk?lk.pts2:lb.pts2)||{},...(lk?{locked:lk}:{}),...(r?.data?.fold?{fold:r.data.fold}:{}),...(Array.isArray(r?.data?.fpicks)?{fpicks:r.data.fpicks}:{})}};
   if(!r)await api.create(body);else await api.update(r.id,body)
- }
+ })}
  // «Сохранить лист» в буклете (инженер 27.11.2026 «буклеты тоже сделай сохранить», «и редактировать»): фото и сведения
  // объекта на день сохранения — поле fold записи «Фото для буклета», журнал его не трогает
- async function saveFold(id,F){
+ function saveFold(id,F){return bkQueue(id,async()=>{
   const api=irProject.data.forObject(id).section("object-meta"),rows=await api.list().catch(()=>[]),r=rows.find(x=>x.record_type===BOOKLET);
   const data={...(r?.data||{entity_type:BOOKLET,files:[],layout:0})};if(F)data.fold=F;else delete data.fold;
   const body={record_type:BOOKLET,title:"Фото для буклета",data};if(!r)await api.create(body);else await api.update(r.id,body)
- }
+ })}
+ // выбор фото объекта в буклете щелчками хранится у объекта (поле fpicks) — после выхода и захода тот же (инженер
+ // 27.11.2026 «не сохраняет буклеты, фотографии после выхода и захода старые становятся»); null — снять
+ function saveFoldPicks(id,files){return bkQueue(id,async()=>{
+  const api=irProject.data.forObject(id).section("object-meta"),rows=await api.list().catch(()=>[]),r=sarr(rows).find(x=>x.record_type===BOOKLET);
+  const data={...(r?.data||{entity_type:BOOKLET,files:[],layout:0})};if(files)data.fpicks=files.slice();else delete data.fpicks;
+  if(!r&&!files)return;const body={record_type:BOOKLET,title:"Фото для буклета",data};if(!r)await api.create(body);else await api.update(r.id,body)
+ })}
  // инженер 24.11.2026 «переименуй Буклет в Журнал, а для ЕвроБуклета сделай отдельную (как сейчас Буклет) и переименуй в
  // Буклет»: одно окно, два вида — «Журнал» (многостраничный PDF) и «Буклет» ({fold:true}, в 3 сложения)
  async function bookletWindow(parent,{fold:FOLD=false}={}){
@@ -549,6 +559,8 @@
   const bad=e=>{st.className="ir-acc-st err";st.textContent=errText(e)};
   if(!window.irBooklet){bad(Error("Буклет не загружен — перезапустите программу"));go.disabled=true}
   let objects=[],chosen=[],tab="done",q="";const info=new Map(),thumbs=new Map(),rats=new Map(),SHOW=60;
+  // отмеченные объекты — те же после выхода и захода (инженер 27.11.2026 «не сохраняет буклеты»)
+  const LASTK="ir-booklet-last-"+(FOLD?"fold":"journal");let lastOk=false;
   // пропорции фото для раскладки листа в окне — как в предпросмотре и PDF (инженер 27.11.2026 «фото разное строение … в журнале, в выгруженном и в предпросмотре»)
   const ratOf=src=>new Promise(ok=>{if(!src)return ok(0);const i=new Image();i.onload=()=>ok(i.naturalWidth/Math.max(1,i.naturalHeight));i.onerror=()=>ok(0);i.src=src});
   // сохранённые листы видны в общем списке (инженер 24.11.2026 «сохраненные как то в общем списке пометь») — id → дата
@@ -644,8 +656,8 @@
    ${x.all.length>SHOW?`<div class="ir-acc-help">Показаны первые ${SHOW} фото из ${x.all.length}.</div>`:""}
    <div data-lw="1">${lbHtml(x.lb,()=>worksOfX(x),"Теги на листе объекта")}</div>${jGal(x,id)?`<div data-lw="2">${lbHtml(x.lb2,()=>worksOfX(x),"Теги на листе «Фото с объекта»")}</div>`:""}`};
   const drawObj=id=>{const box=list.querySelector(`[data-box="${id}"]`);if(!box)return;box.innerHTML=photosHtml(id);const x=info.get(id);if(!x)return;
-   box.querySelectorAll("[data-lay]").forEach(b=>b.onclick=()=>{x.layout=Number(b.dataset.lay)||0;const cap=irBooklet.capOf(x);if(x.files.length>cap)x.files.length=cap;drawObj(id)});
-   box.querySelectorAll("[data-gal]").forEach(b=>b.onclick=()=>{x.gallery=Number(b.dataset.gal)||0;drawObj(id)});
+   box.querySelectorAll("[data-lay]").forEach(b=>b.onclick=()=>{x.layout=Number(b.dataset.lay)||0;const cap=irBooklet.capOf(x);if(x.files.length>cap)x.files.length=cap;drawObj(id);lbSave(id,x)});
+   box.querySelectorAll("[data-gal]").forEach(b=>b.onclick=()=>{x.gallery=Number(b.dataset.gal)||0;drawObj(id);lbSave(id,x)});
    const busy=b=>{b.disabled=true;b.textContent="Сохраняем…"};
    box.querySelector("[data-lock]")?.addEventListener("click",async e=>{busy(e.target);
     const L={at:new Date().toISOString(),date:today(),files:[...x.files],layout:x.layout,gallery:x.gallery||0,labels:[...(x.lb.labels||[])],pts:{...x.lb.pts},labels2:[...(x.lb2.labels||[])],pts2:{...x.lb2.pts},data:Object.fromEntries(LOCK_KEYS.map(k=>[k,x.data[k]]))};
@@ -656,11 +668,11 @@
     const F={at:new Date().toISOString(),date:today(),files:foldPics(x),data:Object.fromEntries(LOCK_KEYS.map(k=>[k,x.data[k]]))};
     try{await saveFold(id,F);x.flock=F;flocks.set(id,F.date||"")}catch(err){bad(err)}draw()});
    box.querySelector("[data-fedit]")?.addEventListener("click",async e=>{busy(e.target);
-    try{const fs=(x.flock.files||[]).slice();await saveFold(id,null);x.flock=null;x.fpicks=fs;flocks.delete(id)}catch(err){bad(err)}draw()});
+    try{const fs=(x.flock.files||[]).slice();await saveFold(id,null);x.flock=null;x.fpicks=fs;flocks.delete(id);saveFoldPicks(id,fs).catch(()=>{})}catch(err){bad(err)}draw()});
    if(FOLD){box.querySelectorAll("[data-k]").forEach(b=>b.onclick=()=>{const f=x.all[Number(b.dataset.k)],a=foldPics(x).slice(),i=a.indexOf(f);
-    if(i>=0)a.splice(i,1);else if(a.length<fph())a.push(f);else return;x.fpicks=a;drawObj(id)});return}
+    if(i>=0)a.splice(i,1);else if(a.length<fph())a.push(f);else return;x.fpicks=a;drawObj(id);saveFoldPicks(id,a).catch(bad)});return}
    box.querySelectorAll("[data-k]").forEach(b=>b.onclick=()=>{const f=x.all[Number(b.dataset.k)],i=x.files.indexOf(f);
-    if(i>=0)x.files.splice(i,1);else if(x.files.length<irBooklet.capOf(x))x.files.push(f);else return;drawObj(id)});
+    if(i>=0)x.files.splice(i,1);else if(x.files.length<irBooklet.capOf(x))x.files.push(f);else return;drawObj(id);lbSave(id,x)});
    fitLater(x,id);
    if(!x.locked){const w1=box.querySelector('[data-lw="1"]'),w2=box.querySelector('[data-lw="2"]');
     if(w1)lbBind(w1,x.lb,()=>worksOfX(x),()=>jPage(x,id),()=>{lbSave(id,x);drawObj(id)});
@@ -668,8 +680,8 @@
   async function load(id){if(info.has(id))return drawObj(id);
    const o=objects.find(x=>Number(x.id)===id);let data;try{data=await siteObjectData(o,0)}catch(e){bad(e);return}
    const p=irBooklet.pickDefault(data),B=data.booklet||{};
-   const x0={data,...p,locked:B.locked||null,flock:B.fold||null};if(FOLD&&fpPend[id])x0.fpicks=fpPend[id].slice();if(FOLD&&fxPend[id])x0.fno=fxPend[id].slice();x0.lb={labels:Array.isArray(B.labels)?B.labels:[],pts:B.pts&&typeof B.pts==="object"?B.pts:{},cur:""};x0.lb2={labels:Array.isArray(B.labels2)?B.labels2:[],pts:B.pts2&&typeof B.pts2==="object"?B.pts2:{}};info.set(id,x0);drawObj(id);
-   for(const f of [...new Set([...(data.booklet?.locked?.files||[]),...(data.booklet?.fold?.files||[]),...p.all.slice(0,SHOW)])]){if(thumbs.has(f))continue;thumbs.set(f,await irBooklet.thumb(await irBooklet.read(f)));rats.set(f,await ratOf(thumbs.get(f)));if(d.isConnected){drawObj(id);d._sp?.()}}}
+   const x0={data,...p,locked:B.locked||null,flock:B.fold||null};if(FOLD&&(fpPend[id]||Array.isArray(B.fpicks)))x0.fpicks=(fpPend[id]||B.fpicks).slice();if(FOLD&&fxPend[id])x0.fno=fxPend[id].slice();x0.lb={labels:Array.isArray(B.labels)?B.labels:[],pts:B.pts&&typeof B.pts==="object"?B.pts:{},cur:""};x0.lb2={labels:Array.isArray(B.labels2)?B.labels2:[],pts:B.pts2&&typeof B.pts2==="object"?B.pts2:{}};info.set(id,x0);drawObj(id);
+   for(const f of [...new Set([...(data.booklet?.locked?.files||[]),...(data.booklet?.fold?.files||[]),...(FOLD&&Array.isArray(data.booklet?.fpicks)?data.booklet.fpicks:[]),...p.all.slice(0,SHOW)])]){if(thumbs.has(f))continue;thumbs.set(f,await irBooklet.thumb(await irBooklet.read(f)));rats.set(f,await ratOf(thumbs.get(f)));if(d.isConnected){drawObj(id);d._sp?.()}}}
   const draw=()=>{
    $("[data-tabs]").innerHTML=TABS.map(([k,t])=>{const n=k==="all"?objects.length:objects.filter(o=>STATUS_TAG(o.status||"")===k).length;
     return n||k==="all"||k===tab?`<button type="button" class="${k===tab?"on":""}" data-tab="${k}">${t}<span>${n}</span></button>`:""}).join("");
@@ -679,14 +691,15 @@
     return`<div class="ir-bk-obj${on?" on":""}${lk?" lk":""}"><label class="ir-so-obj${on?" on":""}" data-id="${id}"><input type="checkbox" ${on?"checked":""}><span class="t"><b>${esc(o.name)}</b><small>${esc([o.customer,o.address].filter(Boolean).join(" · ")||"—")}</small></span><span class="ir-so-tags">${lk?`<span class="ir-so-tag lk" title="Лист объекта сохранён и не меняется, пока не нажать «Редактировать»">🔒 Сохранён${lkm.get(id)?" "+esc(lkm.get(id)):""}</span>`:""}<span class="ir-so-tag ${tag}">${esc(o.status||"—")}</span></span></label>${on?`<div class="ir-bk-box" data-box="${id}"></div>`:""}</div>`}).join("")||
     `<div class="ir-so-empty">${objects.length?"Ничего не найдено":"В программе пока нет объектов"}</div>`;
    list.querySelectorAll(".ir-so-obj").forEach(l=>{const i=l.querySelector("input");i.onchange=()=>{const id=Number(l.dataset.id);chosen=chosen.filter(x=>x!==id);if(i.checked)chosen.push(id);draw()}});
-   for(const id of chosen)load(id);d._sp?.()
+   for(const id of chosen)load(id);d._sp?.();if(lastOk)try{localStorage.setItem(LASTK,JSON.stringify(chosen))}catch(_){}
   };
   $("[data-q]").oninput=e=>{q=e.target.value.trim().toLowerCase();draw()};
   $("[data-tabs]").onclick=e=>{const b=e.target.closest("[data-tab]");if(b){tab=b.dataset.tab;draw()}};
   // «Выбрать все объекты» — все показанные по вкладке и поиску (инженер 20.11.2026 «выборку Выбрать все объекты»)
   $("[data-all]").onclick=()=>{objects.filter(match).forEach(o=>{const id=Number(o.id);if(!chosen.includes(id))chosen.push(id)});draw()};
   $("[data-none]").onclick=()=>{chosen=[];draw()};
-  try{objects=sarr(await irProject.data.objects.list());if(!objects.some(o=>STATUS_TAG(o.status||"")==="done"))tab="all";draw()}catch(e){bad(e)}
+  try{objects=sarr(await irProject.data.objects.list());if(!objects.some(o=>STATUS_TAG(o.status||"")==="done"))tab="all";
+   draw()}catch(e){bad(e)}
   {const ids=objects.map(o=>Number(o.id)),lkm=FOLD?flocks:locks;let k=0;
    const one=async()=>{while(k<ids.length){const id=ids[k++];
     const rows=await irProject.data.forObject(id).section("object-meta").list().catch(()=>[]);const D=sarr(rows).find(x=>x.record_type===BOOKLET)?.data,L=FOLD?D?.fold:D?.locked;
@@ -754,6 +767,7 @@
    catch(e){setProg(100,"Варианты не получились",errText(e),"err")}
    vcur=keep.name;vApply(keep.name?vars.find(x=>x.name===keep.name)||keep:keep);drawN()}
   drawVar();
+  {const ids=new Set(objects.map(o=>Number(o.id)));let c=[];try{c=sarr(JSON.parse(localStorage.getItem(LASTK)||"[]")).map(Number).filter(id=>ids.has(id))}catch(_){}lastOk=true;if(c.length&&!chosen.length){chosen=c;draw()}}
 
  // сведения о фирме на передней стороне и в «О компании» — по всем объектам фирмы, как на сайте a-ts.kz (инженер
   // 27.11.2026 «где вся инфа и объемы компании за все время по всем объектам?»): объекты, выложенные на сайт; нет связи
