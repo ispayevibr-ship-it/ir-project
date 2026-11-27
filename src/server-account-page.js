@@ -656,7 +656,7 @@
    box.querySelector("[data-fedit]")?.addEventListener("click",async e=>{busy(e.target);
     try{const fs=(x.flock.files||[]).slice();await saveFold(id,null);x.flock=null;x.fpicks=fs;flocks.delete(id)}catch(err){bad(err)}draw()});
    if(FOLD){box.querySelectorAll("[data-k]").forEach(b=>b.onclick=()=>{const f=x.all[Number(b.dataset.k)],a=foldPics(x).slice(),i=a.indexOf(f);
-    const no=new Set(x.fno||[]);if(i>=0){a.splice(i,1);no.add(f)}else{no.delete(f);if(a.length>=fph())a.pop();a.push(f)}x.fpicks=a;x.fno=[...no];drawObj(id)});return}
+    if(i>=0)a.splice(i,1);else if(a.length<fph())a.push(f);else return;x.fpicks=a;drawObj(id)});return}
    box.querySelectorAll("[data-k]").forEach(b=>b.onclick=()=>{const f=x.all[Number(b.dataset.k)],i=x.files.indexOf(f);
     if(i>=0)x.files.splice(i,1);else if(x.files.length<irBooklet.capOf(x))x.files.push(f);else return;drawObj(id)});
    fitLater(x,id);
@@ -691,7 +691,9 @@
     if(L)lkm.set(id,L.date||"")}};
    await Promise.all([one(),one(),one(),one()]);if(lkm.size&&d.isConnected)draw()}
   const services=()=>$("[data-svc]").checked,withMap=()=>$("[data-map]").checked,fold=()=>FOLD;
-  const foldPics=x=>{if(x.flock)return (x.flock.files||[]).slice(0,fph());const no=new Set(x.fno||[]),out=[];for(const f of [...(x.fpicks||[]),...((x.locked?.files||x.files)||[]),...(x.all||[])])if(!no.has(f)&&!out.includes(f))out.push(f);return out.slice(0,fph())};
+  // выбор щелчками — ровно то, что отмечено (инженер 27.11.2026 «при убирании фото цифры сами прыгают на другие фото»);
+  // пока не щёлкали — выбранные в журнале, затем остальные фото объекта
+  const foldPics=x=>{if(x.flock)return (x.flock.files||[]).slice(0,fph());if(x.fpicks)return x.fpicks.slice(0,fph());const no=new Set(x.fno||[]),out=[];for(const f of [...((x.locked?.files||x.files)||[]),...(x.all||[])])if(!no.has(f)&&!out.includes(f))out.push(f);return out.slice(0,fph())};
   // евробуклет (инженер 24.11.2026 «чтобы в 3 раза сложить можно было»): листы «Что мы делаем» и «География» в нём всегда
   // разворот евробуклета — одно фото на весь разворот с подписями направлений работ (инженер 24.11.2026 прислал образец):
   // фото — из фото отмеченных объектов, точку каждой подписи ставит щелчок по фото. Помнится на этом компьютере.
