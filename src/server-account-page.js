@@ -640,7 +640,7 @@
    box.querySelector("[data-edit]")?.addEventListener("click",async e=>{busy(e.target);
     try{const lb={labels:x.locked.labels||x.lb.labels,pts:x.locked.pts||{},labels2:x.locked.labels2||x.lb2.labels,pts2:x.locked.pts2||{}};await saveBooklet(id,x.locked.files,x.locked.layout,null,x.locked.gallery,lb);x.lb={...x.lb,labels:lb.labels,pts:lb.pts};x.lb2={labels:lb.labels2||[],pts:lb.pts2};x.files=[...x.locked.files];x.layout=Number(x.locked.layout)||0;x.gallery=Number(x.locked.gallery)||0;x.locked=null;locks.delete(id)}catch(err){bad(err)}draw()});
    if(FOLD){box.querySelectorAll("[data-k]").forEach(b=>b.onclick=()=>{const f=x.all[Number(b.dataset.k)],a=foldPics(x).slice(),i=a.indexOf(f);
-    if(i>=0)a.splice(i,1);else if(a.length<fph())a.push(f);else return;x.fpicks=a;drawObj(id)});return}
+    const no=new Set(x.fno||[]);if(i>=0){a.splice(i,1);no.add(f)}else{no.delete(f);if(a.length>=fph())a.pop();a.push(f)}x.fpicks=a;x.fno=[...no];drawObj(id)});return}
    box.querySelectorAll("[data-k]").forEach(b=>b.onclick=()=>{const f=x.all[Number(b.dataset.k)],i=x.files.indexOf(f);
     if(i>=0)x.files.splice(i,1);else if(x.files.length<irBooklet.capOf(x))x.files.push(f);else return;drawObj(id)});
    fitLater(x,id);
@@ -650,7 +650,7 @@
   async function load(id){if(info.has(id))return drawObj(id);
    const o=objects.find(x=>Number(x.id)===id);let data;try{data=await siteObjectData(o,0)}catch(e){bad(e);return}
    const p=irBooklet.pickDefault(data),B=data.booklet||{};
-   const x0={data,...p,locked:B.locked||null};if(FOLD&&fpPend[id])x0.fpicks=fpPend[id].slice();x0.lb={labels:Array.isArray(B.labels)?B.labels:[],pts:B.pts&&typeof B.pts==="object"?B.pts:{},cur:""};x0.lb2={labels:Array.isArray(B.labels2)?B.labels2:[],pts:B.pts2&&typeof B.pts2==="object"?B.pts2:{}};info.set(id,x0);drawObj(id);
+   const x0={data,...p,locked:B.locked||null};if(FOLD&&fpPend[id])x0.fpicks=fpPend[id].slice();if(FOLD&&fxPend[id])x0.fno=fxPend[id].slice();x0.lb={labels:Array.isArray(B.labels)?B.labels:[],pts:B.pts&&typeof B.pts==="object"?B.pts:{},cur:""};x0.lb2={labels:Array.isArray(B.labels2)?B.labels2:[],pts:B.pts2&&typeof B.pts2==="object"?B.pts2:{}};info.set(id,x0);drawObj(id);
    for(const f of [...new Set([...(data.booklet?.locked?.files||[]),...p.all.slice(0,SHOW)])]){if(thumbs.has(f))continue;thumbs.set(f,await irBooklet.thumb(await irBooklet.read(f)));if(d.isConnected){drawObj(id);d._sp?.()}}}
   const draw=()=>{
    $("[data-tabs]").innerHTML=TABS.map(([k,t])=>{const n=k==="all"?objects.length:objects.filter(o=>STATUS_TAG(o.status||"")===k).length;
@@ -675,7 +675,7 @@
     if(L)locks.set(id,L.date||"")}};
    await Promise.all([one(),one(),one(),one()]);if(locks.size&&d.isConnected)draw()}
   const services=()=>$("[data-svc]").checked,withMap=()=>$("[data-map]").checked,fold=()=>FOLD;
-  const foldPics=x=>x.fpicks||(()=>{const own=(x.locked?.files||x.files)||[];return [...own,...(x.all||[]).filter(f=>!own.includes(f))].slice(0,fph())})();
+  const foldPics=x=>{const no=new Set(x.fno||[]),out=[];for(const f of [...(x.fpicks||[]),...((x.locked?.files||x.files)||[]),...(x.all||[])])if(!no.has(f)&&!out.includes(f))out.push(f);return out.slice(0,fph())};
   // евробуклет (инженер 24.11.2026 «чтобы в 3 раза сложить можно было»): листы «Что мы делаем» и «География» в нём всегда
   // разворот евробуклета — одно фото на весь разворот с подписями направлений работ (инженер 24.11.2026 прислал образец):
   // фото — из фото отмеченных объектов, точку каждой подписи ставит щелчок по фото. Помнится на этом компьютере.
@@ -706,13 +706,13 @@
   // фото и подписи; «Новый» — чистый набор; «PDF всех вариантов» — PDF каждого по очереди. Фото, макет и подписи листа
   // объекта в журнале — у самого объекта, общие для всех вариантов. Варианты хранятся на этом компьютере.
   const VK="ir-booklet-sets-"+(FOLD?"fold":"journal");let vars=[];try{vars=JSON.parse(localStorage.getItem(VK)||"[]")||[]}catch(_){vars=[]}if(!Array.isArray(vars))vars=[];
-  let vcur="",fpPend={};
+  let vcur="",fpPend={},fxPend={};
   const vSave=()=>{try{localStorage.setItem(VK,JSON.stringify(vars))}catch(_){}};
   const vSnap=name=>{const v={name,at:new Date().toISOString(),chosen:chosen.slice()};
-   if(FOLD){v.fp={};for(const id of chosen){const x=info.get(id);if(x?.fpicks)v.fp[id]=x.fpicks.slice();else if(fpPend[id])v.fp[id]=fpPend[id]}v.sp=JSON.parse(JSON.stringify(sp))}
+   if(FOLD){v.fp={};for(const id of chosen){const x=info.get(id);if(x?.fpicks)v.fp[id]=x.fpicks.slice();else if(fpPend[id])v.fp[id]=fpPend[id];if(x?.fno?.length)(v.fx||(v.fx={}))[id]=x.fno.slice();else if(fxPend[id])(v.fx||(v.fx={}))[id]=fxPend[id]}v.sp=JSON.parse(JSON.stringify(sp))}
    else{v.svc=services();v.map=withMap()}return v};
   const vApply=v=>{const ids=new Set(objects.map(o=>Number(o.id)));chosen=(v?.chosen||[]).map(Number).filter(id=>ids.has(id));
-   if(FOLD){fpPend={...(v?.fp||{})};for(const [id,x] of info){if(fpPend[id])x.fpicks=fpPend[id].slice();else delete x.fpicks}
+   if(FOLD){fpPend={...(v?.fp||{})};fxPend={...(v?.fx||{})};for(const [id,x] of info){if(fpPend[id])x.fpicks=fpPend[id].slice();else delete x.fpicks;if(fxPend[id])x.fno=fxPend[id].slice();else delete x.fno}
     sp=v?.sp?JSON.parse(JSON.stringify(v.sp)):{pts:{},pk:{},inside:Number(sp.inside)||0,labels:DEF.slice()};if(!sp.pts)sp.pts={};if(!sp.pk)sp.pk={};if(!Array.isArray(sp.labels))sp.labels=DEF.slice();LBL=sp.labels;spSave()}
    else{$("[data-svc]").checked=v?v.svc!==false:true;$("[data-map]").checked=v?v.map!==false:true}
    draw();drawVar()};
