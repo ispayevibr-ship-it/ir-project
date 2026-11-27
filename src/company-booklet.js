@@ -685,6 +685,18 @@ svg.wa{width:3.4mm;height:3.4mm;flex:none;vertical-align:-.7mm;margin-right:1mm}
 .tf .ow.nar{width:100.3mm;padding:8mm 9mm 9mm 10mm}
 .tf .ow.nar h2{font-size:15pt;margin-bottom:4mm}
 .tf .ow.nar .wl.c2{column-gap:5mm}
+.tf .ow .wl{flex:0 1 auto}
+.tf .ow .ofl{flex:1 1 0;min-height:0;display:flex;flex-direction:column;gap:3mm;padding-top:4mm;overflow:hidden}
+.tf .ow .osm{flex:0 1 auto;min-height:0;overflow:hidden;position:relative;border-left:1.1mm solid var(--or);padding:.5mm 0 7mm 3.5mm;-webkit-mask-image:linear-gradient(#000 calc(100% - 7mm),transparent);mask-image:linear-gradient(#000 calc(100% - 7mm),transparent)}
+.tf .ow .osm small{display:block;font-size:6.6pt;font-weight:800;color:var(--mut);letter-spacing:.8px;margin-bottom:1.3mm}
+.tf .ow .osm .tx{font-size:8.6pt;line-height:1.45;color:var(--ink)}
+.tf .ow .osm .tx p{margin:0 0 1.4mm}
+.tf .ow .osm .tx ul{margin:0 0 1.4mm;padding-left:4mm}
+.tf .ow.nar .osm .tx{font-size:7.6pt}
+.tf .ow .oart{flex:1 1 0;min-height:0;container-type:size}
+.tf .ow .oart .in{height:100%;display:flex;align-items:center;justify-content:center;border-radius:2.5mm;background:linear-gradient(135deg,#f4f5f7,#eceef1);padding:3mm 5mm;box-sizing:border-box}
+.tf .ow .oart svg{width:100%;height:100%;max-height:46mm}
+@container (max-height:18mm){.tf .ow .oart .in{display:none}}
 .tf .opx{left:200mm;width:97mm;padding:8mm 9mm 9mm 2mm;display:flex;flex-direction:column}
 .tf .opx .gx{flex:1 1 0;min-height:0;display:grid;gap:2.2mm;grid-template-columns:1fr 1fr;margin-top:2mm}
 .tf .opx.n1 .gx{grid-template-areas:"a a"}
@@ -843,6 +855,19 @@ svg.wa{width:3.4mm;height:3.4mm;flex:none;vertical-align:-.7mm;margin-right:1mm}
    ${geo.length?`<div class="amap"><div class="kk up">География работ</div>${foldMap(L)}<div class="rk">Республика Казахстан</div></div>`:""}</div>${mk([97,197])}</section>`}
  // сторона объекта: первая полоса — фото на всю полосу, логотип фирмы, внизу название, адрес, генподрядчик, заказчик;
  // вторая и третья — виды работ с объёмами (много работ — две колонки и шрифт мельче)
+ // пустое место под видами работ (инженер 27.11.2026 «чем то надо пустые места заполнить»): список видов работ по своей
+ // высоте, остаток полосы — краткая характеристика объекта (на стороне объекта больше нигде не выводится), не влезающая —
+ // с плавным обрезом снизу; ниже, если остаётся 18 мм и больше, — рисунок фермы в цветах буклета, без текста (свои слова
+ // не повторяются — данные объекта уже на листе)
+ const FILL_ART=`<svg viewBox="0 0 240 90" preserveAspectRatio="xMidYMid meet"><g fill="none" stroke-linejoin="round" stroke-linecap="round">
+<path d="M12 78h216M20 78V44M220 78V44" stroke="#c9ced5" stroke-width="2.4"/>
+<path d="M20 44L120 14L220 44M20 58h200" stroke="#1d2228" stroke-width="3"/>
+<path d="M20 58L45 36.5L70 58L95 21.5L120 58L145 21.5L170 58L195 36.5L220 58M45 36.5V58M70 29V58M95 21.5V58M120 14V58M145 21.5V58M170 29V58M195 36.5V58" stroke="#1d2228" stroke-width="1.5" opacity=".75"/>
+<path d="M20 44L120 14L220 44" stroke="#f5a700" stroke-width="1.4" transform="translate(0 -4)" opacity=".9"/>
+<path d="M20 84h200M20 81v6M120 81v6M220 81v6" stroke="#f5a700" stroke-width="1"/>
+<circle cx="20" cy="58" r="2.2" fill="#f5a700" stroke="none"/><circle cx="220" cy="58" r="2.2" fill="#f5a700" stroke="none"/><circle cx="120" cy="14" r="2.2" fill="#f5a700" stroke="none"/></g></svg>`;
+ function objFill(o){const sm=String(o.summary||"").trim();
+  return`<div class="ofl">${sm?`<div class="osm"><small class="up">Об объекте</small><div class="tx">${sumHtml(sm)}</div></div>`:""}<div class="oart"><div class="in">${FILL_ART}</div></div></div>`}
  function objSide(o,co,logo){const ps=(o.pictures||[]),cvp=ps[0]||"",score=o.mainPx&&o.mainPx[0]>0?Math.min(o.mainPx[0]/100,o.mainPx[1]/210):9;
   const cover=score<4?`<div class="ph soft"${bg(cvp)}><b${bg(cvp)}></b><i${bg(cvp)}></i></div>`:`<div class="ph"${bg(cvp)}></div>`;
   const lg=logo?`<img src="${esc(logo)}" alt="">`:`<b>${esc(co.name)}</b>`,place=String(o.address||"").trim();
@@ -852,7 +877,7 @@ svg.wa{width:3.4mm;height:3.4mm;flex:none;vertical-align:-.7mm;margin-right:1mm}
    n=ex.length?ws.reduce((a,w)=>a+(String(w.name||"").length>34?1:.8),0)+(done?1:0):ws.length+(done?2:0),f=ex.length?(n<=9?0:n<=12?1:n<=16?2:n<=19?3:4):(n<=8?0:n<=14?1:n<=22?2:n<=30?3:4),c2=ex.length?n>23:n>10;
   return`<section class="tf"><div class="pn cv oq">${cover}<div class="lg">${lg}</div><div class="od">${o.years?`<span class="yr">${esc(o.years)}</span>`:""}<h2>${esc(o.name||"Объект")}</h2>${place?`<div class="pl">${esc(place)}</div>`:""}
    ${pt.map(([t,v])=>`<div class="pr"><small class="up">${t}</small><b>${esc(v)}</b></div>`).join("")}</div></div>
-  <div class="pn ow f${f}${ex.length?" nar":""}"><div class="kk up">Выполнено на объекте</div><h2>Виды работ и объёмы</h2><div class="wl${c2?" c2":""}">${ws.map(w=>`<div><span>${esc(w.name)}</span>${isSvc(w)||!(num(w.volume)>0)?"":`<b>${esc(fmt(num(w.volume)))} <s>${esc(unitOf(w.unit))}</s></b>`}</div>`).join("")}</div>${done?`<div class="fin"><div class="rg"><svg viewBox="0 0 40 40"><circle cx="20" cy="20" r="17" fill="none" stroke="rgba(255,255,255,.14)" stroke-width="3.2"/><circle cx="20" cy="20" r="17" fill="none" stroke="#f5a700" stroke-width="3.2" stroke-linecap="round" stroke-dasharray="106.8" transform="rotate(-90 20 20)"/></svg><b>100%</b></div><div class="tx"><strong>Работы выполнены полностью</strong><span><svg viewBox="0 0 16 16"><circle cx="8" cy="8" r="8" fill="#f5a700"/><path d="M4.4 8.3l2.4 2.3 4.8-5" fill="none" stroke="#1d2228" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>Полный пакет исполнительной документации</span></div></div>`:""}</div>${ex.length?`<div class="pn opx n${ex.length}"><div class="kk up">Фото с объекта</div><div class="gx">${ex.map((p,k)=>`<i style="grid-area:${"abcdef"[k]}${p?`;background-image:url('${String(p).replace(/'/g,"%27")}')`:""}"></i>`).join("")}</div></div>`:""}</section>`}
+  <div class="pn ow f${f}${ex.length?" nar":""}"><div class="kk up">Выполнено на объекте</div><h2>Виды работ и объёмы</h2><div class="wl${c2?" c2":""}">${ws.map(w=>`<div><span>${esc(w.name)}</span>${isSvc(w)||!(num(w.volume)>0)?"":`<b>${esc(fmt(num(w.volume)))} <s>${esc(unitOf(w.unit))}</s></b>`}</div>`).join("")}</div>${objFill(o)}${done?`<div class="fin"><div class="rg"><svg viewBox="0 0 40 40"><circle cx="20" cy="20" r="17" fill="none" stroke="rgba(255,255,255,.14)" stroke-width="3.2"/><circle cx="20" cy="20" r="17" fill="none" stroke="#f5a700" stroke-width="3.2" stroke-linecap="round" stroke-dasharray="106.8" transform="rotate(-90 20 20)"/></svg><b>100%</b></div><div class="tx"><strong>Работы выполнены полностью</strong><span><svg viewBox="0 0 16 16"><circle cx="8" cy="8" r="8" fill="#f5a700"/><path d="M4.4 8.3l2.4 2.3 4.8-5" fill="none" stroke="#1d2228" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>Полный пакет исполнительной документации</span></div></div>`:""}</div>${ex.length?`<div class="pn opx n${ex.length}"><div class="kk up">Фото с объекта</div><div class="gx">${ex.map((p,k)=>`<i style="grid-area:${"abcdef"[k]}${p?`;background-image:url('${String(p).replace(/'/g,"%27")}')`:""}"></i>`).join("")}</div></div>`:""}</section>`}
  function foldBuild(objects,{logo="",company={},screen=false,spread=null,inside,all}={}){
   let IN=inside===undefined?(spread&&spread.src?0:1):Number(inside)||0;if(IN===0&&!(spread&&spread.src))IN=1;
   if(IN===4)return foldPerObject(objects,{logo,company,screen,all});
