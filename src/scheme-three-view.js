@@ -1027,6 +1027,11 @@ function byCreation(list){if(!Array.isArray(list))return list;var key=function(c
   // wall of the same colour showed yellow only above it — the engineer, 13.11.2026 «при наведение не выделяется элемент,
   // только сэндвич сверху … много так в местах»; the selected one through see-through panels too — hoverGhost)
   var hoverGhost=new T.MeshBasicMaterial({color:HOVER_COLOR,transparent:true,opacity:.26,depthTest:true,depthWrite:false,polygonOffset:true,polygonOffsetFactor:-6,polygonOffsetUnits:-12});
+  // (pack 427: the highlight at the depth of the lit mesh itself, a few units in front of it — not the fixed slope factor
+  // −5…−6: at a grazing view that pulled the selected trim through the corner trim lying a mm or two in front of it, the
+  // engineer 27.11.2026 «опять фасонку видно»)
+  var litMats=new Map();function litMat(mat,m,du){var b=m&&m.material;b=Array.isArray(b)?b[0]:b;var f=b&&b.polygonOffset?Number(b.polygonOffsetFactor)||0:0,u=b&&b.polygonOffset?Number(b.polygonOffsetUnits)||0:0,k=mat.uuid+"|"+f+"|"+u+"|"+du;
+   if(!litMats.has(k)){var c=mat.clone();c.polygonOffset=true;c.polygonOffsetFactor=f;c.polygonOffsetUnits=u-du;litMats.set(k,c)}return litMats.get(k)}
   var zAxis=new T.Vector3(0,0,1),failures=0,conventional=new Set();
   function baseColor(c){
    if(colorMode==="status"){var at=arTint(c);if(at!==null)return at;return(statusColors[c.status]||statusColors.planned)[0]}
@@ -15331,13 +15336,13 @@ function byCreation(list){if(!Array.isArray(list))return list;var key=function(c
      var mat=s[1],p=!i&&parts?meshPos(m,parts):null;
      if(!i&&parts)mat=litPart!==null&&p!==litPart?partMat("#d3dae0"):p!==null&&parts.color[p]?partMat(parts.color[p]):s[1];
      var mine=pl&&pl.pieces.indexOf(m)>=0;
-     var o=new T.Mesh(mine?outerFaces(m,pl.pieces.filter(function(x){return x!==m}),pl):m.geometry,mat);o.matrixAutoUpdate=false;o.matrix.copy(m.matrixWorld);o.renderOrder=2;overlay.add(o);
+     var o=new T.Mesh(mine?outerFaces(m,pl.pieces.filter(function(x){return x!==m}),pl):m.geometry,litMat(mat,m,3));o.matrixAutoUpdate=false;o.matrix.copy(m.matrixWorld);o.renderOrder=2;overlay.add(o);
      var le=litEdges(m,i?hoverEdgeMat:selEdgeMat);if(le)overlay.add(le);
-     if(!m.userData.hole){var gh=new T.Mesh(mine?planeGhost(m,pl):arPiece(m)?ghostFaces(m.geometry):m.geometry,i?hoverGhost:selectedGhost);gh.matrixAutoUpdate=false;gh.matrix.copy(m.matrixWorld);gh.renderOrder=20;overlay.add(gh)}})
+     if(!m.userData.hole){var gh=new T.Mesh(mine?planeGhost(m,pl):arPiece(m)?ghostFaces(m.geometry):m.geometry,litMat(i?hoverGhost:selectedGhost,m,4));gh.matrixAutoUpdate=false;gh.matrix.copy(m.matrixWorld);gh.renderOrder=20;overlay.add(gh)}})
    });
    // (the others chosen with Ctrl / Shift — lit as the selected one)
    multi.forEach(function(id){if(id===String(selected))return;(meshesById.get(id)||[]).forEach(function(m){var u=m.userData||{};if(!m.parent||!m.isMesh||u.weld||u.edges||u.gutter||u.drain)return;
-    var o=new T.Mesh(m.geometry,selectedMat);o.matrixAutoUpdate=false;o.matrix.copy(m.matrixWorld);o.renderOrder=2;overlay.add(o);var le=litEdges(m,selEdgeMat);if(le)overlay.add(le);var gh=new T.Mesh(arPiece(m)?ghostFaces(m.geometry):m.geometry,selectedGhost);gh.matrixAutoUpdate=false;gh.matrix.copy(m.matrixWorld);gh.renderOrder=20;overlay.add(gh)})});
+    var o=new T.Mesh(m.geometry,litMat(selectedMat,m,3));o.matrixAutoUpdate=false;o.matrix.copy(m.matrixWorld);o.renderOrder=2;overlay.add(o);var le=litEdges(m,selEdgeMat);if(le)overlay.add(le);var gh=new T.Mesh(arPiece(m)?ghostFaces(m.geometry):m.geometry,litMat(selectedGhost,m,4));gh.matrixAutoUpdate=false;gh.matrix.copy(m.matrixWorld);gh.renderOrder=20;overlay.add(gh)})});
    clearCallouts();if(parts)putCallouts(selected,parts);
    if(typeof document!=="undefined")document.querySelectorAll("[data-ec-pos]").forEach(function(r){r.classList.toggle("on",litPart!==null&&r.getAttribute("data-ec-pos")===litPart)});
    invalidate()
@@ -16013,38 +16018,36 @@ X.all.forEach(function(f){var u=f.o.userData||{},c=dataById.get(f.id);if(f.o===o
    // (each shelf both ways: the shortest way out is taken, not always up — a cap of a gutter, П in its section, went up by
    // its top shelf hundreds of mm into the air; the engineer 24.11.2026 «когда нажимаешь стрелочку Показать поверх то просто
    // вверх уходит»)
-   var dd=[];dirs.filter(function(q){return q.ar>.05*total}).forEach(function(q){var n=q.n.clone();if(Math.abs(n.y)>.35){if(n.y<0)n.negate()}else{var out=mid.clone().sub(liftCentre);out.y=0;if(out.dot(n)<0)n.negate()}dd.push(n,n.clone().negate())});dirs=dd;
+   // (pack 427: «Вперёд» lays the trim ON the trims it meets — out of the building or up only, by just the thickness of the
+   // trim under it and 0.5 mm, not more than 12 mm; out of a panel or the steel only by what is under 3 mm (a trim seated on
+   // the face). The whole abutment went 20…30 mm off the wall out of the panel at the inner corner, a gap between it and
+   // the wall: the engineer 27.11.2026 «если делаю вперед, то он просто вытакливает вперед, а не поверх ставит»)
+   var dd=[];dirs.filter(function(q){return q.ar>.05*total}).forEach(function(q){var n=q.n.clone();if(Math.abs(n.y)>.35){if(n.y<0)n.negate()}else{var out=mid.clone().sub(liftCentre);out.y=0;if(out.dot(n)<0)n.negate()}if(!dd.some(function(e){return e.dot(n)>.97}))dd.push(n)});dirs=dd;
    var near=U.clone().expandByScalar(.04),own=new Set(ms),rc=new T.Raycaster(),hs=[],ob=new T.Box3(),fn=new T.Vector3(),v=new T.Vector3(),others=[];
    allMeshes.forEach(function(o){var u=o&&o.userData||{};if(!o||own.has(o)||!o.isMesh||o.isInstancedMesh||!o.parent||!o.visible||!o.geometry||String(u.memberId||"")===id)return;
-    // (over the steel and the panels; another trim it may lie on or meet at a ridge — not a reason to lift it)
-    if(u.edges||u.seam||u.screw||u.weld||u.hole||u.buildingGuard||u.floor||u.wood||u.tl)return;var oc=dataById.get(String(u.memberId||""));if(oc&&(oc.ft==="trim"||isPorchPart(oc)))return;
-    o.updateMatrixWorld(true);ob.setFromObject(o);if(!ob.intersectsBox(near))return;others.push({o:o,b:ob.clone().expandByScalar(.0005),id:String(u.memberId||"")})});
-   var needAlong=function(n){var need=0,back=n.clone().negate();
-    others.forEach(function(x){var o=x.o,ml=Array.isArray(o.material)?o.material:[o.material],sd=ml.map(function(m){return m&&m.side});ml.forEach(function(m){if(m)m.side=T.DoubleSide});
-     // (a corner of the trim inside it: the way out along the direction)
+    if(u.edges||u.seam||u.screw||u.weld||u.hole||u.buildingGuard||u.floor||u.wood||u.tl)return;var oc=dataById.get(String(u.memberId||""));
+    o.updateMatrixWorld(true);ob.setFromObject(o);if(!ob.intersectsBox(near))return;others.push({o:o,b:ob.clone().expandByScalar(.0005),id:String(u.memberId||""),trim:!!(oc&&(oc.ft==="trim"||isPorchPart(oc)))})});
+   var needAlong=function(n,trims){var need=0,back=n.clone().negate();
+    others.forEach(function(x){if(x.trim!==trims)return;var o=x.o,ml=Array.isArray(o.material)?o.material:[o.material],sd=ml.map(function(m){return m&&m.side});ml.forEach(function(m){if(m)m.side=T.DoubleSide});
      try{pts.forEach(function(p){if(!x.b.containsPoint(p))return;rc.set(p,n);rc.far=.6;hs.length=0;o.raycast(rc,hs);if(!hs.length)return;hs.sort(function(q,w){return q.distance-w.distance});var h=hs[0];if(!h.face)return;
-       fn.copy(h.face.normal).transformDirection(o.matrixWorld);if(fn.dot(n)>.2&&h.distance>.0002){need=Math.max(need,h.distance+.0005);liftOver.why.push(x.id+":"+Math.round(h.distance*1000))}})}finally{ml.forEach(function(m,i){if(m)m.side=sd[i]})}
-     // (and what goes through the trim with no corner of the trim in it — its points over the trim and under it; a point
-     // with the trim both over and under it is inside the bends of the profile — a panel edge the trim wraps: not through)
+       fn.copy(h.face.normal).transformDirection(o.matrixWorld);if(fn.dot(n)>.2&&h.distance>.0002&&h.distance<.05){need=Math.max(need,h.distance+.0005);liftOver.why.push(x.id+":"+Math.round(h.distance*1000))}})}finally{ml.forEach(function(m,i){if(m)m.side=sd[i]})}
      var G=o.geometry.attributes.position;if(!G||G.count>20000)return;var up=0,below=false;
      for(var k=0;k<G.count;k++){v.fromBufferAttribute(G,k).applyMatrix4(o.matrixWorld);if(!near.containsPoint(v))continue;
       rc.set(v,back);rc.far=.6;hs.length=0;ms.forEach(function(m){m.raycast(rc,hs)});var t=hs.length?Math.min.apply(null,hs.map(function(q){return q.distance})):-1;
       rc.set(v,n);hs.length=0;ms.forEach(function(m){m.raycast(rc,hs)});var over=hs.length>0;
       if(t>.0005&&!over)up=Math.max(up,t);else if(over&&t<0)below=true}
-     if(up>0&&below){need=Math.max(need,up+.0005);liftOver.why.push(x.id+":x"+Math.round(up*1000))}});
+     if(up>0&&below&&up<.05){need=Math.max(need,up+.0005);liftOver.why.push(x.id+":x"+Math.round(up*1000))}});
     return need};
-   // (the way that takes it out with the least move, at most 30 mm, and leaves it in nothing: tried by putting it there;
-   // a longer way — not moved, the order of drawing only, and what it goes through named: «сдвиньте вручную»)
-   var LIFT_MAX=.03,cand=[],whyAll=[];dirs.forEach(function(n){liftOver.why=[];var w=needAlong(n);whyAll=whyAll.concat(liftOver.why);if(w>0)cand.push({n:n,w:w})});
+   var LIFT_MAX=.012,SOFT=.003,cand=[],whyAll=[];dirs.forEach(function(n){liftOver.why=[];var wt=needAlong(n,true),wh=needAlong(n,false);if(wh>SOFT)wh=0;whyAll=whyAll.concat(liftOver.why);var w=Math.max(wt,wh);if(w>0)cand.push({n:n,w:Math.ceil(w*1000-1e-6)/1000})});
    if(!cand.length){liftOver.why=[];return{mm:0}}
    cand.sort(function(x,y){return x.w-y.w});
    var whoOf=function(l){var o=[];l.forEach(function(s2){var k=String(s2).split(":")[0],c2=dataById.get(k),nm=c2?String(c2.mark||c2.title||"элемент"):"элемент";if(o.indexOf(nm)<0)o.push(nm)});return o};
+   // (tried there: no trim still met along the same way)
    var clear=function(n,w){var sh=n.clone().multiplyScalar(w);ms.forEach(function(m){m.position.add(sh);m.updateMatrixWorld(true)});var p2=pts;pts=pts.map(function(p){return p.clone().add(sh)});var U2=near;near=U.clone().translate(sh).expandByScalar(.01);
-    var bad=false;try{for(var i=0;i<dirs.length&&!bad;i++){liftOver.why=[];if(needAlong(dirs[i])>0)bad=true}}finally{ms.forEach(function(m){m.position.sub(sh);m.updateMatrixWorld(true)});pts=p2;near=U2}return!bad};
+    var bad=false;try{liftOver.why=[];bad=needAlong(n,true)>0}finally{ms.forEach(function(m){m.position.sub(sh);m.updateMatrixWorld(true)});pts=p2;near=U2}return!bad};
    var best=null;for(var ci=0;ci<cand.length&&cand[ci].w<=LIFT_MAX;ci++)if(clear(cand[ci].n,cand[ci].w)){best=cand[ci];break}
    liftOver.why=whyAll;
-   if(!best){var far=null;for(var cj=0;cj<cand.length&&!far;cj++)if(cand[cj].w>LIFT_MAX&&cand[cj].w<=.4&&clear(cand[cj].n,cand[cj].w))far=cand[cj];liftOver.why=whyAll;
-    return far?{mm:-Math.round(far.w*1000),who:whoOf(whyAll)}:{mm:-1,stuck:true,who:whoOf(whyAll)}}
+   if(!best)return{mm:-Math.round(cand[0].w*1000),stuck:true,who:whoOf(whyAll)};
    var p0=new T.Box3().setFromObject(ms[0]).getCenter(new T.Vector3()),q0=fromWorld(p0),q1=fromWorld(p0.clone().addScaledVector(best.n,best.w));
    if(!dry)panelSend({x:Math.round(q0.x),y:Math.round(q0.y),z:Math.round(q0.z),action:"move",dx:Math.round(q1.x-q0.x),dy:Math.round(q1.y-q0.y),dz:Math.round(q1.z-q0.z),member_id:id,whole:1});
    return{mm:Math.round(best.w*1000),d:[Math.round(q1.x-q0.x),Math.round(q1.y-q0.y),Math.round(q1.z-q0.z)]}}
@@ -22244,7 +22247,7 @@ X.all.forEach(function(f){var u=f.o.userData||{},c=dataById.get(f.id);if(f.o===o
     window.removeEventListener("blur",releaseKeys);
     controls.dispose();clearNodes();clearCallouts();partMats.forEach(function(m){m.dispose()});nodeGeo.dispose();weldNodeGeo.dispose();nodeMats.forEach(function(m){m.dispose()});boltMat.dispose();plateMat.dispose();concreteMat.dispose();craneMat.dispose();[stripeMat,yellowMat,railMat,deckMat,guardMat].forEach(function(m){m.dispose()});hoistMat.dispose();wheelMat.dispose();glassMat.dispose();openingGlass.dispose();hardwareMat.dispose();silverMat.dispose();fixedMats.forEach(function(m){m.dispose()});boltMats["8.8"].dispose();boltMats["5.8"].dispose();washerMats["8.8"].dispose();washerMats["5.8"].dispose();boltPickMat.dispose();
     meshGeo.forEach(function(g){g.dispose()});mats.forEach(function(m){m.dispose()});if(metalEnv)metalEnv.dispose();shellMats.forEach(function(m){m.dispose()});roofMats.forEach(function(m){m.dispose()});
-    [selectedMat,selectedGhost,hoverGhost,hoverMat,selEdgeMat,hoverEdgeMat,axisMaterial,dimMaterial,floorMaterial,darkFloorMaterial,markerMat,pointMat,previewMat].forEach(function(m){m.dispose()});
+    litMats.forEach(function(m){m.dispose()});litMats.clear();[selectedMat,selectedGhost,hoverGhost,hoverMat,selEdgeMat,hoverEdgeMat,axisMaterial,dimMaterial,floorMaterial,darkFloorMaterial,markerMat,pointMat,previewMat].forEach(function(m){m.dispose()});
     var cached=new Set(meshGeo.values());
     [scene,steel].forEach(function(top){top.traverse(function(obj){if(obj.geometry&&obj.geometry.dispose&&!cached.has(obj.geometry))obj.geometry.dispose()})});
     renderer.dispose();renderer.forceContextLoss?.();
