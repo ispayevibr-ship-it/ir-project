@@ -460,6 +460,16 @@
   return{rid:Number(o.id),name:o.name||"",customer:o.customer||"",general_contractor:o.general_contractor||"",address:o.address||"",
    summary:String(meta.find(r=>r.record_type==="object_summary")?.data?.value||""),status:o.status||"",years,works,cover:cover||banner,photos:[...new Set(gallery.filter(f=>f&&f!==cover&&f!==banner))],skip:[cover,banner].filter(Boolean),hero:heroOf(meta),hero_texts:heroTextsOf(meta),cover_full:coverFull,banner,booklet:meta.find(r=>r.record_type===BOOKLET)?.data||null,sort}
  }
+ // данные объекта для буклета на сайт — как их берёт окно «Буклет» (collect): сохранённый лист буклета (fold), выбранные
+ // щелчками фото (fpicks) или фото по умолчанию до 7, свой текст «Об объекте» (ftext), иначе краткая характеристика
+ const BOOK_KEYS=["name","customer","general_contractor","address","status","years","summary","works"];
+ function siteBookletData(data){
+  const B=data.booklet||{},fl=B.fold||null,lk=B.locked||null,p=window.irBooklet.pickDefault(data),n=window.irBooklet.FOLD_PH_OBJ||7;
+  const files=fl?(fl.files||[]):Array.isArray(B.fpicks)?B.fpicks:[...new Set([...((lk?.files||p.files)||[]),...p.all])];
+  const summary=fl?(typeof fl.ftext==="string"?fl.ftext:String(fl.data?.summary??data.summary??"")):(typeof B.ftext==="string"?B.ftext:String(data.summary??""));
+  const live=fl||lk?{live:Object.fromEntries(BOOK_KEYS.map(k=>[k,data[k]]))}:{};
+  return{...data,...((fl||lk)?.data||{}),...live,summary,files:files.slice(0,n),layout:0,gallery:0}
+ }
  // Фото «в шапку сайта» (просьба инженера 12.11.2026 «на каждую фотку можно ставить метку Выводить в шапке сайта»):
  // запись object-meta «site_hero_photos», data.files — пути отмеченных фото. Уходит с объектом на сайт (site-objects.js).
  const HERO="site_hero_photos";
@@ -913,6 +923,9 @@
    try{
     const data=[];
     for(const [i,id] of ids.entries()){const o=objects.find(x=>String(x.id)===String(id));setProg(ids.length?i/ids.length*10:0,"Собираем данные объектов…",(i+1)+" из "+ids.length+" — "+(o?.name||""));if(o)data.push(await siteObjectData(o,i+1))}
+    // буклет объекта («Буклет на объект») — файлом на сайт, ссылка «Скачать буклет» в окне объекта (инженер 28.11.2026)
+    if(window.irBooklet?.siteHtml)for(const [i,o] of data.entries()){setProg(5+i/Math.max(1,data.length)*5,"Готовим буклеты объектов…",(i+1)+" из "+data.length+" — "+(o.name||""));
+     try{o.booklet_html=await irBooklet.siteHtml(siteBookletData(o),{all:data})}catch(_){}}
     setProg(10,"Отправляем на сайт…","Окно можно закрыть — по окончании будет уведомление.");
     timer=setInterval(async()=>{try{const s=await call("ai-settings:server-site-status");if(!s.running)return;
      const pct=10+90*(s.units?s.unitsDone/s.units:s.total?s.done/s.total:0);

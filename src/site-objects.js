@@ -39,14 +39,14 @@ function clean(list){
   out.push({rid,name:clip(o.name,300)||"Объект",customer:clip(o.customer,300),general_contractor:clip(o.general_contractor,300),
    address:clip(o.address,300),summary:String(o.summary??"").replace(/\r\n?/g,"\n").replace(/[^\S\n]+/g," ").replace(/ *\n */g,"\n").replace(/\n{3,}/g,"\n\n").trim().slice(0,2000),status:clip(o.status,50),years:clip(o.years,50),works,cover:String(o.cover||""),
    photos:limit(photos.filter(p=>p!==String(o.cover||"")),hero),skip:(Array.isArray(o.skip)?o.skip:[]).map(p=>String(p||"")).filter(Boolean).slice(0,4),sort:Number.isInteger(o.sort)?o.sort:i+1});
-  const last=out[out.length-1];last.hero=hero.filter(p=>p===last.cover||last.photos.includes(p));
+  const last=out[out.length-1];if(typeof o.booklet_html==="string"&&o.booklet_html.length<60e6)last.booklet_html=o.booklet_html;last.hero=hero.filter(p=>p===last.cover||last.photos.includes(p));
   // текст у каждого фото «в шапку» (просьба инженера 13.11.2026 «текст нужно для каждого фото, у которого галочка»)
   const tx=o.hero_texts&&typeof o.hero_texts==="object"?o.hero_texts:{};last.hero_texts={};for(const p of last.hero){const t=clip(tx[p],300);if(t)last.hero_texts[p]=t}
  }
  return out
 }
 
-function createSiteObjects({account,getUserDataPath,nativeImage=null}){
+function createSiteObjects({account,getUserDataPath,nativeImage=null,pdfOf=null}){
  let state={running:false,done:0,total:0,name:"",error:"",units:0,unitsDone:0,photo:0,photos:0};
  const requireAdmin=()=>{if(account.info().user?.role!=="admin")throw Error("Отправка на сайт — только для администратора")};
  // only the pictures of the program itself (its folder of data), never any file of the computer
@@ -68,7 +68,7 @@ function createSiteObjects({account,getUserDataPath,nativeImage=null}){
   for(const f of [o.cover,...o.photos]){if(!f)continue;h.update(f);try{const s=fs.statSync(f);h.update(":"+s.size+":"+s.mtimeMs)}catch{h.update(":-")}h.update(hero.has(f)?"|hero|":"|")}
   return h.digest("hex").slice(0,40)
  }
- async function current(){return account.list(COLL,"fields=id,rid,name,status,photo_key,updated&sort=sort")}
+ async function current(){return account.list(COLL,"fields=id,rid,name,status,photo_key,booklet,booklet_key,updated&sort=sort")}
  async function info(){requireAdmin();const rows=await current();return{objects:rows.map(r=>({id:r.id,rid:r.rid,name:r.name,status:r.status,updated:r.updated}))}}
  const status=()=>({...state});
  // Обложка и баннер объекта не идут в фото, даже если та же картинка лежит в фото копией под другим именем
@@ -82,13 +82,26 @@ function createSiteObjects({account,getUserDataPath,nativeImage=null}){
 
  // тексты фото «в шапку» по порядку этих фото на сервере: обложка, потом фото — как они уходят файлами «hero-…»
  const heroTexts=o=>{const hero=new Set(o.hero||[]);return [o.cover,...o.photos].filter(f=>f&&hero.has(f)&&usable(f)).map(f=>String(o.hero_texts?.[f]||""))};
+ // Буклет объекта PDF (инженер 28.11.2026 «на сайте при просмотре объекта должно быть ссылка на скачивание буклета»):
+ // окно присылает «Буклет на объект» страницей HTML, здесь он печатается в PDF и уходит файлом booklet; тот же буклет
+ // (booklet_key — сумма страницы) заново не печатается и не отправляется
+ const bookletKey=o=>o.booklet_html?crypto.createHash("sha1").update(o.booklet_html).digest("hex").slice(0,40):"";
+ const safeName=t=>String(t||"объект").replace(/[\\/]/g,"-").replace(/[<>:"|?*«»\x00-\x1F]/g,"").replace(/\s+/g," ").trim().slice(0,90)||"объект";
+ async function bookletTo(form,o){if(!o.booklet_html||typeof pdfOf!=="function")return false;
+  try{const pdf=await pdfOf(o.booklet_html);form.append("booklet",new Blob([pdf],{type:"application/pdf"}),"Буклет — "+safeName(o.name)+".pdf");return true}catch{return false}}
  async function sendOne(o,have){
-  const key=photoKey(o);
+  const key=photoKey(o),bkey=bookletKey(o);
   const fields={rid:o.rid,name:o.name,customer:o.customer,general_contractor:o.general_contractor,address:o.address,summary:o.summary,
    status:o.status,years:o.years,works:o.works,sort:o.sort,photo_key:key,hero_texts:heroTexts(o)};
-  if(have&&have.photo_key===key){state.unitsDone+=(o.cover?1:0)+o.photos.length;return account.api(`/api/collections/${COLL}/records/${have.id}`,{method:"PATCH",body:fields})}
+  const newBooklet=bkey&&(!have||have.booklet_key!==bkey||!have.booklet);
+  if(have&&have.photo_key===key){state.unitsDone+=(o.cover?1:0)+o.photos.length;
+   if(!newBooklet)return account.api(`/api/collections/${COLL}/records/${have.id}`,{method:"PATCH",body:fields});
+   const f=new FormData();for(const [k,v] of Object.entries(fields))f.append(k,typeof v==="object"?JSON.stringify(v):String(v));
+   if(await bookletTo(f,o))f.append("booklet_key",bkey);
+   return account.form("PATCH",`/api/collections/${COLL}/records/${have.id}`,f)}
   const form=new FormData();
   for(const [k,v] of Object.entries(fields))form.append(k,typeof v==="object"?JSON.stringify(v):String(v));
+  if(newBooklet&&await bookletTo(form,o))form.append("booklet_key",bkey);
   // the progress for the window: every photo made smaller is one step, the sending of the object — one more
   state.photo=0;state.photos=(o.cover?1:0)+o.photos.length;
   const hero=new Set(o.hero||[]);

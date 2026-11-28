@@ -1097,7 +1097,7 @@ ${screen?`<div class="pvn">Снаружи · клапан | задняя сто�
  const pickDefault=o=>{const all=allFiles(o),saved=(o.booklet?.files||[]).filter(f=>all.includes(f));return{all,files:saved.length?saved:all.slice(0,7),layout:Number(o.booklet?.layout)||0,gallery:Number(o.booklet?.gallery)||0}};
  // data: объекты так, как их собирает окно «Сайт» (siteObjectData) — cover, cover_full, photos, hero; files — выбранные
  // фото (первое — главное), layout — номер макета (0 — авто)
- async function make(data,{onProgress,services=true,map=true,fold=false,spread=null,inside,title="",all}={}){
+ async function make(data,{onProgress,services=true,map=true,fold=false,spread=null,inside,title="",all,asHtml=false}={}){
   const profile=await root.irProject.company.get().catch(()=>({}));
   const logo=await small(await read(profile?.logo||""),1200);
   const objects=[];
@@ -1112,6 +1112,7 @@ ${screen?`<div class="pvn">Снаружи · клапан | задняя сто�
   if(fold&&spread?.file){const s=await read(spread.file);if(s){const src=await small(s,3500);opts.spread={...spread,src,px:await dims(s)}}}
   if(!fold)await dropTooLong(objects,opts);
   if(fold&&spread&&!opts.spread)opts.spread=spread;
+  if(asHtml)return foldPerObject(objects,{...opts,all:opts.all||objects});
   const clean=t=>String(t||"").replace(/[\\/]/g,"-").replace(/[:*?"<>|«»]/g,"").trim();
   // каждый буклет — отдельным PDF с названием объекта (инженер 28.11.2026 «каждый буклет должен выгружаться отдельно, с
   // названием объекта»): «Лист объекта» и «Буклет на объект» — по файлу на объект, папка выбирается один раз
@@ -1124,6 +1125,9 @@ ${screen?`<div class="pvn">Снаружи · клапан | задняя сто�
   const name=(fold?"Буклет ":"Журнал ")+String(profile?.name||COMPANY.name).replace(/[«»"]/g,"")+(title?" — "+String(title).replace(/[\\/:*?"<>|«»]/g,"").trim():"")+" "+new Date().toLocaleDateString("ru-RU");
   return root.irProject.ai.invoke("ai-documents:exec-export",{format:"pdf",name,html})
  }
+ // «Буклет на объект» одной страницей HTML — для сайта (инженер 28.11.2026 «на сайте при просмотре объекта должно быть
+ // ссылка на скачивание буклета»): программа печатает его в PDF и отправляет с объектом (site-objects.js)
+ const siteHtml=(o,{all}={})=>make([o],{fold:true,inside:4,all,asHtml:true});
  // предпросмотр (инженер 20.11.2026 «сделать предпросмотр как каждая страница выглядеть будет»): те же листы, что уйдут
  // в PDF, с малыми фото (pic(f) — готовая маленькая картинка из окна), краткая характеристика — по той же проверке
  async function preview(data,{pic,services=true,map=true,fold=false,spread=null,inside,all}={}){
@@ -1170,6 +1174,6 @@ ${screen?`<div class="pvn">Снаружи · клапан | задняя сто�
    if(!changed)return;
   }
  }
- const api={firmOf,firmFiles,picsFor,liveOf,foldPerObject,fitOne,hasGallery,LAY_GONE,GAL_GONE,labelsLayer,pageHtml,FOLD_PH,FOLD_PH_OBJ,FOLD_LAYOUTS,foldSketch,foldBuild,spreadHtml,SPREAD_LABELS,FOLD_OBJ,softMain,rowsOf,wkShown,wkRest,GALLERIES,galleryOf,layoutSketch,gallerySketch,MAX_PHOTOS,LAYOUT_MAX,capOf,clientList,mapPage,geoGroups,dropTooLong,build,make,preview,totals,doneOf,parties,COMPANY,LAYOUTS,layoutOf,thumb,read,pickDefault};
+ const api={siteHtml,firmOf,firmFiles,picsFor,liveOf,foldPerObject,fitOne,hasGallery,LAY_GONE,GAL_GONE,labelsLayer,pageHtml,FOLD_PH,FOLD_PH_OBJ,FOLD_LAYOUTS,foldSketch,foldBuild,spreadHtml,SPREAD_LABELS,FOLD_OBJ,softMain,rowsOf,wkShown,wkRest,GALLERIES,galleryOf,layoutSketch,gallerySketch,MAX_PHOTOS,LAYOUT_MAX,capOf,clientList,mapPage,geoGroups,dropTooLong,build,make,preview,totals,doneOf,parties,COMPANY,LAYOUTS,layoutOf,thumb,read,pickDefault};
  if(typeof module!=="undefined"&&module.exports)module.exports=api;else root.irBooklet=api;
 })(typeof window!=="undefined"?window:globalThis);
