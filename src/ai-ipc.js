@@ -266,6 +266,7 @@ handle("ai-montage:journal-add",(_e,{objectId,elementId,comment,objectName,actio
  handle("ai-documents:exec-cert-open",(_e,v={})=>execDocs.open(v));
  handle("ai-documents:exec-cert-remove",(_e,v={})=>execDocs.remove(v));
  handle("ai-documents:exec-export",(_e,v={})=>execDocs.exportDocs(v));
+ handle("ai-documents:exec-export-many",(_e,v={})=>execDocs.exportMany(v));
  // Фото и баннер объекта: окно подгонки кадра (src/object-image-crop.js, src/object-media-ui.js).
  const objectImages=require("./object-image-crop").create({getUserDataPath,nativeImage:require("electron").nativeImage});
  handle("ai-settings:image-pick",e=>objectImages.pick(dialog,require("electron").BrowserWindow.fromWebContents(e.sender)||getWindow()));

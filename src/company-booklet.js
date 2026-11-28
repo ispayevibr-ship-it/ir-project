@@ -1112,9 +1112,14 @@ ${screen?`<div class="pvn">Снаружи · клапан | задняя сто�
   if(fold&&spread?.file){const s=await read(spread.file);if(s){const src=await small(s,3500);opts.spread={...spread,src,px:await dims(s)}}}
   if(!fold)await dropTooLong(objects,opts);
   if(fold&&spread&&!opts.spread)opts.spread=spread;
-  const clean=t=>String(t||"").replace(/[\\/:*?"<>|«»]/g,"").trim();
-  if(fold&&Number(inside)===4){let r=null;for(const o of objects){const html=foldPerObject([o],{...opts,all:opts.all||objects});
-    r=await root.irProject.ai.invoke("ai-documents:exec-export",{format:"pdf",name:"Буклет — "+clean(o.name||"объект").slice(0,80)+" "+new Date().toLocaleDateString("ru-RU"),html});if(!r)break}return r}
+  const clean=t=>String(t||"").replace(/[\\/]/g,"-").replace(/[:*?"<>|«»]/g,"").trim();
+  // каждый буклет — отдельным PDF с названием объекта (инженер 28.11.2026 «каждый буклет должен выгружаться отдельно, с
+  // названием объекта»): «Лист объекта» и «Буклет на объект» — по файлу на объект, папка выбирается один раз
+  const IN=fold?(inside===undefined?(opts.spread?.src?0:1):(Number(inside)||0)):-1,inN=IN===0&&!opts.spread?.src?1:IN;
+  if(fold&&(inN===1||inN===4)){
+   const day=new Date().toLocaleDateString("ru-RU"),files=objects.map(o=>({name:"Буклет — "+clean(o.name||"объект").slice(0,90)+" "+day,html:foldBuild([o],{...opts,all:opts.all||objects})}));
+   if(files.length>1){try{return await root.irProject.ai.invoke("ai-documents:exec-export-many",{files,title:"Папка для буклетов ("+files.length+")"})}catch(_){}}
+   let r=null;for(const f of files){r=await root.irProject.ai.invoke("ai-documents:exec-export",{format:"pdf",name:f.name,html:f.html});if(!r)break}return r}
   const html=fold?foldBuild(objects,opts):build(objects,opts);
   const name=(fold?"Буклет ":"Журнал ")+String(profile?.name||COMPANY.name).replace(/[«»"]/g,"")+(title?" — "+String(title).replace(/[\\/:*?"<>|«»]/g,"").trim():"")+" "+new Date().toLocaleDateString("ru-RU");
   return root.irProject.ai.invoke("ai-documents:exec-export",{format:"pdf",name,html})

@@ -50,6 +50,18 @@ function createExecutiveDocs({getUserDataPath,dialog,shell,getWindow}){
   try{shell.showItemInFolder(r.filePath)}catch{}
   return{path:r.filePath,archived,copied,missing}
  }
- return{add,open,remove,exportDocs,pdfOf}
+ // Несколько PDF за раз — по одному на объект (буклеты): папка выбирается один раз, файлы — по названиям объектов
+ // (инженер 28.11.2026 «каждый буклет должен выгружаться отдельно, с названием объекта»); тот же файл — «(2)», «(3)».
+ async function exportMany({files=[],title="Папка для буклетов"}={}){
+  const list=(Array.isArray(files)?files:[]).filter(f=>f&&f.html);if(!list.length)return null;
+  const r=await dialog.showOpenDialog(getWindow(),{title,properties:["openDirectory","createDirectory"]});
+  if(r.canceled||!r.filePaths?.[0])return null;
+  const dir=r.filePaths[0],paths=[];
+  for(const f of list){let dest=path.join(dir,safe(f.name)+".pdf");for(let i=2;fs.existsSync(dest);i++)dest=path.join(dir,safe(f.name)+` (${i}).pdf`);
+   fs.writeFileSync(dest,await pdfOf(f.html));paths.push(dest)}
+  try{shell.showItemInFolder(paths[0])}catch{}
+  return{path:paths[0],paths,dir}
+ }
+ return{add,open,remove,exportDocs,exportMany,pdfOf}
 }
 module.exports={createExecutiveDocs};

@@ -649,24 +649,27 @@
   const summaryOf=md=>window.irArchive?.summaryHtml?irArchive.summaryHtml(md):esc(md).replace(/\n/g,"<br>");
   const fEd=x=>`<div class="ir-bk-ed" data-fed><div class="ir-bk-edh"><b>Текст «Об объекте» в буклете</b><span class="ir-bk-fmt"><button type="button" data-fmt="bold" title="Жирный"><b>Ж</b></button><button type="button" data-fmt="italic" title="Курсив"><i>К</i></button><button type="button" data-fmt="ul" title="Список">• Список</button><button type="button" data-fmt="ol" title="Нумерованный список">1. Список</button></span><span class="grow"></span>${typeof x.ftext==="string"?`<button type="button" class="ir-acc-btn small" data-freset title="Убрать свой текст — в буклет снова пойдёт краткая характеристика из карточки объекта">Как в карточке</button>`:`<small>сейчас — краткая характеристика из карточки</small>`}</div><div class="ir-bk-rte" contenteditable="true" data-ftx data-ph="Впишите текст об объекте — он будет в буклете под видами работ">${summaryOf(fTxt(x))}</div></div>`;
   const fBind=(box,id,x)=>{const ed=box.querySelector("[data-ftx]");if(!ed)return;
+   // окно «Буклет» живёт в документе окна вкладок (панель профиля переносится туда): команды, выделение и фокус — его,
+   // а не страницы вкладки, иначе вставка и жирный шли мимо поля (инженер 28.11.2026 «ничего не вставляется»)
+   const D=ed.ownerDocument||document,sel=()=>(D.defaultView||window).sel();
    const empty=()=>ed.classList.toggle("empty",!ed.textContent.trim());empty();
    box.querySelectorAll("[data-fed] [data-fmt]").forEach(b=>{b.addEventListener("mousedown",e=>e.preventDefault());b.addEventListener("click",()=>{ed.focus();const f=b.dataset.fmt;
-    if(f==="ul")document.execCommand("insertUnorderedList");else if(f==="ol")document.execCommand("insertOrderedList");else document.execCommand(f);empty()})});
+    if(f==="ul")D.execCommand("insertUnorderedList");else if(f==="ol")D.execCommand("insertOrderedList");else D.execCommand(f);empty()})});
    ed.addEventListener("input",empty);
    // Windows: после окна печати PDF или предпросмотра курсор в поле мигает, а клавиши уходят мимо программы (инженер 28.11.2026
    // «ничего не дает сделать»): щелчок в поле, ещё не принимающее ввод, возвращает окну клавиатуру и ставит курсор в конец
    // только левая кнопка и только если окно правда без клавиатуры (без force): иначе окно моргало при каждом щелчке, а меню
    // правой кнопки закрывалось сразу (инженер 28.11.2026 «моргает постоянно … копированное вставлять нельзя»)
    const inv=(()=>{try{return(window.irProject||window.parent?.irProject)?.ai?.invoke}catch{return null}})();
-   ed.addEventListener("mousedown",e=>{if(e.button!==0||document.activeElement===ed)return;
-    if(typeof inv!=="function")return;Promise.resolve(inv("ai-settings:refocus",{force:false})).then(()=>{ed.focus({preventScroll:true});const s=getSelection();if(!s.rangeCount||!ed.contains(s.anchorNode)){const r=document.createRange();r.selectNodeContents(ed);r.collapse(false);s.removeAllRanges();s.addRange(r)}},()=>{})});
+   ed.addEventListener("mousedown",e=>{if(e.button!==0||D.activeElement===ed)return;
+    if(typeof inv!=="function")return;Promise.resolve(inv("ai-settings:refocus",{force:false})).then(()=>{ed.focus({preventScroll:true});const s=sel();if(!s.rangeCount||!ed.contains(s.anchorNode)){const r=D.createRange();r.selectNodeContents(ed);r.collapse(false);s.removeAllRanges();s.addRange(r)}},()=>{})});
    // Ctrl+V и Shift+Insert — текст из буфера через программу (у Chromium в окне вставка может прийти пустой)
-   const putText=t=>{ed.focus();if(!document.execCommand("insertText",false,t)){const r=getSelection().rangeCount&&getSelection().getRangeAt(0);if(r){r.deleteContents();r.insertNode(document.createTextNode(t));r.collapse(false)}}ed.dispatchEvent(new Event("input",{bubbles:true}))};
+   const putText=t=>{ed.focus();if(!D.execCommand("insertText",false,t)){const r=sel().rangeCount&&sel().getRangeAt(0);if(r){r.deleteContents();r.insertNode(D.createTextNode(t));r.collapse(false)}}ed.dispatchEvent(new Event("input",{bubbles:true}))};
    ed.addEventListener("keydown",e=>{const v=(e.ctrlKey||e.metaKey)&&!e.altKey&&(e.code==="KeyV"||e.key==="v"||e.key==="м")||e.shiftKey&&e.key==="Insert";
     if(!v||typeof inv!=="function")return;e.preventDefault();e.stopPropagation();Promise.resolve(inv("ai-settings:clipboard-read")).then(t=>{if(t)putText(String(t))},()=>{})});
    ed.addEventListener("paste",e=>{const c=e.clipboardData||window.clipboardData;if(!c)return;let t=c.getData("text/plain");
     if(!t){const h=c.getData("text/html");if(h){const d=document.createElement("div");d.innerHTML=h;t=d.innerText||d.textContent||""}}
-    if(!t)return;e.preventDefault();if(!document.execCommand("insertText",false,t)){const r=getSelection().rangeCount&&getSelection().getRangeAt(0);if(r){r.deleteContents();r.insertNode(document.createTextNode(t));r.collapse(false)}ed.dispatchEvent(new Event("input",{bubbles:true}))}});
+    if(!t)return;e.preventDefault();if(!D.execCommand("insertText",false,t)){const r=sel().rangeCount&&sel().getRangeAt(0);if(r){r.deleteContents();r.insertNode(D.createTextNode(t));r.collapse(false)}ed.dispatchEvent(new Event("input",{bubbles:true}))}});
    const save=()=>{const md=window.irArchive?.editorToMd?irArchive.editorToMd(ed):ed.innerText.trim();if(md===fTxt(x))return;x.ftext=md;saveFoldText(id,md).catch(bad)};
    let tm=0;ed.addEventListener("input",()=>{clearTimeout(tm);tm=setTimeout(save,1500)});
    const reset=b=>b?.addEventListener("click",()=>{delete x.ftext;saveFoldText(id,null).catch(bad);drawObj(id)});
@@ -845,7 +848,7 @@
    go.disabled=pv.disabled=true;st.textContent="";
    try{const data=await collect(true);
     const r=await irBooklet.make(data,{title:vcur,services:services(),map:withMap(),fold:fold(),spread:spreadOpt(),inside:fold()?Number(sp.inside)||0:undefined,all:firm||undefined,onProgress:(i,n,name)=>setProg(20+i/n*75,"Фото объектов…",(i+1)+" из "+n+" — "+(name||""))});
-    setProg(100,KIND+(r?" сохранён":" не сохранён"),r?.path||"","ok")}
+    setProg(100,r?.paths?.length>1?"Сохранено буклетов: "+r.paths.length:KIND+(r?" сохранён":" не сохранён"),r?.paths?.length>1?r.dir:(r?.path||""),"ok")}
    catch(e){setProg(100,KIND+" не получился",errText(e),"err")}
    drawN()};
  }

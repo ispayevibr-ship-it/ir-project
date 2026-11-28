@@ -713,6 +713,12 @@
  // is drawn inside the page — in an open window (dialog) too, above it; the field keeps its focus and selection.
  function editMenu(tab,e,field){
   let doc,win;try{doc=tab.frame.contentDocument;win=tab.frame.contentWindow}catch{return false}
+  return editMenuIn(doc,win,e,field)
+ }
+ // the same menu in this window's own document: the profile panel is carried up here from the tab, so its windows
+ // («Панель администратора», «Буклет», «Журнал») are drawn here and their fields had no menu (инженер 28.11.2026
+ // «и правая кнопка не работает», «может потому что буклеты в окне открываются?»)
+ function editMenuIn(doc,win,e,field){
   if(!doc||!win)return false;
   e.preventDefault();
   doc.querySelectorAll(".ir-edit-menu").forEach(m=>m.remove());
@@ -741,6 +747,8 @@
   setTimeout(()=>{doc.addEventListener("pointerdown",away,true);doc.addEventListener("keydown",key,true)});
   return true
  }
+ document.addEventListener("contextmenu",e=>{const field=!e.defaultPrevented&&editableTarget(e.target);
+  if(field&&!field.matches("input[type=checkbox],input[type=radio],input[type=file],input[type=range],input[type=color],input[type=button],input[type=submit]"))editMenuIn(document,window,e,field)});
  function pageMenu(tab,e){
   const node=e.target;
   const field=!e.defaultPrevented&&editableTarget(node);
