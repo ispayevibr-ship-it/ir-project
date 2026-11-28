@@ -708,8 +708,42 @@
   if(node.closest(".ir-object-all,.ir-object-brand"))return"/objects";
   return""
  }
+ // Right click in a text field — «Вырезать / Копировать / Вставить / Выделить всё» (the window has no menu of its own, so
+ // right click in a field showed nothing; the engineer 28.11.2026 «в буклете в текст нельзя вставить копированое»). The menu
+ // is drawn inside the page — in an open window (dialog) too, above it; the field keeps its focus and selection.
+ function editMenu(tab,e,field){
+  let doc,win;try{doc=tab.frame.contentDocument;win=tab.frame.contentWindow}catch{return false}
+  if(!doc||!win)return false;
+  e.preventDefault();
+  doc.querySelectorAll(".ir-edit-menu").forEach(m=>m.remove());
+  const plain=field.matches("input,textarea"),sel=win.getSelection();
+  const has=plain?field.selectionStart!==field.selectionEnd:Boolean(String(sel||"").length&&field.contains(sel.anchorNode));
+  const m=doc.createElement("div");m.className="ir-edit-menu";
+  m.style.cssText="position:fixed;z-index:2147483647;min-width:170px;padding:4px;background:#fff;color:#1f2937;border:1px solid #d6dae0;border-radius:8px;box-shadow:0 8px 24px rgba(0,0,0,.18);font:13px/1.2 system-ui,'Segoe UI',sans-serif";
+  const close=()=>{m.remove();doc.removeEventListener("pointerdown",away,true);doc.removeEventListener("keydown",key,true);win.removeEventListener("blur",close)};
+  const away=ev=>{if(!m.contains(ev.target))close()},key=ev=>{if(ev.key==="Escape"){ev.preventDefault();close()}};
+  const insert=t=>{field.focus();if(!doc.execCommand("insertText",false,t)&&plain){const a=field.selectionStart,b=field.selectionEnd;field.setRangeText(t,a,b,"end");field.dispatchEvent(new Event("input",{bubbles:true}))}};
+  const items=[["Вырезать","Ctrl+X",!has,()=>doc.execCommand("cut")],["Копировать","Ctrl+C",!has,()=>doc.execCommand("copy")],
+   ["Вставить","Ctrl+V",false,()=>navigator.clipboard.readText().then(t=>{if(t)insert(t)}).catch(()=>{field.focus();doc.execCommand("paste")})],
+   ["Выделить всё","Ctrl+A",false,()=>{field.focus();if(plain)field.select();else{const r=doc.createRange();r.selectNodeContents(field);sel.removeAllRanges();sel.addRange(r)}}]];
+  for(const[label,k,off,run]of items){
+   const b=doc.createElement("button");b.type="button";b.disabled=off;
+   b.style.cssText="display:flex;width:100%;justify-content:space-between;gap:24px;padding:7px 10px;border:0;border-radius:5px;background:none;color:inherit;font:inherit;text-align:left;cursor:pointer"+(off?";opacity:.4;cursor:default":"");
+   b.innerHTML=`<span>${label}</span><small style="color:#8a929c">${k}</small>`;
+   b.onmouseenter=()=>{if(!off)b.style.background="#eef1f5"};b.onmouseleave=()=>{b.style.background="none"};
+   b.addEventListener("mousedown",ev=>ev.preventDefault());
+   b.onclick=()=>{close();try{run()}catch{}};m.append(b)
+  }
+  (field.closest("dialog[open]")||doc.body).append(m);
+  const r=m.getBoundingClientRect();
+  m.style.left=Math.max(4,Math.min(e.clientX,win.innerWidth-r.width-4))+"px";m.style.top=Math.max(4,Math.min(e.clientY,win.innerHeight-r.height-4))+"px";
+  setTimeout(()=>{doc.addEventListener("pointerdown",away,true);doc.addEventListener("keydown",key,true);win.addEventListener("blur",close)});
+  return true
+ }
  function pageMenu(tab,e){
   const node=e.target;
+  const field=!e.defaultPrevented&&editableTarget(node);
+  if(field&&!field.matches("input[type=checkbox],input[type=radio],input[type=file],input[type=range],input[type=color],input[type=button],input[type=submit]")&&editMenu(tab,e,field))return;
   if(e.defaultPrevented||!node?.closest||node.closest("input,textarea,select,[contenteditable='true'],[contenteditable=''],canvas,dialog[open] *"))return;
   let text="";try{text=String(tab.frame.contentWindow.getSelection()||"").trim()}catch{}
   if(text)return;

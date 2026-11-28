@@ -653,7 +653,9 @@
    box.querySelectorAll("[data-fed] [data-fmt]").forEach(b=>{b.addEventListener("mousedown",e=>e.preventDefault());b.addEventListener("click",()=>{ed.focus();const f=b.dataset.fmt;
     if(f==="ul")document.execCommand("insertUnorderedList");else if(f==="ol")document.execCommand("insertOrderedList");else document.execCommand(f);empty()})});
    ed.addEventListener("input",empty);
-   ed.addEventListener("paste",e=>{e.preventDefault();document.execCommand("insertText",false,(e.clipboardData||window.clipboardData).getData("text/plain"))});
+   ed.addEventListener("paste",e=>{const c=e.clipboardData||window.clipboardData;if(!c)return;let t=c.getData("text/plain");
+    if(!t){const h=c.getData("text/html");if(h){const d=document.createElement("div");d.innerHTML=h;t=d.innerText||d.textContent||""}}
+    if(!t)return;e.preventDefault();if(!document.execCommand("insertText",false,t)){const r=getSelection().rangeCount&&getSelection().getRangeAt(0);if(r){r.deleteContents();r.insertNode(document.createTextNode(t));r.collapse(false)}ed.dispatchEvent(new Event("input",{bubbles:true}))}});
    const save=()=>{const md=window.irArchive?.editorToMd?irArchive.editorToMd(ed):ed.innerText.trim();if(md===fTxt(x))return;x.ftext=md;saveFoldText(id,md).catch(bad)};
    let tm=0;ed.addEventListener("input",()=>{clearTimeout(tm);tm=setTimeout(save,1500)});
    const reset=b=>b?.addEventListener("click",()=>{delete x.ftext;saveFoldText(id,null).catch(bad);drawObj(id)});
