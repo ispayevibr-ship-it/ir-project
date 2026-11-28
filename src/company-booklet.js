@@ -806,13 +806,37 @@ svg.wa{width:3.4mm;height:3.4mm;flex:none;vertical-align:-.7mm;margin-right:1mm}
 .tf .fc{overflow:hidden}.tf .fc .fart{flex:1 1 0;min-height:20mm}.tf .fc .fart .csvg{position:absolute;left:-34mm;right:-30mm;bottom:-6mm;top:auto;width:auto;height:98mm}
 .tf .fc .csvg{display:block}
 .tf .ow{background:#1d2228 linear-gradient(rgba(255,255,255,.045) 1px,transparent 1px) 0 0/8mm 8mm,linear-gradient(90deg,rgba(255,255,255,.045) 1px,transparent 1px) 0 0/8mm 8mm}
-.tf .ow .oart.im .in{background:none;padding:0}.tf .ow .oart.im{container-type:normal;display:flex;align-items:center}.tf .ow .oart.im .in{height:auto;width:100%}.tf .ow .oart.im img{display:block;width:100%;height:auto;margin:0;max-height:none}
+.tf .ow .oart.im{display:flex;flex-direction:column;overflow:hidden}.tf .ow .oart.im .in{flex:1 1 0;min-height:0;height:auto;background:none;padding:0}.tf .ow .oart.im img{display:block;width:100%;height:100%;object-fit:contain}
+@container (max-height:46mm){.tf .ow .oart.im .in{display:none}}@container (max-height:21mm){.tf .ow .oart.im .ovl{display:none}}
 .tf .ow .ovl{flex:none;display:flex;justify-content:space-around;padding:1mm 0 0}.tf .ow .ovl div{display:flex;flex-direction:column;align-items:center;gap:2mm}
 .tf .ow .ovl i{width:12mm;height:12mm;border-radius:50%;display:flex;align-items:center;justify-content:center;box-shadow:0 .8mm 2.4mm rgba(0,0,0,.45),inset 0 0 0 .3mm rgba(255,255,255,.08)}
 .tf .ow .ovl i svg{width:6mm;height:6mm}.tf .ow .ovl i.s{background:linear-gradient(160deg,#4a5058,#30353c)}.tf .ow .ovl i.s svg{stroke:#e8ebee}
 .tf .ow .ovl i.t{background:linear-gradient(160deg,#8a5a34,#5e3b20)}.tf .ow .ovl i.t svg{stroke:#ffb43a}.tf .ow .ovl i.b{background:linear-gradient(160deg,#4d5680,#353c5e)}.tf .ow .ovl i.b svg{stroke:#ffb43a}
 .tf .ow .ovl span{font:700 6.6pt/1 Montserrat,sans-serif;letter-spacing:.06em;text-transform:uppercase;color:#fff}
 .tf .opx{background:#23272d}
+/* галерея «Диагонали» (инженер 28.11.2026 «этот нравится»): ряды разделены косыми срезами */
+.tf .opx .gx{grid-template-columns:1fr 1fr;gap:1.4mm;counter-reset:ph}
+.tf .opx.n2 .gx{grid-template-areas:"a a" "b b";grid-template-rows:1.3fr 1fr}
+.tf .opx.n3 .gx{grid-template-areas:"a a" "b c";grid-template-rows:1.3fr 1fr}
+.tf .opx.n4 .gx{grid-template-areas:"a a" "b c" "d d";grid-template-rows:1.3fr 1fr 1fr}
+.tf .opx.n5 .gx{grid-template-areas:"a a" "b c" "d e";grid-template-rows:1.3fr 1fr 1fr}
+.tf .opx.n6 .gx{grid-template-areas:"a a" "b c" "d e" "f f";grid-template-rows:1.3fr 1fr 1fr 1fr}
+.tf .opx i{position:relative;counter-increment:ph;border-radius:0;box-shadow:none}
+.tf .opx i::before{content:"";position:absolute;inset:0;background:linear-gradient(180deg,transparent 60%,rgba(0,0,0,.3))}
+.tf .opx i::after{content:counter(ph,decimal-leading-zero);position:absolute;right:2mm;bottom:2mm;width:5.6mm;height:6.2mm;display:flex;align-items:center;justify-content:center;font:600 7pt/1 Oswald,sans-serif;color:#141414;background:linear-gradient(160deg,#f2c04a,#d29a00 55%,#a87b00);clip-path:polygon(50% 0,100% 25%,100% 75%,50% 100%,0 75%,0 25%)}
+.tf .opx:not(.n1) i:nth-child(1){clip-path:polygon(0 0,100% 0,100% 80%,0 100%)}
+.tf .opx i:nth-child(1)::after{bottom:auto;top:2.6mm;width:7mm;height:7.8mm;font-size:8.5pt}
+.tf .opx.n2 i:nth-child(2){clip-path:polygon(0 20%,100% 0,100% 100%,0 100%);margin-top:-7mm}
+.tf .opx:is(.n3,.n4,.n5,.n6) i:nth-child(2){clip-path:polygon(0 20%,100% 10%,100% 100%,0 100%);margin-top:-7mm}
+.tf .opx:is(.n3,.n4,.n5,.n6) i:nth-child(3){clip-path:polygon(0 10%,100% 0,100% 100%,0 100%);margin-top:-7mm}
+.tf .opx.n4 i:nth-child(2){clip-path:polygon(0 20%,100% 10%,100% 90%,0 100%)}
+.tf .opx.n4 i:nth-child(3){clip-path:polygon(0 10%,100% 0,100% 80%,0 90%)}
+.tf .opx.n4 i:nth-child(2)::after{bottom:calc(10% + 2mm)}.tf .opx.n4 i:nth-child(3)::after{bottom:calc(20% + 2mm)}
+.tf .opx.n4 i:nth-child(4){clip-path:polygon(0 18%,100% 0,100% 100%,0 100%);margin-top:-6mm}
+.tf .opx.n6 i:nth-child(4){clip-path:polygon(0 0,100% 0,100% 90%,0 100%)}
+.tf .opx.n6 i:nth-child(5){clip-path:polygon(0 0,100% 0,100% 80%,0 90%)}
+.tf .opx.n6 i:nth-child(4)::after,.tf .opx.n6 i:nth-child(5)::after{bottom:auto;top:2.6mm}
+.tf .opx.n6 i:nth-child(6){clip-path:polygon(0 18%,100% 0,100% 100%,0 100%);margin-top:-6mm}
 .tf .fc .fart .fimg{position:absolute;left:-10mm;right:auto;bottom:-8mm;width:110mm;height:auto;max-width:none;mix-blend-mode:multiply;-webkit-mask-image:linear-gradient(to bottom,transparent,#000 16%);mask-image:linear-gradient(to bottom,transparent,#000 16%)}
 .tf .fc .ft{position:relative;z-index:2}.tf .fc .ft b{background:#efede8;padding:.4mm 1.6mm;border-radius:1mm}
 .tf .fr.fx .fdr .fimg{position:absolute;left:0;top:0;width:100%;height:100%;object-fit:cover;object-position:center 60%}
@@ -979,7 +1003,7 @@ svg.wa{width:3.4mm;height:3.4mm;flex:none;vertical-align:-.7mm;margin-right:1mm}
  const VAL_IC={s:'<path d="M5 19V9l7-4 7 4v10M5 19h14M9 19v-6h6v6"/>',t:'<circle cx="12" cy="12" r="7"/><circle cx="12" cy="12" r="3"/><path d="M12 2v4M12 18v4M2 12h4M18 12h4"/>',b:'<path d="M12 3l7 3v5c0 5-3 8-7 10-4-2-7-5-7-10V6z"/><path d="M8.5 12l2.5 2.5 4.5-5"/>'};
  const VALUES=`<div class="ovl">${[["s","Стабильность"],["t","Точность"],["b","Безопасность"]].map(([k,t])=>`<div><i class="${k}"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">${VAL_IC[k]}</svg></i><span>${t}</span></div>`).join("")}</div>`;
  function objFill(o){const sm=String(o.summary||"").trim();
-  return`<div class="ofl">${sm?`<div class="osm"><small class="up">Об объекте</small><div class="tx">${sumHtml(sm)}</div></div>`:""}<div class="oart${FRAME("obj")?" im":""}"><div class="in">${FRAME("obj")?`<img src="${FRAME("obj")}" alt="">`:FILL_ART}</div></div>${VALUES}</div>`}
+  return`<div class="ofl">${sm?`<div class="osm"><small class="up">Об объекте</small><div class="tx">${sumHtml(sm)}</div></div>`:""}<div class="oart${FRAME("obj")?" im":""}"><div class="in">${FRAME("obj")?`<img src="${FRAME("obj")}" alt="">`:FILL_ART}</div>${FRAME("obj")?VALUES:""}</div></div>`}
  function objSide(o,co,logo){const ps=(o.pictures||[]),cvp=ps[0]||"",score=o.mainPx&&o.mainPx[0]>0?Math.min(o.mainPx[0]/100,o.mainPx[1]/210):9;
   const cover=score<4?`<div class="ph soft"${bg(cvp)}><b${bg(cvp)}></b><i${bg(cvp)}></i></div>`:`<div class="ph"${bg(cvp)}></div>`;
   const lg=logo?`<img src="${esc(logo)}" alt="">`:`<b>${esc(co.name)}</b>`,place=String(o.address||"").trim();
