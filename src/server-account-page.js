@@ -655,8 +655,15 @@
    ed.addEventListener("input",empty);
    // Windows: после окна печати PDF или предпросмотра курсор в поле мигает, а клавиши уходят мимо программы (инженер 28.11.2026
    // «ничего не дает сделать»): щелчок в поле, ещё не принимающее ввод, возвращает окну клавиатуру и ставит курсор в конец
-   ed.addEventListener("mousedown",()=>{if(document.activeElement===ed)return;const inv=(()=>{try{return(window.irProject||window.parent?.irProject)?.ai?.invoke}catch{return null}})();
-    if(typeof inv!=="function")return;Promise.resolve(inv("ai-settings:refocus",{force:true})).then(()=>{ed.focus({preventScroll:true});const s=getSelection();if(!s.rangeCount||!ed.contains(s.anchorNode)){const r=document.createRange();r.selectNodeContents(ed);r.collapse(false);s.removeAllRanges();s.addRange(r)}},()=>{})});
+   // только левая кнопка и только если окно правда без клавиатуры (без force): иначе окно моргало при каждом щелчке, а меню
+   // правой кнопки закрывалось сразу (инженер 28.11.2026 «моргает постоянно … копированное вставлять нельзя»)
+   const inv=(()=>{try{return(window.irProject||window.parent?.irProject)?.ai?.invoke}catch{return null}})();
+   ed.addEventListener("mousedown",e=>{if(e.button!==0||document.activeElement===ed)return;
+    if(typeof inv!=="function")return;Promise.resolve(inv("ai-settings:refocus",{force:false})).then(()=>{ed.focus({preventScroll:true});const s=getSelection();if(!s.rangeCount||!ed.contains(s.anchorNode)){const r=document.createRange();r.selectNodeContents(ed);r.collapse(false);s.removeAllRanges();s.addRange(r)}},()=>{})});
+   // Ctrl+V и Shift+Insert — текст из буфера через программу (у Chromium в окне вставка может прийти пустой)
+   const putText=t=>{ed.focus();if(!document.execCommand("insertText",false,t)){const r=getSelection().rangeCount&&getSelection().getRangeAt(0);if(r){r.deleteContents();r.insertNode(document.createTextNode(t));r.collapse(false)}}ed.dispatchEvent(new Event("input",{bubbles:true}))};
+   ed.addEventListener("keydown",e=>{const v=(e.ctrlKey||e.metaKey)&&!e.altKey&&(e.code==="KeyV"||e.key==="v"||e.key==="м")||e.shiftKey&&e.key==="Insert";
+    if(!v||typeof inv!=="function")return;e.preventDefault();e.stopPropagation();Promise.resolve(inv("ai-settings:clipboard-read")).then(t=>{if(t)putText(String(t))},()=>{})});
    ed.addEventListener("paste",e=>{const c=e.clipboardData||window.clipboardData;if(!c)return;let t=c.getData("text/plain");
     if(!t){const h=c.getData("text/html");if(h){const d=document.createElement("div");d.innerHTML=h;t=d.innerText||d.textContent||""}}
     if(!t)return;e.preventDefault();if(!document.execCommand("insertText",false,t)){const r=getSelection().rangeCount&&getSelection().getRangeAt(0);if(r){r.deleteContents();r.insertNode(document.createTextNode(t));r.collapse(false)}ed.dispatchEvent(new Event("input",{bubbles:true}))}});

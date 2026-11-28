@@ -151,6 +151,9 @@ function registerAll({ipcMain,getUserDataPath,safeStorage,netFetch,dialog:native
   ownWindows.set(r,w);w.on("closed",()=>{if(ownWindows.get(r)===w)ownWindows.delete(r)});
   return true
  });
+ // Text of the clipboard from the main process: in the tab frames Chromium's own paste (Ctrl+V, navigator.clipboard)
+ // can give nothing on Windows (the engineer 28.11.2026 «копированное вставлять нельзя»), Electron's clipboard always reads.
+ handle("ai-settings:clipboard-read",()=>{try{return String(require("electron").clipboard.readText()||"")}catch{return""}});
  handle("ai-settings:refocus",(e,{force}={})=>refocus(require("electron").BrowserWindow.fromWebContents(e.sender),e.sender,force===true));
  handle("ai-engine:status",()=>engine.status());
  handle("ai-engine:start",()=>engine.start());

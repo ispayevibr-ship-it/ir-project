@@ -720,11 +720,12 @@
   const has=plain?field.selectionStart!==field.selectionEnd:Boolean(String(sel||"").length&&field.contains(sel.anchorNode));
   const m=doc.createElement("div");m.className="ir-edit-menu";
   m.style.cssText="position:fixed;z-index:2147483647;min-width:170px;padding:4px;background:#fff;color:#1f2937;border:1px solid #d6dae0;border-radius:8px;box-shadow:0 8px 24px rgba(0,0,0,.18);font:13px/1.2 system-ui,'Segoe UI',sans-serif";
-  const close=()=>{m.remove();doc.removeEventListener("pointerdown",away,true);doc.removeEventListener("keydown",key,true);win.removeEventListener("blur",close)};
+  const close=()=>{m.remove();doc.removeEventListener("pointerdown",away,true);doc.removeEventListener("keydown",key,true)};
   const away=ev=>{if(!m.contains(ev.target))close()},key=ev=>{if(ev.key==="Escape"){ev.preventDefault();close()}};
   const insert=t=>{field.focus();if(!doc.execCommand("insertText",false,t)&&plain){const a=field.selectionStart,b=field.selectionEnd;field.setRangeText(t,a,b,"end");field.dispatchEvent(new Event("input",{bubbles:true}))}};
   const items=[["Вырезать","Ctrl+X",!has,()=>doc.execCommand("cut")],["Копировать","Ctrl+C",!has,()=>doc.execCommand("copy")],
-   ["Вставить","Ctrl+V",false,()=>navigator.clipboard.readText().then(t=>{if(t)insert(t)}).catch(()=>{field.focus();doc.execCommand("paste")})],
+   ["Вставить","Ctrl+V",false,()=>{const inv=window.irProject?.ai?.invoke,web=()=>navigator.clipboard.readText().then(t=>{if(t)insert(t)}).catch(()=>{field.focus();doc.execCommand("paste")});
+    if(typeof inv!=="function")return web();Promise.resolve(inv("ai-settings:clipboard-read")).then(t=>{if(t)insert(String(t));else web()},web)}],
    ["Выделить всё","Ctrl+A",false,()=>{field.focus();if(plain)field.select();else{const r=doc.createRange();r.selectNodeContents(field);sel.removeAllRanges();sel.addRange(r)}}]];
   for(const[label,k,off,run]of items){
    const b=doc.createElement("button");b.type="button";b.disabled=off;
@@ -737,7 +738,7 @@
   (field.closest("dialog[open]")||doc.body).append(m);
   const r=m.getBoundingClientRect();
   m.style.left=Math.max(4,Math.min(e.clientX,win.innerWidth-r.width-4))+"px";m.style.top=Math.max(4,Math.min(e.clientY,win.innerHeight-r.height-4))+"px";
-  setTimeout(()=>{doc.addEventListener("pointerdown",away,true);doc.addEventListener("keydown",key,true);win.addEventListener("blur",close)});
+  setTimeout(()=>{doc.addEventListener("pointerdown",away,true);doc.addEventListener("keydown",key,true)});
   return true
  }
  function pageMenu(tab,e){
