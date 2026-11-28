@@ -1016,7 +1016,7 @@ svg.wa{width:3.4mm;height:3.4mm;flex:none;vertical-align:-.7mm;margin-right:1mm}
   const t2=y?(done?` Работы завершены в ${esc(y)} ${/[-–]/.test(y)?"годах":"году"}.`:` Работы ведутся с ${esc(y.split(/[-–]/)[0].trim())} года.`):"";
   return t1+t2}
  function objFill(o){const sm=String(o.summary||"").trim(),au=sm?"":autoSum(o);
-  return`<div class="ofl">${sm||au?`<div class="osm"><small class="up">Об объекте</small><div class="tx">${sm?sumHtml(sm):`<p>${au}</p>`}</div></div>`:""}<div class="oart${FRAME("obj")?" im":""}"><div class="in">${FRAME("obj")?`<img src="${FRAME("obj")}" alt="">`:FILL_ART}</div>${FRAME("obj")?VALUES:""}</div></div>`}
+  return`<div class="ofl">${sm||au?`<div class="osm"><small class="up">Об объекте</small><div class="tx">${sm?sumHtml(sm):`<p>${au}</p>`}</div></div>`:""}</div>`}
  function objSide(o,co,logo){const ps=(o.pictures||[]),cvp=ps[0]||"",score=o.mainPx&&o.mainPx[0]>0?Math.min(o.mainPx[0]/100,o.mainPx[1]/210):9;
   const cover=score<4?`<div class="ph soft"${bg(cvp)}><b${bg(cvp)}></b><i${bg(cvp)}></i></div>`:`<div class="ph"${bg(cvp)}></div>`;
   const lg=logo?`<img src="${esc(logo)}" alt="">`:`<b>${esc(co.name)}</b>`,place=String(o.address||"").trim();

@@ -653,6 +653,10 @@
    box.querySelectorAll("[data-fed] [data-fmt]").forEach(b=>{b.addEventListener("mousedown",e=>e.preventDefault());b.addEventListener("click",()=>{ed.focus();const f=b.dataset.fmt;
     if(f==="ul")document.execCommand("insertUnorderedList");else if(f==="ol")document.execCommand("insertOrderedList");else document.execCommand(f);empty()})});
    ed.addEventListener("input",empty);
+   // Windows: после окна печати PDF или предпросмотра курсор в поле мигает, а клавиши уходят мимо программы (инженер 28.11.2026
+   // «ничего не дает сделать»): щелчок в поле, ещё не принимающее ввод, возвращает окну клавиатуру и ставит курсор в конец
+   ed.addEventListener("mousedown",()=>{if(document.activeElement===ed)return;const inv=(()=>{try{return(window.irProject||window.parent?.irProject)?.ai?.invoke}catch{return null}})();
+    if(typeof inv!=="function")return;Promise.resolve(inv("ai-settings:refocus",{force:true})).then(()=>{ed.focus({preventScroll:true});const s=getSelection();if(!s.rangeCount||!ed.contains(s.anchorNode)){const r=document.createRange();r.selectNodeContents(ed);r.collapse(false);s.removeAllRanges();s.addRange(r)}},()=>{})});
    ed.addEventListener("paste",e=>{const c=e.clipboardData||window.clipboardData;if(!c)return;let t=c.getData("text/plain");
     if(!t){const h=c.getData("text/html");if(h){const d=document.createElement("div");d.innerHTML=h;t=d.innerText||d.textContent||""}}
     if(!t)return;e.preventDefault();if(!document.execCommand("insertText",false,t)){const r=getSelection().rangeCount&&getSelection().getRangeAt(0);if(r){r.deleteContents();r.insertNode(document.createTextNode(t));r.collapse(false)}ed.dispatchEvent(new Event("input",{bubbles:true}))}});
