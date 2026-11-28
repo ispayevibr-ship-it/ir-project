@@ -658,6 +658,9 @@ ${(()=>{const pages=[["О компании",aboutPage(firm,co,logo)],...(service
 .tf .svd i{font-style:normal;font-size:8pt;font-weight:900;color:var(--or);grid-row:span 2}
 .tf .svd b{font-size:7pt;font-weight:900}
 .tf .svd p{margin:.4mm 0 0;font-size:5.9pt;line-height:1.3;color:#aab2bc}
+/* номера услуг — золотые шестиугольники (инженер 28.11.2026 «цифры красиво сделай») */
+.tf .bk .svd .it{grid-template-columns:7.4mm 1fr;align-items:start}
+.tf .bk .svd i,.tf .bk .svd.n9 i{width:6.2mm;height:6.8mm;margin-top:.2mm;display:flex;align-items:center;justify-content:center;font:600 8pt/1 Oswald,Montserrat,sans-serif;color:#141414;background:linear-gradient(160deg,#f2c04a,#d29a00 55%,#a87b00);clip-path:polygon(50% 0,100% 25%,100% 75%,50% 100%,0 75%,0 25%);letter-spacing:.2px}
 .tf .bk h2{margin-bottom:3mm}.tf .svd.n9 .it{padding:.9mm 0}.tf .svd.n9 b{font-size:6.6pt}.tf .svd.n9 p{font-size:5.3pt;line-height:1.28;margin-top:.2mm}.tf .svd.n9 i{font-size:7.4pt}
 .tf .bk .ct{gap:1.2mm;margin-bottom:3mm}
 .tf .bk .ct div{padding-bottom:1.1mm;font-size:7pt}
@@ -784,23 +787,40 @@ svg.wa{width:3.4mm;height:3.4mm;flex:none;vertical-align:-.7mm;margin-right:1mm}
 .tf .fr.fx{background-color:#efede8;background-image:linear-gradient(rgba(29,34,40,.045) .2mm,transparent .2mm),linear-gradient(90deg,rgba(29,34,40,.045) .2mm,transparent .2mm);background-size:8mm 8mm;padding:9mm 9mm 8mm 9mm}
 .tf .fr.fx .kk{color:#a87b00}.tf .fr.fx h2{margin:0;font:600 19pt/1.02 Oswald,Montserrat,sans-serif;text-transform:uppercase;letter-spacing:.2px;color:#141414}
 .tf .fr.fx .fst{display:flex;gap:1mm;margin:2.2mm 0 3mm 1mm;flex:none}.tf .fr.fx .fst i{width:4.2mm;height:2mm;background:#d29a00;transform:skewX(-35deg)}.tf .fr.fx .fst i:nth-child(n+3){background:#a87b00}
+.tf .fr.fx .fdr{flex:none;height:24mm;border-radius:2.4mm;background:linear-gradient(180deg,#dfe6ec,#f4f1ea 70%);margin:0 0 3.4mm;border:.8mm solid #d29a00;box-shadow:0 .8mm 2.4mm rgba(0,0,0,.18);position:relative;overflow:hidden}
+.tf .fr.fx .fdr .csvg{position:absolute;left:2mm;top:2mm;width:calc(100% - 4mm);height:calc(100% - 3.5mm)}
+.tf .fr.fx .csvg .k{stroke:#1d2125}.tf .fr.fx .csvg .m{stroke:#5d646c}.tf .fr.fx .csvg .h{stroke:#b9bfc5}.tf .fr.fx .csvg .h2{stroke:#7b828a}.tf .fr.fx .csvg .wb{stroke:#3d434a}.tf .fr.fx .csvg .tr{stroke:#4a5058}.tf .fr.fx .csvg .bx{stroke:#2e3338}.tf .fr.fx .csvg .bs{fill:#2a2f35}.tf .fr.fx .csvg .gd{stroke:#d29a00;opacity:.5}
 .tf .fr.fx .fph{flex:none;height:21mm;border-radius:2.4mm;background:#1d2228 center/cover no-repeat;margin:0 0 3.4mm;box-shadow:0 .6mm 2mm rgba(0,0,0,.18);border-bottom:1.1mm solid #d29a00}
 .tf .fr.fx .tot{grid-template-columns:1fr 1fr;gap:1.5mm;margin-bottom:2.6mm}
 .tf .fr.fx .tot div{display:block;background:#fff;border:0;border-left:.9mm solid #d29a00;border-radius:1.4mm;padding:1.1mm 2.2mm 1.2mm}
 .tf .fr.fx .tot b{display:block;font:600 11.5pt/1 Oswald,Montserrat,sans-serif;color:#141414;margin-bottom:.4mm}.tf .fr.fx .tot span{display:block;font-size:5.8pt;line-height:1.25;color:#5b6168}
-.tf .fr.fx .cl{background:#fff;border-radius:1.6mm;padding:3mm 3.6mm}.tf .fr.fx .cl div{border-color:#eee8dc}
-.tf .fr.fx .amap{flex:1 1 30mm;padding-top:3mm}.tf .fr.fx .amap .kz{fill:#fff;stroke:#d6cfc1}
+.tf .fr.fx .cl{flex:none;background:#fff;border-radius:1.6mm;padding:3mm 3.6mm 3.6mm}.tf .fr.fx .cl div{border-color:#eee8dc}
+.tf .fr.fx .amap{flex:1 1 30mm;padding-top:5mm}.tf .fr.fx .amap>.kk{text-align:center}.tf .fr.fx .amap .kz{fill:#fff;stroke:#d6cfc1}
 .tf .fc .fl img{mix-blend-mode:multiply}
 .tf .opx{padding:8mm 6mm 8mm 6mm}
 .tf .fc .st{display:flex;gap:1mm;margin:4mm 0 4.5mm 1mm}.tf .fc .st i{width:4.2mm;height:2mm;background:var(--g);transform:skewX(-35deg)}.tf .fc .st i:nth-child(n+3){background:#a87b00}
 .tf .fc .sl{font-size:9pt;font-weight:800;line-height:1.3;margin-bottom:4mm}.tf .fc .sl span{color:var(--g)}
 .tf .fc .li{display:flex;align-items:center;gap:2.4mm;background:#141414;color:#fff;border-radius:2mm;padding:2.2mm 3mm;font-size:6.6pt;font-weight:700;line-height:1.3;margin-bottom:3.2mm}.tf .fc .li em{flex:none;width:6mm;height:6mm;border-radius:1.4mm;background:var(--g);display:flex;align-items:center;justify-content:center}.tf .fc .li em svg{width:3.6mm;height:3.6mm}
 .tf .fc .ad{display:grid;grid-template-columns:1fr 1fr;gap:1.6mm 3mm}.tf .fc .ad div{display:flex;align-items:center;gap:1.8mm;font-size:6.8pt;font-weight:800;line-height:1.2}.tf .fc .ad i{flex:none;width:2.2mm;height:2.2mm;background:var(--g);transform:rotate(45deg)}
-.tf .fc .fmk{position:absolute;right:8mm;top:124mm;width:9mm;height:9mm;fill:var(--g);background:none;margin:0;border:0}
-.tf .fc .ft{margin-top:auto;display:flex;justify-content:space-between;align-items:center;font-size:8pt;letter-spacing:.6px}.tf .fc .ft b{background:#efede8;padding:.6mm 1.6mm .6mm 0}
-.tf .fc .ft span{display:flex;gap:.8mm;align-items:center}.tf .fc .ft span i{width:2.6mm;height:1.6mm;background:var(--g);transform:skewX(-35deg)}.tf .fc .ft span s{width:2.6mm;height:2.6mm;border-radius:50%;background:var(--g);margin-left:1mm}
+/* рисунок каркаса на обложке вместо линий схемы и значков (инженер 28.11.2026 «схема какая-то странная, не понятно ничего, какие то иконки непонятные») */
+.tf .fc{overflow:hidden}.tf .fc .fart{flex:1 1 0;min-height:20mm}.tf .fc .fart .csvg{position:absolute;left:-34mm;right:-30mm;bottom:-6mm;top:auto;width:auto;height:98mm}
+.tf .fc .csvg{display:block}
+.tf .ow{background:#1d2228 linear-gradient(rgba(255,255,255,.045) 1px,transparent 1px) 0 0/8mm 8mm,linear-gradient(90deg,rgba(255,255,255,.045) 1px,transparent 1px) 0 0/8mm 8mm}
+.tf .ow .oart.im .in{background:none;padding:0}.tf .ow .oart.im{container-type:normal;display:flex;align-items:center}.tf .ow .oart.im .in{height:auto;width:100%}.tf .ow .oart.im img{display:block;width:100%;height:auto;margin:0;max-height:none}
+.tf .ow .ovl{flex:none;display:flex;justify-content:space-around;padding:1mm 0 0}.tf .ow .ovl div{display:flex;flex-direction:column;align-items:center;gap:2mm}
+.tf .ow .ovl i{width:12mm;height:12mm;border-radius:50%;display:flex;align-items:center;justify-content:center;box-shadow:0 .8mm 2.4mm rgba(0,0,0,.45),inset 0 0 0 .3mm rgba(255,255,255,.08)}
+.tf .ow .ovl i svg{width:6mm;height:6mm}.tf .ow .ovl i.s{background:linear-gradient(160deg,#4a5058,#30353c)}.tf .ow .ovl i.s svg{stroke:#e8ebee}
+.tf .ow .ovl i.t{background:linear-gradient(160deg,#8a5a34,#5e3b20)}.tf .ow .ovl i.t svg{stroke:#ffb43a}.tf .ow .ovl i.b{background:linear-gradient(160deg,#4d5680,#353c5e)}.tf .ow .ovl i.b svg{stroke:#ffb43a}
+.tf .ow .ovl span{font:700 6.6pt/1 Montserrat,sans-serif;letter-spacing:.06em;text-transform:uppercase;color:#fff}
+.tf .opx{background:#23272d}
+.tf .fc .fart .fimg{position:absolute;left:-10mm;right:auto;bottom:-8mm;width:110mm;height:auto;max-width:none;mix-blend-mode:multiply;-webkit-mask-image:linear-gradient(to bottom,transparent,#000 16%);mask-image:linear-gradient(to bottom,transparent,#000 16%)}
+.tf .fc .ft{position:relative;z-index:2}.tf .fc .ft b{background:#efede8;padding:.4mm 1.6mm;border-radius:1mm}
+.tf .fr.fx .fdr .fimg{position:absolute;left:0;top:0;width:100%;height:100%;object-fit:cover;object-position:center 60%}
+.tf .fc .csvg .k{stroke:#1d2125}.tf .fc .csvg .m{stroke:#5d646c}.tf .fc .csvg .h{stroke:#b9bfc5}.tf .fc .csvg .h2{stroke:#7b828a}.tf .fc .csvg .wb{stroke:#3d434a}.tf .fc .csvg .tr{stroke:#4a5058}.tf .fc .csvg .bx{stroke:#2e3338}
+.tf .fc .csvg .bs{fill:#2a2f35}.tf .fc .csvg .gd{stroke:var(--g);opacity:.55}.tf .fc .csvg .gl{stroke:var(--g);opacity:.8}
+.tf .fc .ft{display:flex;justify-content:center;align-items:center;gap:3mm;font-size:8pt;letter-spacing:.6px}.tf .fc .ft i{width:8mm;height:.4mm;background:var(--g)}
 /* сторона объекта: виды работ на тёмной полосе, как «Что мы делаем» (28.11.2026 «в темный цвет, как на первом листе») */
-.tf .ow{background:#1d2228;color:#fff}.tf .ow h2{color:#fff}.tf .ow .kk{color:var(--or)}
+.tf .ow{background-color:#1d2228;color:#fff}.tf .ow h2{color:#fff}.tf .ow .kk{color:var(--or)}
 .tf .ow .wl div{border-bottom-color:rgba(255,255,255,.12);color:#fff}.tf .ow .wl s{color:#aab2bc}
 .tf .ow .osm small{color:#aab2bc}.tf .ow .osm .tx{color:#d8dde3}
 .tf .ow .oart .in{background:linear-gradient(135deg,#262c33,#20262c)}.tf .ow .oart [stroke="#1d2228"]{stroke:#d8dde3}.tf .ow .oart [stroke="#c9ced5"]{stroke:#5a636d}
@@ -893,26 +913,54 @@ svg.wa{width:3.4mm;height:3.4mm;flex:none;vertical-align:-.7mm;margin-right:1mm}
  // «именно первый сгиб только сделай, остальное оставь»): фон и золото сайта a-ts.kz, логотип, крупно направление работ,
  // девиз, лицензия, преимущества, внизу каркас ИР-71535 из 3D схемы тонкими линиями (src/booklet-cover.js — маска линий,
  // цвет задаётся здесь), уголки и полоски как на образце. Текст «О компании» и подпись про IR Project с клапана ушли.
+
+ // каркас на обложке (инженер 28.11.2026 образец: крупный каркас здания серой сталью, золотые линии): изометрия цеха
+ // в 6 рам, колонны и ригели объёмом (тёмный край, светлая грань), прогоны, связи, базы, золотые линии на полу
+ const COVER_ART=(card)=>{const ca=Math.cos(Math.PI/9),sa=Math.sin(Math.PI/9),cb=Math.cos(Math.PI*.3),sb=Math.sin(Math.PI*.3),K=10;let mnx=1e9,mny=1e9,mxx=-1e9,mxy=-1e9;
+  // длина здания (y) уходит влево вниз, пролёт (x) вправо — длинная сторона к зрителю, как на образце инженера;
+  // элементы двутавром: тёмная стенка, светлые кромки полок, торцы прямые (инженер 28.11.2026 «слишком детское»)
+  const P=(x,y,z)=>{const X=card?(y*.97-x*.45)*K:(x*ca-y*cb)*K,Y=card?(y*.2+x*.5)*K*.6-z*K:(x*sa+y*sb)*K*.62-z*K;mnx=Math.min(mnx,X);mxx=Math.max(mxx,X);mny=Math.min(mny,Y);mxy=Math.max(mxy,Y);return[X,Y]},f=v=>v.toFixed(1);
+  const ln=(p,q,cl,w,dx=0,dy=0)=>`<line x1="${f(p[0]+dx)}" y1="${f(p[1]+dy)}" x2="${f(q[0]+dx)}" y2="${f(q[1]+dy)}" class="${cl}" stroke-width="${f(w)}"/>`;
+  const B=(a,b,w)=>{const p=P(...a),q=P(...b),L=Math.hypot(q[0]-p[0],q[1]-p[1])||1,nx=-(q[1]-p[1])/L*w*.42,ny=(q[0]-p[0])/L*w*.42;
+   return ln(p,q,"k",w+.7)+ln(p,q,"m",w)+ln(p,q,"h",w*.16,nx,ny)+ln(p,q,"h2",w*.16,-nx,-ny)+ln(p,q,"wb",w*.22)};
+  const T=(a,b,cl,w)=>ln(P(...a),P(...b),cl,w);
+  const W=18,H=7,R=8.6,N=card?10:7,S=6,xs=[0,W/2,W],zr=x=>H+(R-H)*(1-Math.abs(x-W/2)/(W/2)),ys=[...Array(N)].map((_,i)=>i*S),Y1=ys[N-1],td=1.1;
+  let g="",fl="";
+  if(!card){for(const y of ys)fl+=T([-2,y,0],[W+3,y,0],"gd",.45);for(const x of [0,W])fl+=T([x,-3,0],[x,Y1+3,0],"gd",.45);
+   fl+=T([-6,Y1+6,0],[W+10,-8,0],"gl",.7)+T([W+2,Y1+2,0],[W+14,8,0],"gl",.5)+T([-8,10,0],[W+4,Y1+10,0],"gl",.45)}
+  ys.forEach((y,i)=>{
+   if(i>0){const y0=ys[i-1];
+    for(let x=0;x<=W;x+=1.5)g+=B([x,y0,zr(x)+.15],[x,y,zr(x)+.15],1);
+    for(const z of [2.2,4.6])for(const x of [0,W])g+=B([x,y0,z],[x,y,z],1.1);
+    if(i===1||i===N-1||i===Math.ceil(N/2))for(const x of [0,W])g+=T([x,y0,0],[x,y,H-.6],"bx",.9)+T([x,y,0],[x,y0,H-.6],"bx",.9);
+    if(i===1||i===N-1)for(const [x0,x1] of [[0,W/2],[W/2,W]])g+=T([x0,y0,zr(x0)],[x1,y,zr(x1)],"bx",.7)+T([x0,y,zr(x0)],[x1,y0,zr(x1)],"bx",.7)}
+   for(const x of [0,W]){const [X,Y]=P(x,y,0);g+=`<rect x="${f(X-3.4)}" y="${f(Y-1)}" width="6.8" height="2" class="bs"/>`;g+=B([x,y,0],[x,y,H],3.2)}
+   // ферма: пояса и решётка
+   g+=B([0,y,H],[W/2,y,R],2.2)+B([W/2,y,R],[W,y,H],2.2)+B([0,y,H-td],[W,y,H-td],1.6);
+   for(let k=0;k<6;k++){const x0=k*3,x1=x0+3,up=k%2?x0:x1;g+=T([x0,y,H-td],[up,y,zr(up)],"tr",.75)+T([x1,y,H-td],[up,y,zr(up)],"tr",.75);g+=T([x1,y,H-td],[x1,y,zr(x1)],"tr",.55)}});
+  const pd=4,vb=`${f(mnx-pd)} ${f(mny-pd)} ${f(mxx-mnx+2*pd)} ${f(mxy-mny+2*pd)}`;
+  return`<svg class="csvg" viewBox="${vb}" preserveAspectRatio="${card?"xMidYMid meet":"xMaxYMax meet"}" aria-hidden="true"><g stroke-linecap="butt">${fl}${g}</g></svg>`};
+ const FRAME=k=>{try{const g=typeof window!=="undefined"?window:globalThis;return(g.irBookletFrame&&g.irBookletFrame[k])||""}catch(_){return""}};
  const COVER_WIRE=()=>{try{const g=typeof window!=="undefined"?window:globalThis;return(g.irBookletCover&&g.irBookletCover.wire)||""}catch(_){return""}};
- function coverPanel(co,logo){const w=COVER_WIRE(),adv=(co.adv||[]).slice(0,4);
-  return`<div class="pn fc">${w?`<div class="fw" style="-webkit-mask-image:url('${w}'),linear-gradient(transparent,#000 30%);mask-image:url('${w}'),linear-gradient(transparent,#000 30%)"></div>`:""}<i class="cm tl"></i><i class="cm tr"></i><i class="hz"></i>
+ function coverPanel(co,logo){const adv=(co.adv||[]).slice(0,4);
+  return`<div class="pn fc"><i class="cm tl"></i><i class="cm tr"></i><i class="hz"></i>
    <div class="fl">${logo?`<img src="${esc(logo)}" alt="">`:`<b>${esc(co.name)}</b>`}</div>
    <h1>Изготовление<br>и монтаж<br>металлоконструкций</h1><div class="st"><i></i><i></i><i></i><i></i></div>
    <div class="sl">${esc(co.slogan[0])} <span>${esc(co.slogan[1])}</span></div>
    ${co.license?`<div class="li"><em>${CHECK}</em>${esc(co.license)}</div>`:""}
    ${adv.length?`<div class="ad">${adv.map(([t])=>`<div><i></i>${esc(t)}</div>`).join("")}</div>`:""}
-   <svg class="fmk" viewBox="0 0 30 30"><path d="M4 4H26V26Z"/><path d="M4 12L18 26H4Z"/><circle cx="4" cy="26" r="2.4"/></svg>
-   <div class="ft"><b>${esc(co.site)}</b><span><i></i><i></i><i></i><s></s></span></div></div>`}
+   <div class="fart">${FRAME("cover")?`<img class="fimg" src="${FRAME("cover")}" alt="">`:COVER_ART()}</div>
+   <div class="ft"><i></i><b>${esc(co.site)}</b><i></i></div></div>`}
  // первая сторона ярче (инженер 28.11.2026 «не кажется тебе первая страница слишком тусклая, мало картинок»): P — фото
  // разных объектов фирмы (firmPicsLoad): первое — полоса с заголовком «Что мы уже сделали» на третьей полосе, три — рядом
  // под преимуществами на клапане (преимущества тогда 2×2), пятое — приглушённым фоном тёмной полосы. Без фото — как было.
  function firmSide(co,logo,L,P){const geo=geoGroups(L),tot=totals(L),cl=clientList(L,co),sv=(co.what||COMPANY.what).items.slice(0,9),mk=()=>"";
-  const ps=(Array.isArray(P)?P:[]).filter(Boolean),band=ps[0]||"",row=ps.length>=4?ps.slice(1,4):ps.length===3?ps.slice(1,3):[],dk=ps[4]||ps[ps.length-1]||"",bnd=band?1:0;
+  const ps=(Array.isArray(P)?P:[]).filter(Boolean),band=ps[0]||"",row=ps.length>=4?ps.slice(1,4):ps.length===3?ps.slice(1,3):[],dk=ps[4]||ps[ps.length-1]||"",bnd=1;
   return`<section class="tf">${coverPanel(co,logo)}
   <div class="pn bk"><div class="kk up">Услуги</div><h2>Что мы делаем</h2><div class="svd n${sv.length}">${sv.map(([t,d],i)=>`<div class="it"><i>${String(i+1).padStart(2,"0")}</i><b>${esc(t)}</b><p>${esc(d)}</p></div>`).join("")}</div>
    <div class="kk up">Контакты</div><div class="ct">${co.phones.map(([t,v])=>`<div><small class="up">${esc(t)}</small><b class="ph">${WA}${esc(v)}</b></div>`).join("")}<div><small class="up">Почта</small><b class="ml">${(co.contactMail||co.mail).split(/\s*·\s*/).map(esc).join("<br>")}</b></div><div><small class="up">Сайт</small><b>${esc(co.site)}</b></div></div>
    <div class="rq"><b>${esc(co.full)}</b><br>БИН ${esc(co.bin)}<br>${esc(co.address)}<br>${co.bank.map(esc).join("<br>")}<br>Директор — ${esc(co.head)}</div></div>
-  <div class="pn nm fr fx"><div class="kk up">В цифрах</div><h2>Что мы уже сделали</h2><div class="fst"><i></i><i></i><i></i><i></i></div>${band?`<div class="fph"${bg(band)}></div>`:""}<div class="tot">${tot.slice(0,8).map(([b,t])=>`<div><b>${esc(b)}</b><span>${esc(t)}</span></div>`).join("")}</div>
+  <div class="pn nm fr fx"><div class="kk up">В цифрах</div><h2>Что мы уже сделали</h2><div class="fst"><i></i><i></i><i></i><i></i></div><div class="tot">${tot.slice(0,8).map(([b,t])=>`<div><b>${esc(b)}</b><span>${esc(t)}</span></div>`).join("")}</div>
    ${cl.length?`<div class="cl ${clC2(cl.length,geo.length,bnd)?"c2 ":""}f${clF(cl.length,geo.length,bnd)}"><div class="kk up">Нам доверяют</div><div class="cg">${cl.map(t=>`<div>${esc(t)}</div>`).join("")}</div><p class="oth">И другие предприятия и организации.</p></div>`:""}
    ${geo.length?`<div class="amap"><div class="kk up">География работ</div>${foldMap(L)}<div class="rk">Республика Казахстан</div></div>`:""}</div>${mk([97,197])}</section>`}
  // сторона объекта: первая полоса — фото на всю полосу, логотип фирмы, внизу название, адрес, генподрядчик, заказчик;
@@ -928,8 +976,10 @@ svg.wa{width:3.4mm;height:3.4mm;flex:none;vertical-align:-.7mm;margin-right:1mm}
 <path d="M20 44L120 14L220 44" stroke="#f5a700" stroke-width="1.4" transform="translate(0 -4)" opacity=".9"/>
 <path d="M20 84h200M20 81v6M120 81v6M220 81v6" stroke="#f5a700" stroke-width="1"/>
 <circle cx="20" cy="58" r="2.2" fill="#f5a700" stroke="none"/><circle cx="220" cy="58" r="2.2" fill="#f5a700" stroke="none"/><circle cx="120" cy="14" r="2.2" fill="#f5a700" stroke="none"/></g></svg>`;
+ const VAL_IC={s:'<path d="M5 19V9l7-4 7 4v10M5 19h14M9 19v-6h6v6"/>',t:'<circle cx="12" cy="12" r="7"/><circle cx="12" cy="12" r="3"/><path d="M12 2v4M12 18v4M2 12h4M18 12h4"/>',b:'<path d="M12 3l7 3v5c0 5-3 8-7 10-4-2-7-5-7-10V6z"/><path d="M8.5 12l2.5 2.5 4.5-5"/>'};
+ const VALUES=`<div class="ovl">${[["s","Стабильность"],["t","Точность"],["b","Безопасность"]].map(([k,t])=>`<div><i class="${k}"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">${VAL_IC[k]}</svg></i><span>${t}</span></div>`).join("")}</div>`;
  function objFill(o){const sm=String(o.summary||"").trim();
-  return`<div class="ofl">${sm?`<div class="osm"><small class="up">Об объекте</small><div class="tx">${sumHtml(sm)}</div></div>`:""}<div class="oart"><div class="in">${FILL_ART}</div></div></div>`}
+  return`<div class="ofl">${sm?`<div class="osm"><small class="up">Об объекте</small><div class="tx">${sumHtml(sm)}</div></div>`:""}<div class="oart${FRAME("obj")?" im":""}"><div class="in">${FRAME("obj")?`<img src="${FRAME("obj")}" alt="">`:FILL_ART}</div></div>${VALUES}</div>`}
  function objSide(o,co,logo){const ps=(o.pictures||[]),cvp=ps[0]||"",score=o.mainPx&&o.mainPx[0]>0?Math.min(o.mainPx[0]/100,o.mainPx[1]/210):9;
   const cover=score<4?`<div class="ph soft"${bg(cvp)}><b${bg(cvp)}></b><i${bg(cvp)}></i></div>`:`<div class="ph"${bg(cvp)}></div>`;
   const lg=logo?`<img src="${esc(logo)}" alt="">`:`<b>${esc(co.name)}</b>`,place=String(o.address||"").trim();
