@@ -1002,8 +1002,21 @@ svg.wa{width:3.4mm;height:3.4mm;flex:none;vertical-align:-.7mm;margin-right:1mm}
 <circle cx="20" cy="58" r="2.2" fill="#f5a700" stroke="none"/><circle cx="220" cy="58" r="2.2" fill="#f5a700" stroke="none"/><circle cx="120" cy="14" r="2.2" fill="#f5a700" stroke="none"/></g></svg>`;
  const VAL_IC={s:'<path d="M5 19V9l7-4 7 4v10M5 19h14M9 19v-6h6v6"/>',t:'<circle cx="12" cy="12" r="7"/><circle cx="12" cy="12" r="3"/><path d="M12 2v4M12 18v4M2 12h4M18 12h4"/>',b:'<path d="M12 3l7 3v5c0 5-3 8-7 10-4-2-7-5-7-10V6z"/><path d="M8.5 12l2.5 2.5 4.5-5"/>'};
  const VALUES=`<div class="ovl">${[["s","Стабильность"],["t","Точность"],["b","Безопасность"]].map(([k,t])=>`<div><i class="${k}"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">${VAL_IC[k]}</svg></i><span>${t}</span></div>`).join("")}</div>`;
- function objFill(o){const sm=String(o.summary||"").trim();
-  return`<div class="ofl">${sm?`<div class="osm"><small class="up">Об объекте</small><div class="tx">${sumHtml(sm)}</div></div>`:""}<div class="oart${FRAME("obj")?" im":""}"><div class="in">${FRAME("obj")?`<img src="${FRAME("obj")}" alt="">`:FILL_ART}</div>${FRAME("obj")?VALUES:""}</div></div>`}
+ // описание объекта, когда инженер не вписал своё (инженер 28.11.2026 «описание работы», «давай»): только из данных объекта — объёмы по видам, число видов работ, годы
+ const plur=(n,a,b,c)=>{const m=n%100,k=n%10;return m>10&&m<20?c:k===1?a:k>=2&&k<=4?b:c};
+ function autoSum(o){const ws=(o.works||[]).filter(w=>String(w.name||"").trim());if(!ws.length)return"";
+  const isT=w=>/^(т|тн)$/i.test(String(w.unit||"").trim()),isM2=w=>/^(м2|м²)$/i.test(String(w.unit||"").trim());
+  const met=ws.filter(w=>isT(w)&&/металлоконстр/i.test(w.name)&&!/демонтаж|изготовл/i.test(w.name)).reduce((a,w)=>a+num(w.volume),0);
+  const eq=ws.filter(w=>isT(w)&&/оборудов/i.test(w.name)&&!/демонтаж/i.test(w.name)).reduce((a,w)=>a+num(w.volume),0);
+  const sw=ws.filter(w=>isM2(w)&&/сэндвич/i.test(w.name)).reduce((a,w)=>a+num(w.volume),0);
+  const pr=ws.filter(w=>isM2(w)&&/профнаст|профлист/i.test(w.name)&&!/демонтаж/i.test(w.name)).reduce((a,w)=>a+num(w.volume),0);
+  const parts=[];if(met>0)parts.push(`<b>${fmt(met)} т</b> металлоконструкций`);if(eq>0)parts.push(`<b>${fmt(eq)} т</b> оборудования`);if(sw>0)parts.push(`<b>${fmt(sw)} м²</b> сэндвич-панелей`);if(pr>0)parts.push(`<b>${fmt(pr)} м²</b> профнастила`);
+  const n=ws.length,y=String(o.years||"").trim(),done=/заверш/i.test(String(o.status||""));
+  const t1=parts.length?`На объекте смонтировано ${parts.length>1?parts.slice(0,-1).join(", ")+" и "+parts[parts.length-1]:parts[0]}, всего ${n} ${plur(n,"вид","вида","видов")} работ.`:`На объекте выполнено ${n} ${plur(n,"вид","вида","видов")} работ.`;
+  const t2=y?(done?` Работы завершены в ${esc(y)} ${/[-–]/.test(y)?"годах":"году"}.`:` Работы ведутся с ${esc(y.split(/[-–]/)[0].trim())} года.`):"";
+  return t1+t2}
+ function objFill(o){const sm=String(o.summary||"").trim(),au=sm?"":autoSum(o);
+  return`<div class="ofl">${sm||au?`<div class="osm"><small class="up">Об объекте</small><div class="tx">${sm?sumHtml(sm):`<p>${au}</p>`}</div></div>`:""}<div class="oart${FRAME("obj")?" im":""}"><div class="in">${FRAME("obj")?`<img src="${FRAME("obj")}" alt="">`:FILL_ART}</div>${FRAME("obj")?VALUES:""}</div></div>`}
  function objSide(o,co,logo){const ps=(o.pictures||[]),cvp=ps[0]||"",score=o.mainPx&&o.mainPx[0]>0?Math.min(o.mainPx[0]/100,o.mainPx[1]/210):9;
   const cover=score<4?`<div class="ph soft"${bg(cvp)}><b${bg(cvp)}></b><i${bg(cvp)}></i></div>`:`<div class="ph"${bg(cvp)}></div>`;
   const lg=logo?`<img src="${esc(logo)}" alt="">`:`<b>${esc(co.name)}</b>`,place=String(o.address||"").trim();
