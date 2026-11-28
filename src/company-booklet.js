@@ -780,6 +780,18 @@ svg.wa{width:3.4mm;height:3.4mm;flex:none;vertical-align:-.7mm;margin-right:1mm}
 .tf .fc .cm{position:absolute;width:5mm;height:5mm;border:0 solid var(--g)}.tf .fc .cm.tl{left:6mm;top:5.5mm;border-width:.55mm 0 0 .55mm}.tf .fc .cm.tr{right:6mm;top:5.5mm;border-width:.55mm .55mm 0 0}
 .tf .fc .fl{display:flex;justify-content:center;margin:1mm 0 6mm}.tf .fc .fl img{max-width:62mm;max-height:24mm;object-fit:contain;display:block}.tf .fc .fl b{font:700 16pt Oswald,Montserrat,sans-serif}
 .tf .fc h1{margin:0;font:600 23pt/1.03 Oswald,Montserrat,sans-serif;text-transform:uppercase;letter-spacing:.2px;color:#141414}
+/* третья полоса в цветах обложки (инженер 28.11.2026 «третий сгиб как-будто вообще не смотрится») */
+.tf .fr.fx{background-color:#efede8;background-image:linear-gradient(rgba(29,34,40,.045) .2mm,transparent .2mm),linear-gradient(90deg,rgba(29,34,40,.045) .2mm,transparent .2mm);background-size:8mm 8mm;padding:9mm 9mm 8mm 9mm}
+.tf .fr.fx .kk{color:#a87b00}.tf .fr.fx h2{margin:0;font:600 19pt/1.02 Oswald,Montserrat,sans-serif;text-transform:uppercase;letter-spacing:.2px;color:#141414}
+.tf .fr.fx .fst{display:flex;gap:1mm;margin:2.2mm 0 3mm 1mm;flex:none}.tf .fr.fx .fst i{width:4.2mm;height:2mm;background:#d29a00;transform:skewX(-35deg)}.tf .fr.fx .fst i:nth-child(n+3){background:#a87b00}
+.tf .fr.fx .fph{flex:none;height:21mm;border-radius:2.4mm;background:#1d2228 center/cover no-repeat;margin:0 0 3.4mm;box-shadow:0 .6mm 2mm rgba(0,0,0,.18);border-bottom:1.1mm solid #d29a00}
+.tf .fr.fx .tot{grid-template-columns:1fr 1fr;gap:1.5mm;margin-bottom:2.6mm}
+.tf .fr.fx .tot div{display:block;background:#fff;border:0;border-left:.9mm solid #d29a00;border-radius:1.4mm;padding:1.1mm 2.2mm 1.2mm}
+.tf .fr.fx .tot b{display:block;font:600 11.5pt/1 Oswald,Montserrat,sans-serif;color:#141414;margin-bottom:.4mm}.tf .fr.fx .tot span{display:block;font-size:5.8pt;line-height:1.25;color:#5b6168}
+.tf .fr.fx .cl{background:#fff;border-radius:1.6mm;padding:3mm 3.6mm}.tf .fr.fx .cl div{border-color:#eee8dc}
+.tf .fr.fx .amap{flex:1 1 30mm;padding-top:3mm}.tf .fr.fx .amap .kz{fill:#fff;stroke:#d6cfc1}
+.tf .fc .fl img{mix-blend-mode:multiply}
+.tf .opx{padding:8mm 6mm 8mm 6mm}
 .tf .fc .st{display:flex;gap:1mm;margin:4mm 0 4.5mm 1mm}.tf .fc .st i{width:4.2mm;height:2mm;background:var(--g);transform:skewX(-35deg)}.tf .fc .st i:nth-child(n+3){background:#a87b00}
 .tf .fc .sl{font-size:9pt;font-weight:800;line-height:1.3;margin-bottom:4mm}.tf .fc .sl span{color:var(--g)}
 .tf .fc .li{display:flex;align-items:center;gap:2.4mm;background:#141414;color:#fff;border-radius:2mm;padding:2.2mm 3mm;font-size:6.6pt;font-weight:700;line-height:1.3;margin-bottom:3.2mm}.tf .fc .li em{flex:none;width:6mm;height:6mm;border-radius:1.4mm;background:var(--g);display:flex;align-items:center;justify-content:center}.tf .fc .li em svg{width:3.6mm;height:3.6mm}
@@ -896,12 +908,11 @@ svg.wa{width:3.4mm;height:3.4mm;flex:none;vertical-align:-.7mm;margin-right:1mm}
  // под преимуществами на клапане (преимущества тогда 2×2), пятое — приглушённым фоном тёмной полосы. Без фото — как было.
  function firmSide(co,logo,L,P){const geo=geoGroups(L),tot=totals(L),cl=clientList(L,co),sv=(co.what||COMPANY.what).items.slice(0,9),mk=()=>"";
   const ps=(Array.isArray(P)?P:[]).filter(Boolean),band=ps[0]||"",row=ps.length>=4?ps.slice(1,4):ps.length===3?ps.slice(1,3):[],dk=ps[4]||ps[ps.length-1]||"",bnd=band?1:0;
-  const dkSt=dk?` style="background-image:linear-gradient(rgba(29,34,40,.9),rgba(29,34,40,.95)),url('${String(dk).replace(/'/g,"%27")}')"`:"";
   return`<section class="tf">${coverPanel(co,logo)}
-  <div class="pn bk"${dkSt}><div class="kk up">Услуги</div><h2>Что мы делаем</h2><div class="svd n${sv.length}">${sv.map(([t,d],i)=>`<div class="it"><i>${String(i+1).padStart(2,"0")}</i><b>${esc(t)}</b><p>${esc(d)}</p></div>`).join("")}</div>
+  <div class="pn bk"><div class="kk up">Услуги</div><h2>Что мы делаем</h2><div class="svd n${sv.length}">${sv.map(([t,d],i)=>`<div class="it"><i>${String(i+1).padStart(2,"0")}</i><b>${esc(t)}</b><p>${esc(d)}</p></div>`).join("")}</div>
    <div class="kk up">Контакты</div><div class="ct">${co.phones.map(([t,v])=>`<div><small class="up">${esc(t)}</small><b class="ph">${WA}${esc(v)}</b></div>`).join("")}<div><small class="up">Почта</small><b class="ml">${(co.contactMail||co.mail).split(/\s*·\s*/).map(esc).join("<br>")}</b></div><div><small class="up">Сайт</small><b>${esc(co.site)}</b></div></div>
    <div class="rq"><b>${esc(co.full)}</b><br>БИН ${esc(co.bin)}<br>${esc(co.address)}<br>${co.bank.map(esc).join("<br>")}<br>Директор — ${esc(co.head)}</div></div>
-  <div class="pn nm fr">${band?`<div class="fbd"${bg(band)}><div><div class="kk up">В цифрах</div><h2>Что мы уже сделали</h2></div></div>`:`<div class="kk up">В цифрах</div><h2>Что мы уже сделали</h2>`}<div class="tot">${tot.slice(0,8).map(([b,t])=>`<div><b>${esc(b)}</b><span>${esc(t)}</span></div>`).join("")}</div>
+  <div class="pn nm fr fx"><div class="kk up">В цифрах</div><h2>Что мы уже сделали</h2><div class="fst"><i></i><i></i><i></i><i></i></div>${band?`<div class="fph"${bg(band)}></div>`:""}<div class="tot">${tot.slice(0,8).map(([b,t])=>`<div><b>${esc(b)}</b><span>${esc(t)}</span></div>`).join("")}</div>
    ${cl.length?`<div class="cl ${clC2(cl.length,geo.length,bnd)?"c2 ":""}f${clF(cl.length,geo.length,bnd)}"><div class="kk up">Нам доверяют</div><div class="cg">${cl.map(t=>`<div>${esc(t)}</div>`).join("")}</div><p class="oth">И другие предприятия и организации.</p></div>`:""}
    ${geo.length?`<div class="amap"><div class="kk up">География работ</div>${foldMap(L)}<div class="rk">Республика Казахстан</div></div>`:""}</div>${mk([97,197])}</section>`}
  // сторона объекта: первая полоса — фото на всю полосу, логотип фирмы, внизу название, адрес, генподрядчик, заказчик;
