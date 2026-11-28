@@ -770,6 +770,29 @@ svg.wa{width:3.4mm;height:3.4mm;flex:none;vertical-align:-.7mm;margin-right:1mm}
 .tf .fr:has(.fbd) .tot{gap:1mm 4mm;margin-bottom:3mm}.tf .fr:has(.fbd) .tot b{font-size:11.5pt;margin-bottom:.5mm}.tf .fr:has(.fbd) .tot div{padding-bottom:1.1mm}
 .tf .fr:has(.fbd) .cl{padding:3mm 4mm}.tf .fr:has(.fbd) .cl.c2 .cg div{padding:.75mm 0;font-size:6.2pt}.tf .fr:has(.fbd) .amap{padding-top:3.5mm}
 .tf .fr .fbd>div{position:relative}.tf .fr .fbd .kk{color:var(--or);text-shadow:0 .2mm 1mm rgba(0,0,0,.6)}.tf .fr .fbd h2{color:#fff;margin:0;text-shadow:0 .3mm 1.5mm rgba(0,0,0,.35)}
+
+/* обложка — первый сгиб (28.11.2026), цвета сайта a-ts.kz */
+.tf .fc{left:0;width:97mm;background:#efede8;color:#141414;padding:9mm 9mm 8mm 10mm;display:flex;flex-direction:column;--g:#d29a00;font-family:Montserrat,sans-serif}
+.tf .fc:before{content:"";position:absolute;inset:0;background:linear-gradient(90deg,transparent 50%,rgba(20,20,20,.035) 50%),repeating-linear-gradient(90deg,rgba(20,20,20,.06) 0 .2mm,transparent .2mm 9.7mm),repeating-linear-gradient(0deg,rgba(20,20,20,.06) 0 .2mm,transparent .2mm 15mm)}
+.tf .fc:after{content:"";position:absolute;top:0;bottom:0;right:0;width:2.6mm;background:repeating-linear-gradient(135deg,rgba(20,20,20,.13) 0 .45mm,transparent .45mm 1.8mm)}
+.tf .fc>*{position:relative}
+.tf .fc .fw{position:absolute;left:-14mm;right:-6mm;bottom:0;height:104mm;background:#141414;opacity:.62;-webkit-mask-size:100% 100%;mask-size:100% 100%;-webkit-mask-repeat:no-repeat;mask-repeat:no-repeat;-webkit-mask-composite:source-in;mask-composite:intersect}
+.tf .fc .cm{position:absolute;width:5mm;height:5mm;border:0 solid var(--g)}.tf .fc .cm.tl{left:6mm;top:5.5mm;border-width:.55mm 0 0 .55mm}.tf .fc .cm.tr{right:6mm;top:5.5mm;border-width:.55mm .55mm 0 0}
+.tf .fc .fl{display:flex;justify-content:center;margin:1mm 0 6mm}.tf .fc .fl img{max-width:62mm;max-height:24mm;object-fit:contain;display:block}.tf .fc .fl b{font:700 16pt Oswald,Montserrat,sans-serif}
+.tf .fc h1{margin:0;font:600 23pt/1.03 Oswald,Montserrat,sans-serif;text-transform:uppercase;letter-spacing:.2px;color:#141414}
+.tf .fc .st{display:flex;gap:1mm;margin:4mm 0 4.5mm 1mm}.tf .fc .st i{width:4.2mm;height:2mm;background:var(--g);transform:skewX(-35deg)}.tf .fc .st i:nth-child(n+3){background:#a87b00}
+.tf .fc .sl{font-size:9pt;font-weight:800;line-height:1.3;margin-bottom:4mm}.tf .fc .sl span{color:var(--g)}
+.tf .fc .li{display:flex;align-items:center;gap:2.4mm;background:#141414;color:#fff;border-radius:2mm;padding:2.2mm 3mm;font-size:6.6pt;font-weight:700;line-height:1.3;margin-bottom:3.2mm}.tf .fc .li em{flex:none;width:6mm;height:6mm;border-radius:1.4mm;background:var(--g);display:flex;align-items:center;justify-content:center}.tf .fc .li em svg{width:3.6mm;height:3.6mm}
+.tf .fc .ad{display:grid;grid-template-columns:1fr 1fr;gap:1.6mm 3mm}.tf .fc .ad div{display:flex;align-items:center;gap:1.8mm;font-size:6.8pt;font-weight:800;line-height:1.2}.tf .fc .ad i{flex:none;width:2.2mm;height:2.2mm;background:var(--g);transform:rotate(45deg)}
+.tf .fc .fmk{position:absolute;right:8mm;top:124mm;width:9mm;height:9mm;fill:var(--g);background:none;margin:0;border:0}
+.tf .fc .ft{margin-top:auto;display:flex;justify-content:space-between;align-items:center;font-size:8pt;letter-spacing:.6px}.tf .fc .ft b{background:#efede8;padding:.6mm 1.6mm .6mm 0}
+.tf .fc .ft span{display:flex;gap:.8mm;align-items:center}.tf .fc .ft span i{width:2.6mm;height:1.6mm;background:var(--g);transform:skewX(-35deg)}.tf .fc .ft span s{width:2.6mm;height:2.6mm;border-radius:50%;background:var(--g);margin-left:1mm}
+/* сторона объекта: виды работ на тёмной полосе, как «Что мы делаем» (28.11.2026 «в темный цвет, как на первом листе») */
+.tf .ow{background:#1d2228;color:#fff}.tf .ow h2{color:#fff}.tf .ow .kk{color:var(--or)}
+.tf .ow .wl div{border-bottom-color:rgba(255,255,255,.12);color:#fff}.tf .ow .wl s{color:#aab2bc}
+.tf .ow .osm small{color:#aab2bc}.tf .ow .osm .tx{color:#d8dde3}
+.tf .ow .oart .in{background:linear-gradient(135deg,#262c33,#20262c)}.tf .ow .oart [stroke="#1d2228"]{stroke:#d8dde3}.tf .ow .oart [stroke="#c9ced5"]{stroke:#5a636d}
+.tf .ow .fin{background:linear-gradient(110deg,#2a3038 55%,#323941)}
 `;
  const FOLD_OBJ=3,FOLD_PH=3,FOLD_PH_OBJ=7;
  // сколько фото объекта берётся в буклет: «Лист объекта» и «Буклет на объект» — до 7 у каждого (полоса + 6 в галерее),
@@ -853,15 +876,28 @@ svg.wa{width:3.4mm;height:3.4mm;flex:none;vertical-align:-.7mm;margin-right:1mm}
   return`<svg class="asvg" viewBox="-38 58 336 250" preserveAspectRatio="xMidYMid meet" aria-hidden="true">${g}${pn}${st}</svg>`};
  // шрифт и колонки заказчиков по числу строк; с картой под ними места меньше
  const clC2=(n,map,b)=>n>(map?(b?9:14):24),clF=(n,map,b)=>{const rows=clC2(n,map,b)?Math.ceil(n/2):n;if(map)return clC2(n,map,b)?(n<=15?0:n<=19?1:n<=30?2:n<=40?3:4):(n<=9?0:n<=11?1:n<=13?2:3);return rows<=9?0:rows<=13?1:rows<=17?2:rows<=24?3:4};
+ // первый сгиб — обложка (инженер 28.11.2026 образец обложки «заглавная страница, более красивая», «логотипы проставь,
+ // конструкцию более масштабную», «возьми из 3д схемы, только подгони под дизайн», «текст какой-нибудь еще», «в цвет сайта»,
+ // «именно первый сгиб только сделай, остальное оставь»): фон и золото сайта a-ts.kz, логотип, крупно направление работ,
+ // девиз, лицензия, преимущества, внизу каркас ИР-71535 из 3D схемы тонкими линиями (src/booklet-cover.js — маска линий,
+ // цвет задаётся здесь), уголки и полоски как на образце. Текст «О компании» и подпись про IR Project с клапана ушли.
+ const COVER_WIRE=()=>{try{const g=typeof window!=="undefined"?window:globalThis;return(g.irBookletCover&&g.irBookletCover.wire)||""}catch(_){return""}};
+ function coverPanel(co,logo){const w=COVER_WIRE(),adv=(co.adv||[]).slice(0,4);
+  return`<div class="pn fc">${w?`<div class="fw" style="-webkit-mask-image:url('${w}'),linear-gradient(transparent,#000 30%);mask-image:url('${w}'),linear-gradient(transparent,#000 30%)"></div>`:""}<i class="cm tl"></i><i class="cm tr"></i><i class="hz"></i>
+   <div class="fl">${logo?`<img src="${esc(logo)}" alt="">`:`<b>${esc(co.name)}</b>`}</div>
+   <h1>Изготовление<br>и монтаж<br>металлоконструкций</h1><div class="st"><i></i><i></i><i></i><i></i></div>
+   <div class="sl">${esc(co.slogan[0])} <span>${esc(co.slogan[1])}</span></div>
+   ${co.license?`<div class="li"><em>${CHECK}</em>${esc(co.license)}</div>`:""}
+   ${adv.length?`<div class="ad">${adv.map(([t])=>`<div><i></i>${esc(t)}</div>`).join("")}</div>`:""}
+   <svg class="fmk" viewBox="0 0 30 30"><path d="M4 4H26V26Z"/><path d="M4 12L18 26H4Z"/><circle cx="4" cy="26" r="2.4"/></svg>
+   <div class="ft"><b>${esc(co.site)}</b><span><i></i><i></i><i></i><s></s></span></div></div>`}
  // первая сторона ярче (инженер 28.11.2026 «не кажется тебе первая страница слишком тусклая, мало картинок»): P — фото
  // разных объектов фирмы (firmPicsLoad): первое — полоса с заголовком «Что мы уже сделали» на третьей полосе, три — рядом
  // под преимуществами на клапане (преимущества тогда 2×2), пятое — приглушённым фоном тёмной полосы. Без фото — как было.
  function firmSide(co,logo,L,P){const geo=geoGroups(L),tot=totals(L),cl=clientList(L,co),sv=(co.what||COMPANY.what).items.slice(0,9),mk=()=>"";
   const ps=(Array.isArray(P)?P:[]).filter(Boolean),band=ps[0]||"",row=ps.length>=4?ps.slice(1,4):ps.length===3?ps.slice(1,3):[],dk=ps[4]||ps[ps.length-1]||"",bnd=band?1:0;
   const dkSt=dk?` style="background-image:linear-gradient(rgba(29,34,40,.9),rgba(29,34,40,.95)),url('${String(dk).replace(/'/g,"%27")}')"`:"";
-  return`<section class="tf"><div class="pn ab${row.length?" hp":""}">${logo?`<div class="alg"><img src="${esc(logo)}" alt=""></div>`:`<div class="kk up">О компании</div><h2>${esc(co.name)}</h2>`}${(co.about||[]).map(t=>`<p class="ld">${esc(t)}</p>`).join("")}
-   ${co.license?`<div class="lic"><em>${CHECK}</em>${esc(co.license)}</div>`:""}${`<div class="adv">${(co.adv||[]).map(([t,d])=>`<div><b>${esc(t)}</b><span>${esc(d)}</span></div>`).join("")}</div>`}${row.length?`<div class="aph n${row.length}">${row.map(x=>`<i${bg(x)}></i>`).join("")}</div>`:""}
-   ${`<div class="art"><div class="aimg">${ART()}</div><div class="kk up">В ногу со временем</div><p>Своя программа <b>IR Project</b>: чертежи КМ и АР распознаёт искусственный интеллект, по ним строится 3D-монтажная схема с узлами, болтами и сэндвич-панелями. Ход монтажа и объёмы — онлайн по ссылке.</p></div>`}<div class="slg">${esc(co.slogan[0])}<br><span>${esc(co.slogan[1])}</span></div></div>
+  return`<section class="tf">${coverPanel(co,logo)}
   <div class="pn bk"${dkSt}><div class="kk up">Услуги</div><h2>Что мы делаем</h2><div class="svd n${sv.length}">${sv.map(([t,d],i)=>`<div class="it"><i>${String(i+1).padStart(2,"0")}</i><b>${esc(t)}</b><p>${esc(d)}</p></div>`).join("")}</div>
    <div class="kk up">Контакты</div><div class="ct">${co.phones.map(([t,v])=>`<div><small class="up">${esc(t)}</small><b class="ph">${WA}${esc(v)}</b></div>`).join("")}<div><small class="up">Почта</small><b class="ml">${(co.contactMail||co.mail).split(/\s*·\s*/).map(esc).join("<br>")}</b></div><div><small class="up">Сайт</small><b>${esc(co.site)}</b></div></div>
    <div class="rq"><b>${esc(co.full)}</b><br>БИН ${esc(co.bin)}<br>${esc(co.address)}<br>${co.bank.map(esc).join("<br>")}<br>Директор — ${esc(co.head)}</div></div>
@@ -914,7 +950,7 @@ svg.wa{width:3.4mm;height:3.4mm;flex:none;vertical-align:-.7mm;margin-right:1mm}
   const out=`${firmSide(co,logo,L,picsFor(firmPics))}
 ${IN===0?spreadHtml(spread)+mk([100,200])+"</section>":IN===2?foldThree(shown)+mk([99,198])+inLb+"</section>":IN===3?foldCollage(shown)+mk([100,200])+inLb+"</section>":list.map((o,i)=>{const h=objSide(o,co,logo);return i||!inLb?h:h.replace(/<\/section>$/,inLb+"</section>")}).join("\n")}`;
   return`<!doctype html><html lang="ru"><head><meta charset="utf-8"><title>Буклет ${esc(co.name)}</title>
-<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800;900&display=swap" rel="stylesheet"><style>${CSS}${FOLD_CSS}${screen?SCREEN.replace(/\.page\{/g,".tf{")+".tf{margin:0 auto 10mm}":""}</style></head><body>
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800;900&family=Oswald:wght@500;600&display=swap" rel="stylesheet"><style>${CSS}${FOLD_CSS}${screen?SCREEN.replace(/\.page\{/g,".tf{")+".tf{margin:0 auto 10mm}":""}</style></head><body>
 ${screen?`<div class="pvn">Снаружи · клапан | задняя сторона | обложка</div>`:""}${screen?out.replace(/<\/section>(\s*)<section class="tf/,`</section><div class="pvn">Внутри · ${["фото на весь разворот с подписями","объект: фото | виды работ и объёмы","три объекта","фотоколлаж"][IN]}</div><section class="tf`):out}</body></html>`}
  // буклет на каждый объект (инженер 27.11.2026 «на каждый объект будет свой буклет … первый лист идет общий со всей
  // информацией об фирме, общий объем работ, виды работ и тд, а второй лист (задняя сторона) объект и информация об
@@ -932,7 +968,7 @@ ${screen?`<div class="pvn">Снаружи · клапан | задняя сто�
    return firmSide(co,logo,liveOf(every),picsFor(firmPics,o))+"\n"+objSide(o,co,logo)};
   const body=list.map(o=>screen?`<div class="pvn">${esc(o.name||"Объект")} · о компании, карта | услуги, контакты | цифры, заказчики</div>`+side(o).replace(/<\/section>\s*<section class="tf">/,`</section><div class="pvn">${esc(o.name||"Объект")} · фото объекта | виды работ и объёмы</div><section class="tf">`):side(o)).join("\n");
   return`<!doctype html><html lang="ru"><head><meta charset="utf-8"><title>Буклет ${esc(co.name)}</title>
-<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800;900&display=swap" rel="stylesheet"><style>${CSS}${FOLD_CSS}${screen?SCREEN.replace(/\.page\{/g,".tf{")+".tf{margin:0 auto 10mm}":""}</style></head><body>${body}</body></html>`}
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800;900&family=Oswald:wght@500;600&display=swap" rel="stylesheet"><style>${CSS}${FOLD_CSS}${screen?SCREEN.replace(/\.page\{/g,".tf{")+".tf{margin:0 auto 10mm}":""}</style></head><body>${body}</body></html>`}
  function foldThree(list){return`<section class="tf">${list.slice(0,3).map((o,k)=>{const ps=(o.pictures||[]).slice(0,FOLD_PH),place=String(o.address||"").trim(),ws=worksOf(o).slice(0,4);
    return`<div class="pn o3 k${k}"><div class="no">${String(k+1).padStart(2,"0")}</div><div class="m"${bg(ps[0])}>${o.years?`<span>${esc(o.years)}</span>`:""}</div>${ps.length>1?`<div class="s n${ps.length-1}">${ps.slice(1).map(p=>`<i${bg(p)}></i>`).join("")}</div>`:""}
     <h3>${esc(o.name||"Объект")}</h3>${place?`<small>${esc(place)}</small>`:""}${o.customer?`<small>Заказчик — ${esc(o.customer)}</small>`:""}<div class="w">${ws.map(w=>`<div><span>${esc(w.name||"")}</span>${isSvc(w)?"":`<b>${esc(fmt(num(w.volume)))} ${esc(unitOf(w.unit))}</b>`}</div>`).join("")}</div></div>`}).join("")}`}
